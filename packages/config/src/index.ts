@@ -126,6 +126,17 @@ export const EnvSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  /**
+   * Graph API version for Cloud API calls. Configuration rather than a constant
+   * because Meta retires versions on a published schedule: a deployment has to
+   * be able to move to a supported version without shipping code. The default
+   * tracks what was current when this was written and will go stale — set it
+   * explicitly at deployment and check it against Meta's changelog.
+   */
+  WHATSAPP_GRAPH_API_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/, 'Expected a Meta Graph API version such as v21.0')
+    .default('v21.0'),
 
   EMAIL_DRIVER: z.enum(['console', 'file', 'smtp']).default('console'),
   EMAIL_FROM: z.string().default('ExtraWork <no-reply@extrawork.local>'),
@@ -210,8 +221,21 @@ function assertProductionSafe(env: Env): void {
   if (!env.DATABASE_SSL) {
     problems.push('DATABASE_SSL must be enabled in production (report §11.3)');
   }
-  if (env.WHATSAPP_DRIVER === 'cloud-api' && !env.WHATSAPP_APP_SECRET) {
-    problems.push('WHATSAPP_APP_SECRET is required to verify Cloud API webhooks');
+  if (env.WHATSAPP_DRIVER === 'cloud-api') {
+    // All four are needed for a working integration, and a missing one fails in
+    // a different place each time: no phone number id or token means outbound
+    // sends fail at the first job, no app secret means every inbound webhook is
+    // rejected as unsigned, and no verify token means Meta cannot complete the
+    // subscription handshake at all. Naming the specific missing value here is
+    // the difference between a five-minute fix and an afternoon.
+    for (const key of [
+      'WHATSAPP_PHONE_NUMBER_ID',
+      'WHATSAPP_ACCESS_TOKEN',
+      'WHATSAPP_APP_SECRET',
+      'WHATSAPP_VERIFY_TOKEN',
+    ] as const) {
+      if (!env[key]) problems.push(`${key} is required when WHATSAPP_DRIVER=cloud-api`);
+    }
   }
   if (env.WHATSAPP_DRIVER === 'simulator') {
     // The simulator accepts unauthenticated inbound messages by design. In

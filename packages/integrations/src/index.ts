@@ -53,23 +53,50 @@ export function createEmailDriver(env: Env): EmailDriver {
   }
 }
 
+/**
+ * Picks the WhatsApp gateway for the configured driver.
+ *
+ * `cloud-api` with incomplete credentials is an error, not a reason to fall
+ * back. Falling back looks harmless and is the worst of the three outcomes: the
+ * process boots, the driver silently becomes native share, and the failure
+ * surfaces much later as `CHANNEL_UNAVAILABLE` from a worker job — an error
+ * about a gateway the operator never chose, in a process they were not looking
+ * at, hours after the configuration they got wrong. Refusing at construction
+ * puts the message next to the cause.
+ */
+function createWhatsAppGateway(env: Env): MessageGateway {
+  switch (env.WHATSAPP_DRIVER) {
+    case 'simulator':
+      return new SimulatorWhatsAppGateway({ outboxDir: env.WHATSAPP_SIMULATOR_DIR });
+
+    case 'cloud-api': {
+      const missing = (
+        ['WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_APP_SECRET'] as const
+      ).filter((key) => !env[key]);
+      if (missing.length > 0) {
+        throw new Error(
+          `WHATSAPP_DRIVER=cloud-api requires ${missing.join(', ')}. ` +
+            'Set them, or use WHATSAPP_DRIVER=native-share or simulator.',
+        );
+      }
+      return new WhatsAppCloudGateway({
+        phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID as string,
+        accessToken: env.WHATSAPP_ACCESS_TOKEN as string,
+        appSecret: env.WHATSAPP_APP_SECRET as string,
+        apiVersion: env.WHATSAPP_GRAPH_API_VERSION,
+      });
+    }
+
+    default:
+      return new NativeShareWhatsAppGateway();
+  }
+}
+
 export function createIntegrations(
   env: Env,
   hooks: { onOtpCode?: (phoneE164: string, code: string) => void } = {},
 ): Integrations {
-  const whatsapp =
-    env.WHATSAPP_DRIVER === 'simulator'
-      ? new SimulatorWhatsAppGateway({ outboxDir: env.WHATSAPP_SIMULATOR_DIR })
-      : env.WHATSAPP_DRIVER === 'cloud-api' &&
-          env.WHATSAPP_PHONE_NUMBER_ID &&
-          env.WHATSAPP_ACCESS_TOKEN &&
-          env.WHATSAPP_APP_SECRET
-        ? new WhatsAppCloudGateway({
-            phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID,
-            accessToken: env.WHATSAPP_ACCESS_TOKEN,
-            appSecret: env.WHATSAPP_APP_SECRET,
-          })
-        : new NativeShareWhatsAppGateway();
+  const whatsapp = createWhatsAppGateway(env);
 
   const email = new EmailGateway(createEmailDriver(env), env.EMAIL_FROM);
 

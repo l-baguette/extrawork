@@ -17,8 +17,13 @@ import { PermanentJobError } from '../runner.js';
  *  - an unknown event is preserved and alerted on, never discarded (§14.6).
  */
 
+/**
+ * The row id in `webhook_inbox`. The name matches the table the id belongs to,
+ * and matches what the API and the outbox pump enqueue — a mismatch here reads
+ * `undefined`, finds no row, and fails every job as WEBHOOK_MISSING.
+ */
 interface WebhookPayload {
-  webhookId: string;
+  webhookInboxId: string;
 }
 
 /** Delivery states in the order a provider may legitimately advance through. */
@@ -34,9 +39,9 @@ const STATUS_RANK: Record<string, number> = {
 
 export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise<void> {
   const payload = job.payload as unknown as WebhookPayload;
-  const log = ctx.logger.child({ webhookId: payload.webhookId });
+  const log = ctx.logger.child({ webhookInboxId: payload.webhookInboxId });
 
-  const event = await ctx.repos.webhooks.findById(ctx.db, payload.webhookId);
+  const event = await ctx.repos.webhooks.findById(ctx.db, payload.webhookInboxId);
   if (!event) throw new PermanentJobError('WEBHOOK_MISSING', 'Webhook event no longer exists');
   if (event.processedAt) {
     log.debug('webhook already normalised');
@@ -48,7 +53,7 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
   if (!event.signatureVerified) {
     await ctx.repos.webhooks.markProcessed(
       ctx.db,
-      payload.webhookId,
+      payload.webhookInboxId,
       'signature not verified; ignored',
     );
     log.warn({ provider: event.provider }, 'ignoring webhook with unverified signature');
@@ -68,10 +73,10 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
         'webhook has no applicable normaliser; raw event preserved for review',
       );
     }
-    await ctx.repos.webhooks.markProcessed(ctx.db, payload.webhookId, null);
+    await ctx.repos.webhooks.markProcessed(ctx.db, payload.webhookInboxId, null);
   } catch (error) {
     await ctx.repos.webhooks
-      .markProcessed(ctx.db, payload.webhookId, String((error as Error).message))
+      .markProcessed(ctx.db, payload.webhookInboxId, String((error as Error).message))
       .catch(() => undefined);
     throw error;
   }
@@ -87,10 +92,22 @@ interface NormalizedStatus {
 /**
  * Maps the provider payload into internal statuses.
  *
- * Meta's Cloud API nests delivery receipts under
- * `entry[].changes[].value.statuses[]`. Anything that does not match that shape
- * yields no statuses, which routes the event to the "preserve and alert" path
- * rather than to a partial update.
+ * Two shapes reach this function, because `webhook_inbox` holds one row per
+ * provider *event*, not one per HTTP request:
+ *
+ *  - a bare Meta status object. This is what actually gets stored: the gateway
+ *    splits `entry[].changes[].value.statuses[]` into one event per status so
+ *    each carries its own `(id, status, timestamp)` dedupe key, and persists
+ *    that lone status as the row's raw payload;
+ *  - the full `entry[].changes[].value.statuses[]` envelope, for a producer
+ *    that stores a request body whole.
+ *
+ * Reading only the envelope was the second half of this seam's breakage: with
+ * the job payload key fixed, every delivery receipt still mapped to zero
+ * statuses and no message ever left ACCEPTED.
+ *
+ * Anything matching neither shape yields no statuses, which routes the event to
+ * the "preserve and alert" path rather than to a partial update.
  */
 export function mapMessageStatuses(event: WebhookEventRow): NormalizedStatus[] {
   const raw = event.rawPayload;
@@ -109,22 +126,37 @@ export function mapMessageStatuses(event: WebhookEventRow): NormalizedStatus[] {
         | undefined;
       const statuses = Array.isArray(value?.statuses) ? (value?.statuses as unknown[]) : [];
       for (const entryStatus of statuses) {
-        const s = entryStatus as Record<string, unknown>;
-        const id = typeof s.id === 'string' ? s.id : null;
-        const status = typeof s.status === 'string' ? s.status.toUpperCase() : null;
-        if (!id || !status) continue;
-        const timestamp = typeof s.timestamp === 'string' ? Number.parseInt(s.timestamp, 10) : null;
-        const errors = Array.isArray(s.errors) ? (s.errors as Array<Record<string, unknown>>) : [];
-        out.push({
-          providerMessageId: id,
-          status,
-          errorCode: errors[0]?.code !== undefined ? String(errors[0]?.code) : null,
-          occurredAt: timestamp ? new Date(timestamp * 1000) : event.providerEventAt,
-        });
+        const mapped = toNormalizedStatus(entryStatus, event);
+        if (mapped) out.push(mapped);
       }
     }
   }
-  return out;
+  if (out.length > 0) return out;
+
+  const single = toNormalizedStatus(raw, event);
+  return single ? [single] : [];
+}
+
+/**
+ * One Meta status object to one internal status, or null when the value is not
+ * a status at all — which is how a payment or auth payload falls through to the
+ * "preserve and alert" path instead of being read as a delivery receipt.
+ */
+function toNormalizedStatus(input: unknown, event: WebhookEventRow): NormalizedStatus | null {
+  if (!input || typeof input !== 'object') return null;
+  const s = input as Record<string, unknown>;
+  const id = typeof s.id === 'string' ? s.id : null;
+  const status = typeof s.status === 'string' ? s.status.toUpperCase() : null;
+  if (!id || !status) return null;
+
+  const timestamp = typeof s.timestamp === 'string' ? Number.parseInt(s.timestamp, 10) : null;
+  const errors = Array.isArray(s.errors) ? (s.errors as Array<Record<string, unknown>>) : [];
+  return {
+    providerMessageId: id,
+    status,
+    errorCode: errors[0]?.code !== undefined ? String(errors[0]?.code) : null,
+    occurredAt: timestamp ? new Date(timestamp * 1000) : event.providerEventAt,
+  };
 }
 
 async function applyMessageStatus(

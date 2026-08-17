@@ -184,8 +184,8 @@ export function jobsFor(event: OutboxRow): EnqueueInput[] {
         {
           kind: JOB_KINDS.NORMALIZE_WEBHOOK,
           organizationId,
-          payload: { webhookId: payload.webhookId },
-          dedupeKey: `webhook:${String(payload.webhookId)}`,
+          payload: { webhookInboxId: payload.webhookInboxId },
+          dedupeKey: `webhook:${String(payload.webhookInboxId)}`,
         },
       ];
 

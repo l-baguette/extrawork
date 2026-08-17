@@ -62,6 +62,68 @@ export const WHATSAPP_TEMPLATES = {
   DECISION_RECEIPT: 'extra_work_decision_receipt_v1',
 } as const;
 
+/** Language code the templates are registered under. */
+export const WHATSAPP_TEMPLATE_LANGUAGE = 'en';
+
+/**
+ * Builds the Graph API request body.
+ *
+ * Two shapes, and which one is used is not a preference:
+ *
+ *  - **template**, for a business-initiated message. WhatsApp refuses free-form
+ *    text to a customer who has not messaged the business in the last 24 hours,
+ *    so an approval request — which by definition arrives unprompted — has to
+ *    be a template Meta has already reviewed.
+ *  - **text**, for a reply inside that service window, such as answering an
+ *    employee who just messaged in. A template there would be needless cost and
+ *    needless review friction.
+ *
+ * Exported so a test can assert the payload shape without a live Graph API
+ * call; that assertion is the only cheap way to catch a template payload that
+ * Meta will reject, since the failure is otherwise a 400 in production.
+ */
+export function buildCloudApiPayload(command: OutboundMessage): Record<string, unknown> {
+  const to = (command.to.phoneE164 ?? '').replace('+', '');
+
+  if (!command.template) {
+    return {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: command.body, preview_url: true },
+    };
+  }
+
+  const components: Array<Record<string, unknown>> = [];
+  if (command.template.bodyParameters.length > 0) {
+    components.push({
+      type: 'body',
+      parameters: command.template.bodyParameters.map((text) => ({ type: 'text', text })),
+    });
+  }
+  if (command.template.urlButtonParameter) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      // Index of the button within the approved template. There is exactly one
+      // in `extra_work_request_v1`, so it is always the first.
+      index: '0',
+      parameters: [{ type: 'text', text: command.template.urlButtonParameter }],
+    });
+  }
+
+  return {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: command.template.name,
+      language: { code: command.template.languageCode },
+      components,
+    },
+  };
+}
+
 export class WhatsAppCloudGateway implements MessageGateway {
   readonly channel = 'WHATSAPP_CLOUD_API';
   readonly canDeliver = true;
@@ -87,12 +149,7 @@ export class WhatsAppCloudGateway implements MessageGateway {
         // Provider idempotency keyed on the outbox event id (report §13.2).
         'Idempotency-Key': command.idempotencyKey,
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: command.to.phoneE164.replace('+', ''),
-        type: 'text',
-        text: { body: command.body, preview_url: true },
-      }),
+      body: JSON.stringify(buildCloudApiPayload(command)),
       signal: AbortSignal.timeout(30_000),
     });
 

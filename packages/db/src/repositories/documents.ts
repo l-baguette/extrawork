@@ -179,6 +179,16 @@ export class MessageRepository {
    * Records a message intent. In the native-share MVP the terminal status is
    * SHARE_INTENT_OPENED, never SENT — the system cannot observe delivery
    * (report §10.3).
+   *
+   * `providerMessageId` is the provider's own handle for the message (Meta's
+   * `wamid`). It is written here, at the only moment the system holds it: the
+   * gateway returns it from `send`, and a delivery-status webhook arriving
+   * minutes later carries nothing else that identifies the row. Without it
+   * `findByProviderMessageId` cannot resolve the status back to a message, and
+   * every status update is dropped as "unknown provider message id" — so a
+   * message would sit at its send-time status forever while the customer's
+   * phone shows two ticks. Null for the callers that record an intent before
+   * any send has happened.
    */
   async record(
     tx: TransactionContext,
@@ -191,6 +201,7 @@ export class MessageRepository {
       status: string;
       dedupeKey?: string | null;
       provider?: string | null;
+      providerMessageId?: string | null;
       suppressionReason?: string | null;
     },
   ): Promise<string | null> {
@@ -198,11 +209,12 @@ export class MessageRepository {
     const result = await tx.db.execute<{ id: string }>(sql`
       INSERT INTO messages
         (id, organization_id, version_id, contact_id, channel, purpose, status,
-         dedupe_key, provider, suppression_reason)
+         dedupe_key, provider, provider_message_id, suppression_reason)
       VALUES (
         ${id}::uuid, ${ctx.organizationId}::uuid, ${input.versionId}::uuid,
         ${input.contactId}::uuid, ${input.channel}, ${input.purpose}, ${input.status},
-        ${input.dedupeKey ?? null}, ${input.provider ?? null}, ${input.suppressionReason ?? null}
+        ${input.dedupeKey ?? null}, ${input.provider ?? null},
+        ${input.providerMessageId ?? null}, ${input.suppressionReason ?? null}
       )
       ON CONFLICT DO NOTHING
       RETURNING id

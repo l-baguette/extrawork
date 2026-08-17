@@ -96,6 +96,60 @@ export function buildRequestMessage(input: ShareMessageInput): string {
   return lines.join('\n');
 }
 
+/**
+ * Sanitises one value for a WhatsApp template parameter.
+ *
+ * Meta rejects the whole send — not the parameter — if a substitution contains
+ * a newline, a tab, or more than four consecutive spaces, and rejects an empty
+ * one outright. Every value here is user- or customer-supplied (a project title
+ * pasted from a spreadsheet is the likely culprit), so the cleaning happens
+ * once, centrally, rather than being a rule each caller has to remember.
+ */
+function templateParameter(value: string, fallback: string): string {
+  const cleaned = value.replace(/\s+/g, ' ').trim();
+  return cleaned.length > 0 ? cleaned : fallback;
+}
+
+/**
+ * Ordered `{{1}}..{{7}}` substitutions for the `extra_work_request_v1` utility
+ * template — report §10.3, handoff §14.
+ *
+ * **This is the one place the approved template's parameter order is encoded.**
+ * Meta can reword or reorder a template during review, and code that disagrees
+ * with the approved copy sends the customer a sentence with the amount where
+ * the project name should be. When the template comes back approved, reconcile
+ * it here and nowhere else.
+ *
+ *   1 customer name   2 company name   3 project name   4 formatted amount
+ *   5 approval link   6 expiry date    7 company phone
+ *
+ * If Meta approves the URL-button variant instead, the link stops being a body
+ * parameter: drop position 5 from this array and pass `approvalUrl`'s token
+ * suffix as `urlButtonParameter` on the outbound message. Nothing else changes.
+ *
+ * It takes the same `ShareMessageInput` as `buildRequestMessage` on purpose. The
+ * plain-text message and the template are two renderings of one message, and
+ * deriving them from different inputs is how they quietly stop agreeing about
+ * the amount.
+ */
+export function buildRequestTemplateParameters(input: ShareMessageInput): string[] {
+  const amount = formatMoney(input.totalDeltaMinor, input.currency);
+  return [
+    templateParameter(input.customerFirstName, 'there'),
+    templateParameter(input.organizationName, 'Your contractor'),
+    templateParameter(input.projectTitle, 'your project'),
+    // The sign is carried by the wording in the approved copy, not by a minus
+    // buried mid-sentence — same rule as the plain-text message above.
+    templateParameter(input.totalDeltaMinor < 0n ? amount.replace('-', '') : amount, '—'),
+    templateParameter(input.approvalUrl, '—'),
+    templateParameter(formatLocalDate(input.expiresAt, input.timezone), '—'),
+    // Meta rejects an empty parameter, so a contractor with no number on record
+    // still needs something here. It says to use the link rather than inventing
+    // a phone number the customer could try to call.
+    templateParameter(input.organizationPhone ?? '', 'the number on your invoice'),
+  ];
+}
+
 export function buildReminderMessage(input: ShareMessageInput): string {
   const amount = formatMoney(input.totalDeltaMinor, input.currency);
   return [

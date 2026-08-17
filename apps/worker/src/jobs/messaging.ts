@@ -5,11 +5,14 @@ import {
   buildDecisionReceiptMessage,
   buildReminderMessage,
   buildRequestMessage,
+  buildRequestTemplateParameters,
   decisionReply,
   requestEmailSubject,
   shouldSendReminder,
   systemTenantContext,
+  type ShareMessageInput,
 } from '@extrawork/domain';
+import { WHATSAPP_TEMPLATES, WHATSAPP_TEMPLATE_LANGUAGE } from '@extrawork/integrations';
 import { METRIC, metrics } from '@extrawork/observability';
 import type { WorkerContext } from '../context.js';
 import { PermanentJobError, requireTenant } from '../runner.js';
@@ -148,6 +151,7 @@ export async function sendReminder(job: JobRow, ctx: WorkerContext): Promise<voi
       status: result.status,
       dedupeKey: payload.dedupeKey,
       provider: result.provider,
+      providerMessageId: result.providerMessageId,
     });
     await ctx.repos.audit.append(tx, tenant, [
       {
@@ -240,6 +244,7 @@ export async function sendDecisionReceipt(job: JobRow, ctx: WorkerContext): Prom
       status: result.status,
       dedupeKey: `receipt:${decision.id}`,
       provider: result.provider,
+      providerMessageId: result.providerMessageId,
     });
   });
 
@@ -311,6 +316,25 @@ export async function sendRequestMessage(job: JobRow, ctx: WorkerContext): Promi
     );
   }
 
+  // Built once and rendered twice — as plain text for email and the record, and
+  // as template parameters for WhatsApp. Two renderings of one message: derive
+  // them from separate inputs and they eventually disagree about the amount.
+  const messageInput: ShareMessageInput = {
+    organizationName: organization?.displayName ?? 'Your contractor',
+    customerFirstName: firstName(contact?.name ?? 'there'),
+    projectTitle: project.title,
+    changeNumber: changeOrder.number,
+    totalDeltaMinor: version.totalDeltaMinor,
+    currency: version.currency,
+    scheduleDeltaDays: version.scheduleDeltaDays,
+    approvalUrl: payload.approvalUrl ?? '(use the link from the original message)',
+    expiresAt: version.expiresAt ?? ctx.app.clock.now(),
+    timezone: project.timezone,
+    // So a customer who is unsure can verify through a channel this message
+    // does not control.
+    ...(organization?.contactPhone ? { organizationPhone: organization.contactPhone } : {}),
+  };
+
   const result = await gateway.send({
     to: {
       name: contact?.name ?? 'Customer',
@@ -318,21 +342,20 @@ export async function sendRequestMessage(job: JobRow, ctx: WorkerContext): Promi
       phoneE164: contact?.phoneE164 ?? null,
     },
     subject: requestEmailSubject(changeOrder.number, project.title),
-    body: buildRequestMessage({
-      organizationName: organization?.displayName ?? 'Your contractor',
-      customerFirstName: firstName(contact?.name ?? 'there'),
-      projectTitle: project.title,
-      changeNumber: changeOrder.number,
-      totalDeltaMinor: version.totalDeltaMinor,
-      currency: version.currency,
-      scheduleDeltaDays: version.scheduleDeltaDays,
-      approvalUrl: payload.approvalUrl ?? '(use the link from the original message)',
-      expiresAt: version.expiresAt ?? ctx.app.clock.now(),
-      timezone: project.timezone,
-      // So a customer who is unsure can verify through a channel this message
-      // does not control.
-      ...(organization?.contactPhone ? { organizationPhone: organization.contactPhone } : {}),
-    }),
+    body: buildRequestMessage(messageInput),
+    // An approval request reaches a customer who has not messaged the business,
+    // so it is outside WhatsApp's 24-hour service window and must be a template
+    // (report §10.3). Gateways that cannot send templates ignore this and use
+    // `body`, which is why it is attached without a driver check.
+    ...(overWhatsApp
+      ? {
+          template: {
+            name: WHATSAPP_TEMPLATES.REQUEST,
+            languageCode: WHATSAPP_TEMPLATE_LANGUAGE,
+            bodyParameters: buildRequestTemplateParameters(messageInput),
+          },
+        }
+      : {}),
     purpose: 'REQUEST',
     idempotencyKey: `request:${version.id}`,
     organizationName: organization?.displayName ?? 'ExtraWork',
@@ -351,6 +374,7 @@ export async function sendRequestMessage(job: JobRow, ctx: WorkerContext): Promi
       status: result.status,
       dedupeKey: `request:${version.id}`,
       provider: result.provider,
+      providerMessageId: result.providerMessageId,
     });
   });
 }

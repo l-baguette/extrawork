@@ -28,10 +28,46 @@ export interface ProviderEvent {
 
 // --- Messaging --------------------------------------------------------------
 
+/**
+ * A pre-approved provider template and its substitutions.
+ *
+ * WhatsApp only permits a business-initiated message outside the 24-hour
+ * service window if it uses a template Meta has already reviewed, so a request
+ * to a customer who has not messaged first cannot be plain text. Replies inside
+ * the window still can, which is why this is optional rather than replacing
+ * `body`.
+ */
+export interface OutboundTemplate {
+  /** Approved template name, e.g. `extra_work_request_v1`. */
+  name: string;
+  /** Language code exactly as registered with the provider, e.g. `en`. */
+  languageCode: string;
+  /** Ordered `{{1}}..{{n}}` body substitutions. */
+  bodyParameters: string[];
+  /**
+   * Dynamic suffix for a URL button, when the approved template carries one.
+   * Meta only allows the trailing portion of the URL to vary, so this is the
+   * token, never the whole link.
+   */
+  urlButtonParameter?: string;
+}
+
 export interface OutboundMessage {
   to: { phoneE164?: string | null; email?: string | null; name: string };
   subject?: string;
+  /**
+   * The human-readable message. Always present, even when `template` is set:
+   * it is what the email gateway sends, what the simulator writes to its
+   * outbox, and the record of what the customer was actually shown. A template
+   * send is the same message through a different transport, not a different
+   * message.
+   */
   body: string;
+  /**
+   * Set for business-initiated sends that must go out as an approved template.
+   * Gateways that cannot send templates ignore it and use `body`.
+   */
+  template?: OutboundTemplate;
   purpose: 'REQUEST' | 'REMINDER' | 'DECISION_RECEIPT' | 'OTP';
   /** Provider idempotency key; the outbox event id (report §13.2). */
   idempotencyKey: string;
