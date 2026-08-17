@@ -327,6 +327,8 @@ export interface WebhookEventRow {
   provider: string;
   providerAccountId: string | null;
   providerEventId: string;
+  /** The adapter's own classification. Null on rows stored before 0009. */
+  kind: string | null;
   signatureVerified: boolean;
   /** The provider payload exactly as received; never reused as a domain model. */
   rawPayload: Record<string, unknown> | null;
@@ -352,18 +354,20 @@ export class WebhookInboxRepository {
       rawPayload: unknown;
       headers: Record<string, string>;
       providerEventAt: Date | null;
+      kind?: string | null;
     },
   ): Promise<string | null> {
     const id = newId();
     const result = await db.execute<{ id: string }>(sql`
       INSERT INTO webhook_inbox
         (id, provider, provider_account_id, provider_event_id, signature_verified,
-         raw_payload, headers, provider_event_at)
+         raw_payload, headers, provider_event_at, kind)
       VALUES (
         ${id}::uuid, ${input.provider}, ${input.providerAccountId}, ${input.providerEventId},
         ${input.signatureVerified}, ${JSON.stringify(input.rawPayload)}::jsonb,
         ${JSON.stringify(input.headers)}::jsonb,
-        ${input.providerEventAt?.toISOString() ?? null}::timestamptz
+        ${input.providerEventAt?.toISOString() ?? null}::timestamptz,
+        ${input.kind ?? null}
       )
       ON CONFLICT (provider, provider_account_id, provider_event_id) DO NOTHING
       RETURNING id
@@ -381,9 +385,10 @@ export class WebhookInboxRepository {
       raw_payload: unknown;
       provider_event_at: Date | null;
       processed_at: Date | null;
+      kind: string | null;
     }>(sql`
       SELECT id, provider, provider_account_id, provider_event_id, signature_verified,
-             raw_payload, provider_event_at, processed_at
+             raw_payload, provider_event_at, processed_at, kind
       FROM webhook_inbox WHERE id = ${id}::uuid
     `);
     const row = result.rows[0];
@@ -393,6 +398,7 @@ export class WebhookInboxRepository {
       provider: row.provider,
       providerAccountId: row.provider_account_id,
       providerEventId: row.provider_event_id,
+      kind: row.kind,
       signatureVerified: row.signature_verified,
       rawPayload: toJsonOrNull(row.raw_payload),
       providerEventAt: toDateOrNull(row.provider_event_at),

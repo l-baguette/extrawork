@@ -53,6 +53,16 @@ export interface IntakeOutcome {
   approvalUrl: string | null;
   /** True when this exact provider message had already been processed. */
   duplicate: boolean;
+  /**
+   * The tenant the sender resolved to, or null when the number matched no
+   * employee.
+   *
+   * Exposed because a caller holding attachments cannot safely act on them
+   * until this is known: fetching media for an unrecognised number would let
+   * anyone with the business number make the worker download and store
+   * arbitrary bytes. Null means discard, not "look it up another way".
+   */
+  organizationId: string | null;
 }
 
 export class IntakeService {
@@ -91,6 +101,7 @@ export class IntakeService {
         changeOrderId: row.changeOrderId,
         approvalUrl: null,
         duplicate: true,
+        organizationId: row.organizationId,
       };
     }
 
@@ -113,6 +124,7 @@ export class IntakeService {
         changeOrderId: null,
         approvalUrl: null,
         duplicate: false,
+        organizationId: null,
       };
     }
   }
@@ -131,7 +143,7 @@ export class IntakeService {
           ? `employee is ${employee.status}`
           : 'no employee for this number',
       });
-      return this.outcome('REJECTED_UNKNOWN_SENDER', reply, inboundId);
+      return this.outcome('REJECTED_UNKNOWN_SENDER', reply, inboundId, null);
     }
 
     // From here the tenant is known and every read is scoped to it.
@@ -159,7 +171,7 @@ export class IntakeService {
         parsed: describe(parsed),
         rejectionReason: 'help requested',
       });
-      return this.outcome('REJECTED_UNPARSEABLE', reply, inboundId);
+      return this.outcome('REJECTED_UNPARSEABLE', reply, inboundId, employee.organizationId);
     }
 
     // 2. Which project? Never guessed between two plausible ones.
@@ -175,7 +187,7 @@ export class IntakeService {
         parsed: describe(parsed),
         rejectionReason: match.kind === 'AMBIGUOUS' ? 'ambiguous project' : 'no project available',
       });
-      return this.outcome('REJECTED_NOT_AUTHORIZED', reply, inboundId);
+      return this.outcome('REJECTED_NOT_AUTHORIZED', reply, inboundId, employee.organizationId);
     }
     const project = match.project;
 
@@ -191,7 +203,7 @@ export class IntakeService {
         parsed: describe(parsed),
         rejectionReason: `missing: ${validation.missing.join(',') || 'none'}`,
       });
-      return this.outcome('REJECTED_UNPARSEABLE', reply, inboundId);
+      return this.outcome('REJECTED_UNPARSEABLE', reply, inboundId, employee.organizationId);
     }
 
     const amountMinor = parsed.amountMinor ?? 0n;
@@ -208,7 +220,7 @@ export class IntakeService {
         parsed: describe(parsed),
         rejectionReason: `over ceiling ${employee.maxRequestMinor}`,
       });
-      return this.outcome('REJECTED_POLICY', reply, inboundId);
+      return this.outcome('REJECTED_POLICY', reply, inboundId, employee.organizationId);
     }
 
     const projectRow = await this.app.repos.projects.requireById(tenant, project.id);
@@ -221,7 +233,7 @@ export class IntakeService {
         parsed: describe(parsed),
         rejectionReason: `project is ${projectRow.status}`,
       });
-      return this.outcome('REJECTED_POLICY', reply, inboundId);
+      return this.outcome('REJECTED_POLICY', reply, inboundId, employee.organizationId);
     }
     if (!projectRow.defaultApproverContactId) {
       const reply =
@@ -234,7 +246,7 @@ export class IntakeService {
         parsed: describe(parsed),
         rejectionReason: 'no default approver',
       });
-      return this.outcome('REJECTED_POLICY', reply, inboundId);
+      return this.outcome('REJECTED_POLICY', reply, inboundId, employee.organizationId);
     }
 
     // 5. Create and send through the same services the web composer uses.
@@ -299,6 +311,7 @@ export class IntakeService {
       changeOrderId: created.changeOrderId,
       approvalUrl: sent.approvalUrl,
       duplicate: false,
+      organizationId: employee.organizationId,
     };
   }
 
@@ -388,7 +401,12 @@ export class IntakeService {
     );
   }
 
-  private outcome(status: InboundStatus, reply: string, inboundMessageId: string): IntakeOutcome {
+  private outcome(
+    status: InboundStatus,
+    reply: string,
+    inboundMessageId: string,
+    organizationId: string | null,
+  ): IntakeOutcome {
     return {
       status,
       reply,
@@ -396,6 +414,7 @@ export class IntakeService {
       changeOrderId: null,
       approvalUrl: null,
       duplicate: false,
+      organizationId,
     };
   }
 }

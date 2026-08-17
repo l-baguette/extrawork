@@ -601,6 +601,8 @@ export const webhookInbox = pgTable('webhook_inbox', {
   rawPayload: jsonb('raw_payload').notNull(),
   headers: jsonb('headers'),
   providerEventAt: ts('provider_event_at'),
+  /** The adapter's classification. Null on rows stored before migration 0009. */
+  kind: text('kind'),
   receivedAt: ts('received_at').notNull().defaultNow(),
   processedAt: ts('processed_at'),
   processError: text('process_error'),
@@ -865,6 +867,29 @@ export const inboundMessages = pgTable(
     uniqueIndex('inbound_messages_provider_key').on(t.provider, t.providerMessageId),
     index('inbound_messages_org_idx').on(t.organizationId, t.receivedAt),
     index('inbound_messages_phone_idx').on(t.fromPhoneE164, t.receivedAt),
+  ],
+);
+
+/**
+ * Attachments on an inbound message (migration 0009).
+ *
+ * `organizationId` is non-null here although `inboundMessages.organizationId`
+ * is nullable: media is only fetched once the sender resolves to a known
+ * employee, so a tenant always exists by the time a row is written.
+ */
+export const inboundMessageMedia = pgTable(
+  'inbound_message_media',
+  {
+    inboundMessageId: uuid('inbound_message_id').notNull(),
+    fileObjectId: uuid('file_object_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    providerMediaId: text('provider_media_id').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.inboundMessageId, t.fileObjectId] }),
+    uniqueIndex('inbound_message_media_provider_idx').on(t.inboundMessageId, t.providerMediaId),
+    index('inbound_message_media_file_idx').on(t.fileObjectId),
   ],
 );
 

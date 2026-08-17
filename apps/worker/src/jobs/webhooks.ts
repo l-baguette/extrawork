@@ -1,6 +1,7 @@
 import type { JobRow, WebhookEventRow } from '@extrawork/db';
 import type { WorkerContext } from '../context.js';
 import { PermanentJobError } from '../runner.js';
+import { handleInboundMessage } from './inbound.js';
 
 /**
  * Webhook normalisation — report §13.2 and §10.3.
@@ -61,10 +62,24 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
   }
 
   try {
+    // `kind` is the adapter's own classification, stored since migration 0009.
+    // Rows written before it fall back to shape detection below, which is what
+    // the whole handler relied on previously.
+    if (event.kind === 'INBOUND_MESSAGE') {
+      await handleInboundMessage(event, ctx);
+      await ctx.repos.webhooks.markProcessed(ctx.db, payload.webhookInboxId, null);
+      return;
+    }
+
     const statuses = mapMessageStatuses(event);
 
     if (statuses.length > 0) {
       for (const status of statuses) await applyMessageStatus(event, status, ctx);
+    } else if (event.kind === null && looksLikeInboundMessage(event)) {
+      // An unclassified row that is unmistakably a person's message. Handled
+      // rather than warned about, so events stored before 0009 still reach
+      // intake instead of sitting unprocessed.
+      await handleInboundMessage(event, ctx);
     } else {
       // Preserved, acknowledged, and surfaced — the report is explicit that an
       // unrecognised provider event must not be silently dropped.
@@ -80,6 +95,17 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
       .catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * Whether an unclassified payload is a person's message rather than a delivery
+ * receipt. A status always carries a `status` field; a message never does, and
+ * always identifies its sender.
+ */
+function looksLikeInboundMessage(event: WebhookEventRow): boolean {
+  const raw = event.rawPayload as Record<string, unknown> | null;
+  if (!raw || typeof raw.status === 'string') return false;
+  return typeof raw.from === 'string' || typeof raw.fromPhoneE164 === 'string';
 }
 
 interface NormalizedStatus {

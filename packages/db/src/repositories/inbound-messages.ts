@@ -112,6 +112,50 @@ export class InboundMessageRepository {
   }
 
   /**
+   * Links a downloaded attachment to the message it arrived on.
+   *
+   * Idempotent on `(inbound_message_id, provider_media_id)`: a redelivered
+   * webhook must not produce a second copy of the same photograph. Returns
+   * false when the attachment was already linked, so the caller can skip the
+   * download rather than repeat it.
+   *
+   * Takes an explicit `organizationId` rather than a `TenantContext` because
+   * the caller has just resolved the tenant from the employee and there is no
+   * request context in a worker job — the same reason `record` above takes
+   * none.
+   */
+  async linkMedia(
+    tx: TransactionContext,
+    input: {
+      inboundMessageId: string;
+      fileObjectId: string;
+      organizationId: string;
+      providerMediaId: string;
+    },
+  ): Promise<boolean> {
+    const result = await tx.db.execute<{ file_object_id: string }>(sql`
+      INSERT INTO inbound_message_media
+        (inbound_message_id, file_object_id, organization_id, provider_media_id)
+      VALUES (
+        ${input.inboundMessageId}::uuid, ${input.fileObjectId}::uuid,
+        ${input.organizationId}::uuid, ${input.providerMediaId}
+      )
+      ON CONFLICT DO NOTHING
+      RETURNING file_object_id
+    `);
+    return result.rows.length > 0;
+  }
+
+  /** Provider attachment ids already fetched for a message. */
+  async linkedMediaIds(db: Database, inboundMessageId: string): Promise<Set<string>> {
+    const result = await db.execute<{ provider_media_id: string }>(sql`
+      SELECT provider_media_id FROM inbound_message_media
+      WHERE inbound_message_id = ${inboundMessageId}::uuid
+    `);
+    return new Set(result.rows.map((r) => r.provider_media_id));
+  }
+
+  /**
    * Records the outcome of processing: which tenant it turned out to belong to,
    * what the parser understood, what we replied, and whether it produced a
    * change order.

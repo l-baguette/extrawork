@@ -20,10 +20,44 @@ export interface ProviderEvent {
   provider: string;
   providerAccountId: string | null;
   providerEventId: string;
-  kind: 'MESSAGE_STATUS' | 'PAYMENT_STATUS' | 'AUTH' | 'ESIGN' | 'UNKNOWN';
+  kind: 'MESSAGE_STATUS' | 'INBOUND_MESSAGE' | 'PAYMENT_STATUS' | 'AUTH' | 'ESIGN' | 'UNKNOWN';
   occurredAt: Date | null;
   normalized: Record<string, unknown>;
   raw: unknown;
+}
+
+/** One attachment on an inbound message, before its bytes are fetched. */
+export interface InboundMediaRef {
+  /** Provider handle; the bytes are a separate authenticated fetch. */
+  mediaId: string;
+  mimeType: string | null;
+  filename: string | null;
+  caption: string | null;
+  /** Provider-declared digest, where one is given. Never trusted as the real one. */
+  sha256: string | null;
+}
+
+/**
+ * A message a person sent to the business, normalised out of the provider
+ * envelope. This is the shape `IntakeService.handleInbound` consumes, so the
+ * adapter — not the domain — owns every provider quirk (report §10.1).
+ */
+export interface InboundMessageEvent {
+  providerMessageId: string;
+  /** Sender in E.164. Providers omit the `+`; the adapter restores it. */
+  fromPhoneE164: string;
+  /** Text body, or the caption when the message is media with no text. */
+  body: string;
+  media: InboundMediaRef[];
+  /** Provider message type, kept so an unsupported kind can be answered. */
+  messageType: string;
+}
+
+/** Bytes fetched for one inbound attachment. */
+export interface FetchedMedia {
+  bytes: Buffer;
+  mimeType: string;
+  byteSize: number;
 }
 
 // --- Messaging --------------------------------------------------------------
@@ -68,7 +102,14 @@ export interface OutboundMessage {
    * Gateways that cannot send templates ignore it and use `body`.
    */
   template?: OutboundTemplate;
-  purpose: 'REQUEST' | 'REMINDER' | 'DECISION_RECEIPT' | 'OTP';
+  /**
+   * `INTAKE_REPLY` is the answer to an employee who just messaged in. It is
+   * deliberately absent from the `messages` table's purpose check: that table
+   * records what was sent to a *customer*, and the employee's reply already has
+   * a home in `inbound_messages.reply_text`, next to the message it answers.
+   * Recording it twice would put the same fact in two places that can disagree.
+   */
+  purpose: 'REQUEST' | 'REMINDER' | 'DECISION_RECEIPT' | 'OTP' | 'INTAKE_REPLY';
   /** Provider idempotency key; the outbox event id (report §13.2). */
   idempotencyKey: string;
   organizationName: string;
@@ -79,6 +120,15 @@ export interface MessageGateway {
   readonly canDeliver: boolean;
   send(command: OutboundMessage): Promise<ProviderMessageRef>;
   verifyAndParse(raw: Buffer, headers: Record<string, string>): ProviderEvent[];
+  /**
+   * Fetches one inbound attachment's bytes. Optional because only a gateway
+   * with a real provider behind it can: native share and the simulator never
+   * receive media, so requiring it would force them to implement a throw.
+   *
+   * Callers must treat its absence as "no media pipeline on this driver" rather
+   * than as an error.
+   */
+  fetchMedia?(mediaId: string): Promise<FetchedMedia>;
 }
 
 // --- OTP --------------------------------------------------------------------

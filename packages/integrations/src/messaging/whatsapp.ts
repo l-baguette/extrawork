@@ -1,5 +1,8 @@
 import { AppError } from '@extrawork/contracts';
 import type {
+  FetchedMedia,
+  InboundMediaRef,
+  InboundMessageEvent,
   MessageGateway,
   OutboundMessage,
   ProviderEvent,
@@ -188,10 +191,12 @@ export class WhatsAppCloudGateway implements MessageGateway {
     for (const entry of payload.entry ?? []) {
       for (const change of entry.changes ?? []) {
         const value = change.value;
+        const accountId = value?.metadata?.phone_number_id ?? entry.id ?? null;
+
         for (const status of value?.statuses ?? []) {
           events.push({
             provider: 'whatsapp-cloud',
-            providerAccountId: value?.metadata?.phone_number_id ?? entry.id ?? null,
+            providerAccountId: accountId,
             providerEventId: `${status.id}:${status.status}:${status.timestamp}`,
             kind: 'MESSAGE_STATUS',
             occurredAt: status.timestamp ? new Date(Number(status.timestamp) * 1000) : null,
@@ -204,10 +209,29 @@ export class WhatsAppCloudGateway implements MessageGateway {
             raw: status,
           });
         }
-        if (!value?.statuses?.length) {
+
+        for (const message of value?.messages ?? []) {
+          const normalized = normalizeInboundMessage(message);
+          if (!normalized) continue;
           events.push({
             provider: 'whatsapp-cloud',
-            providerAccountId: value?.metadata?.phone_number_id ?? entry.id ?? null,
+            providerAccountId: accountId,
+            // The provider message id alone. Unlike a status — where the same id
+            // legitimately arrives several times as delivery progresses — a
+            // message is one event, and this id is what makes a redelivery
+            // dedupe against `webhook_inbox` and `inbound_messages` alike.
+            providerEventId: normalized.providerMessageId,
+            kind: 'INBOUND_MESSAGE',
+            occurredAt: message.timestamp ? new Date(Number(message.timestamp) * 1000) : null,
+            normalized: normalized as unknown as Record<string, unknown>,
+            raw: message,
+          });
+        }
+
+        if (!value?.statuses?.length && !value?.messages?.length) {
+          events.push({
+            provider: 'whatsapp-cloud',
+            providerAccountId: accountId,
             providerEventId: `${entry.id ?? 'unknown'}:${change.field ?? 'unknown'}:${payloadFingerprint(raw)}`,
             kind: 'UNKNOWN',
             occurredAt: null,
@@ -220,6 +244,104 @@ export class WhatsAppCloudGateway implements MessageGateway {
 
     return events;
   }
+
+  /**
+   * Fetches one attachment — two authenticated calls, because Graph returns a
+   * short-lived, single-use URL rather than the bytes.
+   *
+   * The second call needs the bearer token too: the URL is on a Meta CDN host
+   * but is not public, and omitting the header returns a 401 that reads like a
+   * bad media id.
+   */
+  async fetchMedia(mediaId: string): Promise<FetchedMedia> {
+    const auth = { Authorization: `Bearer ${this.options.accessToken}` };
+
+    const lookup = await this.fetchImpl(
+      `https://graph.facebook.com/${this.apiVersion}/${encodeURIComponent(mediaId)}`,
+      { headers: auth, signal: AbortSignal.timeout(30_000) },
+    );
+    if (!lookup.ok) {
+      throw new AppError('PROVIDER_UNAVAILABLE', {
+        message: `WhatsApp media lookup returned ${lookup.status}`,
+        details: { status: lookup.status },
+      });
+    }
+    const meta = (await lookup.json()) as { url?: string; mime_type?: string; file_size?: number };
+    if (!meta.url) {
+      throw new AppError('PROVIDER_UNAVAILABLE', {
+        message: 'WhatsApp media lookup returned no download URL',
+      });
+    }
+
+    const download = await this.fetchImpl(meta.url, {
+      headers: auth,
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!download.ok) {
+      throw new AppError('PROVIDER_UNAVAILABLE', {
+        message: `WhatsApp media download returned ${download.status}`,
+        details: { status: download.status },
+      });
+    }
+
+    const bytes = Buffer.from(await download.arrayBuffer());
+    return {
+      bytes,
+      // The provider's declared type is a hint only. The quarantine scanner
+      // re-derives the real type from magic bytes before anything is promoted,
+      // so a lie here cannot make a file servable.
+      mimeType: meta.mime_type ?? 'application/octet-stream',
+      byteSize: bytes.byteLength,
+    };
+  }
+}
+
+/**
+ * Flattens one Meta message into the shape intake consumes.
+ *
+ * Media messages carry their text in `caption`, and an image with no caption
+ * has no text at all — which the intake parser must see as an empty body rather
+ * than as the word "undefined". A type nobody handles still returns an event so
+ * the sender gets an answer instead of silence.
+ *
+ * Exported because `webhook_inbox` stores the **raw** provider object, not this
+ * normalised one (report §14.6 keeps the original for forensics). The worker
+ * therefore has to re-derive the normalised form when it processes the row, and
+ * it must do so with this exact function: a second parser in the worker is how
+ * `image.id` gets dropped on one path and not the other, which is precisely the
+ * bug this comment exists to prevent recurring.
+ */
+export function parseMetaInboundMessage(input: unknown): InboundMessageEvent | null {
+  if (!input || typeof input !== 'object') return null;
+  return normalizeInboundMessage(input as MetaInboundMessage);
+}
+
+function normalizeInboundMessage(message: MetaInboundMessage): InboundMessageEvent | null {
+  if (!message.id || !message.from) return null;
+
+  const mediaField =
+    message.image ?? message.document ?? message.video ?? message.audio ?? message.sticker ?? null;
+
+  const media: InboundMediaRef[] = mediaField?.id
+    ? [
+        {
+          mediaId: mediaField.id,
+          mimeType: mediaField.mime_type ?? null,
+          filename: mediaField.filename ?? null,
+          caption: mediaField.caption ?? null,
+          sha256: mediaField.sha256 ?? null,
+        },
+      ]
+    : [];
+
+  return {
+    providerMessageId: message.id,
+    // Meta reports `from` as digits with no `+`; every internal lookup is E.164.
+    fromPhoneE164: message.from.startsWith('+') ? message.from : `+${message.from}`,
+    body: message.text?.body ?? mediaField?.caption ?? '',
+    media,
+    messageType: message.type ?? 'unknown',
+  };
 }
 
 /**
@@ -262,6 +384,27 @@ function payloadFingerprint(raw: Buffer): string {
   return String(hash >>> 0);
 }
 
+interface MetaMediaObject {
+  id?: string;
+  mime_type?: string;
+  sha256?: string;
+  filename?: string;
+  caption?: string;
+}
+
+interface MetaInboundMessage {
+  id?: string;
+  from?: string;
+  timestamp?: string;
+  type?: string;
+  text?: { body?: string };
+  image?: MetaMediaObject;
+  document?: MetaMediaObject;
+  video?: MetaMediaObject;
+  audio?: MetaMediaObject;
+  sticker?: MetaMediaObject;
+}
+
 interface MetaWebhookPayload {
   entry?: Array<{
     id?: string;
@@ -269,6 +412,7 @@ interface MetaWebhookPayload {
       field?: string;
       value?: {
         metadata?: { phone_number_id?: string };
+        messages?: MetaInboundMessage[];
         statuses?: Array<{
           id: string;
           status?: string;

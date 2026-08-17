@@ -66,6 +66,7 @@ export async function registerWebhookRoutes(
     rawPayload: unknown;
     headers: Record<string, string>;
     providerEventAt: Date | null;
+    kind: string;
   }): Promise<boolean> {
     return appContext.uow.transaction(async (tx) => {
       const inboxId = await app.repos.webhooks.insert(tx.db, {
@@ -116,6 +117,7 @@ export async function registerWebhookRoutes(
         rawPayload: event.raw,
         headers: redactedHeaders(headerMap(request)),
         providerEventAt: event.occurredAt,
+        kind: event.kind,
       });
     }
 
@@ -134,6 +136,7 @@ export async function registerWebhookRoutes(
         rawPayload: event.raw,
         headers: redactedHeaders(headerMap(request)),
         providerEventAt: event.occurredAt,
+        kind: event.kind,
       });
     }
 
@@ -162,6 +165,7 @@ export async function registerWebhookRoutes(
       rawPayload: JSON.parse(raw.toString('utf8')) as unknown,
       headers: redactedHeaders(headerMap(request)),
       providerEventAt: null,
+      kind: 'AUTH',
     });
 
     return reply.status(200).send({ received: 1 });
