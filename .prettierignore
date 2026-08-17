@@ -8,3 +8,7 @@ test-results
 playwright-report
 coverage
 graphify-out
+# Agent worktrees are full checkouts of this repo living inside it. Without this,
+# `pnpm verify` lints and format-checks a second copy of every source file and
+# fails on whatever that copy is mid-edit.
+.claude/worktrees
