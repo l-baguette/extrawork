@@ -1,0 +1,42 @@
+# Secrets and local configuration.
+#
+# Report §11.3: "Secrets live in the deployment provider's encrypted secret
+# manager, not repository or .env files committed to source." `.env.example`
+# is deliberately tracked and contains only placeholders.
+.env
+.env.*
+!.env.example
+
+# Local data: object storage, mail outbox, backups, Postgres volumes.
+.data/
+*.dump
+*.dump.gpg
+
+# Build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Test artifacts
+test-results/
+playwright-report/
+blob-report/
+coverage/
+.playwright/
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

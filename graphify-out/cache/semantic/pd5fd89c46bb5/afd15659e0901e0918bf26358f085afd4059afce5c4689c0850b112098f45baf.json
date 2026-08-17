@@ -1,0 +1,215 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_repair_project_totals_repair_project_totals_runbook",
+      "label": "Repair Incorrect Project Totals Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_nightly_integrity_job",
+      "label": "Nightly Project Integrity Job",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_integrity_review_state",
+      "label": "INTEGRITY_REVIEW Project State",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_project_integrity_mismatches",
+      "label": "project_integrity_mismatches()",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_projection_drift",
+      "label": "Approved Delta Projection Drift",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_diagnose_cause_before_rebuild",
+      "label": "Diagnose Cause Before Rebuild",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_repair_project_totals_cli",
+      "label": "repair-project-totals.ts Rebuild CLI",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_repair_project_totals_frozen_snapshot_authority",
+      "label": "Frozen Snapshot Is the Authority on What Was Shown",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_repair_project_totals_repair_project_totals_runbook",
+      "target": "infra_runbooks_repair_project_totals_nightly_integrity_job",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_nightly_integrity_job",
+      "target": "infra_runbooks_repair_project_totals_integrity_review_state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_nightly_integrity_job",
+      "target": "infra_runbooks_repair_project_totals_project_integrity_mismatches",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_project_integrity_mismatches",
+      "target": "infra_runbooks_repair_project_totals_projection_drift",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_diagnose_cause_before_rebuild",
+      "target": "infra_runbooks_repair_project_totals_repair_project_totals_cli",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_diagnose_cause_before_rebuild",
+      "target": "infra_runbooks_readme_db_verify_chain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_diagnose_cause_before_rebuild",
+      "target": "infra_runbooks_restore_database_restore_database_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_repair_project_totals_cli",
+      "target": "infra_runbooks_readme_repair_command",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_repair_project_totals_cli",
+      "target": "infra_runbooks_readme_two_connections",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_repair_project_totals_cli",
+      "target": "infra_runbooks_repair_project_totals_integrity_review_state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_frozen_snapshot_authority",
+      "target": "infra_runbooks_repair_project_totals_projection_drift",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_repair_project_totals_frozen_snapshot_authority",
+      "target": "infra_runbooks_revoke_leaked_token_one_token_one_version_one_approver",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "infra/runbooks/repair-project-totals.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

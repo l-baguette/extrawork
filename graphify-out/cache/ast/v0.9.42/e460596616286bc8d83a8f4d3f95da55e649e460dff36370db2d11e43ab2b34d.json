@@ -1,0 +1,420 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_application_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_version",
+      "label": "version",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_main",
+      "label": "main",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_types",
+      "label": "types",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_exports",
+      "label": "exports",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_scripts_build",
+      "label": "build",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_scripts_typecheck",
+      "label": "typecheck",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_config",
+      "label": "@extrawork/config",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "extrawork_config",
+      "label": "@extrawork/config",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_contracts",
+      "label": "@extrawork/contracts",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "extrawork_contracts",
+      "label": "@extrawork/contracts",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_db",
+      "label": "@extrawork/db",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "extrawork_db",
+      "label": "@extrawork/db",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_domain",
+      "label": "@extrawork/domain",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "extrawork_domain",
+      "label": "@extrawork/domain",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_files",
+      "label": "@extrawork/files",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "extrawork_files",
+      "label": "@extrawork/files",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_integrations",
+      "label": "@extrawork/integrations",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "extrawork_integrations",
+      "label": "@extrawork/integrations",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "$graphify-root$_packages_application_package_dependencies_extrawork_observability",
+      "label": "@extrawork/observability",
+      "file_type": "code",
+      "source_file": "packages/application/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "extrawork_observability",
+      "label": "@extrawork/observability",
+      "file_type": "concept",
+      "source_file": "packages/application/package.json",
+      "source_location": "L22"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_main",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_types",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_exports",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_scripts",
+      "target": "$graphify-root$_packages_application_package_scripts_build",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_scripts",
+      "target": "$graphify-root$_packages_application_package_scripts_typecheck",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_json",
+      "target": "$graphify-root$_packages_application_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_config",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_config",
+      "target": "extrawork_config",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_contracts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_contracts",
+      "target": "extrawork_contracts",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_db",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_db",
+      "target": "extrawork_db",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_domain",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_domain",
+      "target": "extrawork_domain",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_files",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_files",
+      "target": "extrawork_files",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_integrations",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_integrations",
+      "target": "extrawork_integrations",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies",
+      "target": "$graphify-root$_packages_application_package_dependencies_extrawork_observability",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_application_package_dependencies_extrawork_observability",
+      "target": "extrawork_observability",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/application/package.json",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

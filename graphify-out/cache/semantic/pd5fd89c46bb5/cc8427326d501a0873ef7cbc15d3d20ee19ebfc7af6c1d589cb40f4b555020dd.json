@@ -1,0 +1,286 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_readme_operational_runbooks",
+      "label": "Operational Runbooks Index",
+      "file_type": "document",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_never_edit_evidence_by_hand",
+      "label": "Never Edit Evidence By Hand",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_two_connections",
+      "label": "Two Connections: Runtime vs Maintenance Role",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_verify_after_every_repair",
+      "label": "Verify After Every Repair",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_record_what_you_did",
+      "label": "Record What You Did",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_repair_command",
+      "label": "Audited Repair Command",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_db_verify_chain",
+      "label": "pnpm db:verify-chain",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_readme_extrawork_allow_repair",
+      "label": "extrawork.allow_repair Repair Mode Flag",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_revoke_leaked_token_revoke_leaked_token_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_rotate_credentials_rotate_credentials_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_replay_events_replay_events_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_repair_project_totals_repair_project_totals_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_restore_database_restore_database_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_failed_migration_failed_migration_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_data_subject_request_data_subject_request_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_support_access_support_access_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_freeze_organization_freeze_organization_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_operational_runbooks",
+      "target": "infra_runbooks_backup_and_restore_backup_and_restore_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_never_edit_evidence_by_hand",
+      "target": "infra_runbooks_readme_repair_command",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_two_connections",
+      "target": "infra_runbooks_readme_extrawork_allow_repair",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_repair_command",
+      "target": "infra_runbooks_readme_extrawork_allow_repair",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_verify_after_every_repair",
+      "target": "infra_runbooks_readme_db_verify_chain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_readme_record_what_you_did",
+      "target": "infra_runbooks_readme_repair_command",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "evidence_integrity_discipline",
+      "label": "Evidence Integrity Discipline Shared by All Runbooks",
+      "nodes": [
+        "infra_runbooks_readme_never_edit_evidence_by_hand",
+        "infra_runbooks_readme_two_connections",
+        "infra_runbooks_readme_verify_after_every_repair",
+        "infra_runbooks_readme_record_what_you_did",
+        "infra_runbooks_readme_repair_command"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/README.md"
+    },
+    {
+      "id": "credential_exposure_response_family",
+      "label": "Credential and Access Exposure Response Family",
+      "nodes": [
+        "infra_runbooks_revoke_leaked_token_approval_token_revocation",
+        "infra_runbooks_rotate_credentials_rotation_order_of_operations",
+        "infra_runbooks_freeze_organization_bulk_token_revocation_on_compromise",
+        "infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook",
+        "infra_runbooks_support_access_customer_granted_time_bound_access"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/README.md"
+    }
+  ]
+}

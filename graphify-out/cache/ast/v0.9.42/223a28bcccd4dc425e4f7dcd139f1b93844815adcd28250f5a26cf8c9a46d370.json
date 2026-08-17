@@ -1,0 +1,288 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_domain_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_version",
+      "label": "version",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_main",
+      "label": "main",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_types",
+      "label": "types",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_exports",
+      "label": "exports",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_scripts_build",
+      "label": "build",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_scripts_typecheck",
+      "label": "typecheck",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_dependencies_extrawork_contracts",
+      "label": "@extrawork/contracts",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "extrawork_contracts",
+      "label": "@extrawork/contracts",
+      "file_type": "concept",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_dependencies_decimal_js",
+      "label": "decimal.js",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "decimal_js",
+      "label": "decimal.js",
+      "file_type": "concept",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_packages_domain_package_dependencies_libphonenumber_js",
+      "label": "libphonenumber-js",
+      "file_type": "code",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "libphonenumber_js",
+      "label": "libphonenumber-js",
+      "file_type": "concept",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L18"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_main",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_types",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_exports",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_scripts",
+      "target": "$graphify-root$_packages_domain_package_scripts_build",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_scripts",
+      "target": "$graphify-root$_packages_domain_package_scripts_typecheck",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_json",
+      "target": "$graphify-root$_packages_domain_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_dependencies",
+      "target": "$graphify-root$_packages_domain_package_dependencies_extrawork_contracts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_dependencies_extrawork_contracts",
+      "target": "extrawork_contracts",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_dependencies",
+      "target": "$graphify-root$_packages_domain_package_dependencies_decimal_js",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_dependencies_decimal_js",
+      "target": "decimal_js",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_dependencies",
+      "target": "$graphify-root$_packages_domain_package_dependencies_libphonenumber_js",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_domain_package_dependencies_libphonenumber_js",
+      "target": "libphonenumber_js",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/domain/package.json",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_db_migrations_0007_simulator_message_channel_sql",
+      "label": "0007_simulator_message_channel.sql",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0007_simulator_message_channel.sql",
+      "source_location": null
+    },
+    {
+      "id": "messages",
+      "label": "messages",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0007_simulator_message_channel.sql"
+    }
+  ],
+  "edges": []
+}

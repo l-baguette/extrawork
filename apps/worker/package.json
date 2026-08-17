@@ -1,0 +1,29 @@
+{
+  "name": "@extrawork/worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/main.ts",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@extrawork/application": "workspace:*",
+    "@extrawork/config": "workspace:*",
+    "@extrawork/contracts": "workspace:*",
+    "@extrawork/db": "workspace:*",
+    "@extrawork/domain": "workspace:*",
+    "@extrawork/files": "workspace:*",
+    "@extrawork/integrations": "workspace:*",
+    "@extrawork/observability": "workspace:*",
+    "@extrawork/runtime": "workspace:*",
+    "playwright": "1.49.1"
+  },
+  "devDependencies": {
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  }
+}

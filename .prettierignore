@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+.data
+pnpm-lock.yaml
+docs/openapi/openapi.json
+test-results
+playwright-report
+coverage
+graphify-out

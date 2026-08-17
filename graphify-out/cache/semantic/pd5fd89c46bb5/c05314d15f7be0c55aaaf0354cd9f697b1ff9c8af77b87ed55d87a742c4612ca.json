@@ -1,0 +1,305 @@
+{
+  "nodes": [
+    {
+      "id": "docker_compose_db",
+      "label": "Compose service: db (PostgreSQL 16)",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.db",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_minio",
+      "label": "Compose service: minio",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.minio",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_minio_init",
+      "label": "Compose service: minio-init",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.minio-init",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_mailpit",
+      "label": "Compose service: mailpit",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.mailpit",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_api",
+      "label": "Compose service: api",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.api",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_worker",
+      "label": "Compose service: worker",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.worker",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_web",
+      "label": "Compose service: web",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.web",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_app_env",
+      "label": "Shared app-env anchor",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.api.environment (&app-env)",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_private_bucket",
+      "label": "Private versioned bucket policy",
+      "file_type": "rationale",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.minio-init.entrypoint",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_c_collation",
+      "label": "C collation for reproducible index behaviour",
+      "file_type": "rationale",
+      "source_file": "docker-compose.yml",
+      "source_location": "services.db.environment.POSTGRES_INITDB_ARGS",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_same_image_processes",
+      "label": "API and worker from the same image",
+      "file_type": "rationale",
+      "source_file": "docker-compose.yml",
+      "source_location": "header comment",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_app_profile",
+      "label": "app compose profile",
+      "file_type": "concept",
+      "source_file": "docker-compose.yml",
+      "source_location": "profiles: ['app']",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "docker_compose_api",
+      "target": "docker_compose_db",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.api.depends_on",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_api",
+      "target": "docker_compose_minio",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.api.depends_on",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_worker",
+      "target": "docker_compose_db",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.worker.depends_on",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_worker",
+      "target": "docker_compose_minio",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.worker.depends_on",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_web",
+      "target": "docker_compose_api",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.web.depends_on",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_minio_init",
+      "target": "docker_compose_minio",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.minio-init.depends_on",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_minio_init",
+      "target": "docker_compose_private_bucket",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.minio-init.entrypoint",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_worker",
+      "target": "docker_compose_app_env",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.worker.environment (<<: *app-env)",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_api",
+      "target": "docker_compose_app_env",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.api.environment (&app-env)",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_c_collation",
+      "target": "docker_compose_db",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "services.db.environment",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_same_image_processes",
+      "target": "docker_compose_worker",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "header comment / build.target",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_app_profile",
+      "target": "docker_compose_api",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": "profiles",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_private_bucket",
+      "target": "readme_evidence_pack",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "docker-compose.yml",
+      "source_location": "header comment (\u00a79.7 signed URLs)",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_app_env",
+      "target": "readme_production_config_guard",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "docker-compose.yml",
+      "source_location": "dev-*-not-for-production-use secrets",
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_mailpit",
+      "target": "readme_seed_data",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "docker-compose.yml",
+      "source_location": "magic link mail outbox",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "local_dev_dependency_stack",
+      "label": "Local development dependency stack",
+      "nodes": [
+        "docker_compose_db",
+        "docker_compose_minio",
+        "docker_compose_minio_init",
+        "docker_compose_mailpit",
+        "readme_local_dev_options"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml"
+    }
+  ]
+}

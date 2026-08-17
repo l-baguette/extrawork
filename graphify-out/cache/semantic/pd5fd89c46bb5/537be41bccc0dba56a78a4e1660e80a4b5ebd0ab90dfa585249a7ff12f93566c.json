@@ -1,0 +1,196 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_replay_events_replay_events_runbook",
+      "label": "Replay Webhook and Outbox Events Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_dead_letter_diagnosis",
+      "label": "Dead-Letter Diagnosis Before Replay",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_permanent_job_error",
+      "label": "PermanentJobError",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_replay_cli",
+      "label": "replay.ts Audited Replay Command",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_bounded_replay_only",
+      "label": "Bounded Replay Only",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_handler_idempotency",
+      "label": "Handler Idempotency",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_claim_for_generation",
+      "label": "claimForGeneration State Guard",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_message_dedupe_key",
+      "label": "Message dedupe_key Check",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_replay_events_decisions_never_replayable",
+      "label": "Decisions Are Never Replayable",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_replay_events_replay_events_runbook",
+      "target": "infra_runbooks_replay_events_dead_letter_diagnosis",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_dead_letter_diagnosis",
+      "target": "infra_runbooks_replay_events_permanent_job_error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_replay_cli",
+      "target": "infra_runbooks_replay_events_bounded_replay_only",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_handler_idempotency",
+      "target": "infra_runbooks_replay_events_replay_cli",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_claim_for_generation",
+      "target": "infra_runbooks_replay_events_handler_idempotency",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_message_dedupe_key",
+      "target": "infra_runbooks_replay_events_handler_idempotency",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_decisions_never_replayable",
+      "target": "infra_runbooks_replay_events_replay_cli",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_decisions_never_replayable",
+      "target": "infra_runbooks_data_subject_request_non_erasable_decision_record",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_replay_events_bounded_replay_only",
+      "target": "infra_runbooks_readme_repair_command",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/replay-events.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

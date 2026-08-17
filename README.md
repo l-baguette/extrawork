@@ -8,8 +8,8 @@ creating an account**. ExtraWork keeps the exact version that was approved, the
 timestamps, the identity evidence, an append-only history and a tamper-evident
 PDF, so the extra work can be substantiated and invoiced.
 
-Built to the *ExtraWork Technical Design Report and Master Build Specification
-v1.0*. Section references throughout the code and docs point back to it.
+Built to the _ExtraWork Technical Design Report and Master Build Specification
+v1.0_. Section references throughout the code and docs point back to it.
 
 > **What this is not.** ExtraWork records a secure-link record of assent. It is
 > not a licensed or government-recognised electronic signature, and it does not
@@ -144,20 +144,20 @@ database.
 
 ### Packages
 
-| Package | Owns |
-|---|---|
-| `packages/contracts` | Zod schemas, error codes, event catalogue, assurance copy |
-| `packages/domain` | Money/tax engine, canonical JSON + digests, state machine, authz policy, tokens, audit chain, entitlements |
-| `packages/db` | Schema, SQL migrations, tenant-scoped repositories, unit of work, outbox, jobs, idempotency, rate limits |
-| `packages/application` | Use cases: create, send, decide, evidence, files, auth |
-| `packages/integrations` | WhatsApp, email, OTP, payment, e-sign adapters + webhook signature verification |
-| `packages/files` | Object store (S3 + local), upload validation, quarantine scanner |
-| `packages/runtime` | Composition root shared by every process |
-| `packages/observability` | Structured logging with redaction, metrics, request ids |
-| `packages/testkit` | Seeds, fixtures, real-PostgreSQL test harness |
-| `apps/api` | Fastify: `/v1`, `/public/v1`, `/webhooks/v1` |
-| `apps/worker` | Outbox pump, job runner, evidence PDFs, reminders, integrity, retention |
-| `apps/web` | Next.js: `/app/*` contractor, `/r/*` public approval |
+| Package                  | Owns                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `packages/contracts`     | Zod schemas, error codes, event catalogue, assurance copy                                                  |
+| `packages/domain`        | Money/tax engine, canonical JSON + digests, state machine, authz policy, tokens, audit chain, entitlements |
+| `packages/db`            | Schema, SQL migrations, tenant-scoped repositories, unit of work, outbox, jobs, idempotency, rate limits   |
+| `packages/application`   | Use cases: create, send, decide, evidence, files, auth                                                     |
+| `packages/integrations`  | WhatsApp, email, OTP, payment, e-sign adapters + webhook signature verification                            |
+| `packages/files`         | Object store (S3 + local), upload validation, quarantine scanner                                           |
+| `packages/runtime`       | Composition root shared by every process                                                                   |
+| `packages/observability` | Structured logging with redaction, metrics, request ids                                                    |
+| `packages/testkit`       | Seeds, fixtures, real-PostgreSQL test harness                                                              |
+| `apps/api`               | Fastify: `/v1`, `/public/v1`, `/webhooks/v1`                                                               |
+| `apps/worker`            | Outbox pump, job runner, evidence PDFs, reminders, integrity, retention                                    |
+| `apps/web`               | Next.js: `/app/*` contractor, `/r/*` public approval                                                       |
 
 Dependency direction is enforced by package boundaries:
 `domain ← application ← api/worker`, and `web → contracts` only.
@@ -179,7 +179,7 @@ Dependency direction is enforced by package boundaries:
   transactional outbox and a PostgreSQL job queue (`FOR UPDATE SKIP LOCKED`,
   leases, backoff, dead-letter).
 - **Evidence is append-only.** `audit_events` and `decisions` are protected by
-  database triggers *and* by role privileges. Corrections go through a documented
+  database triggers _and_ by role privileges. Corrections go through a documented
   repair command that records before/after digests.
 
 ---
@@ -247,11 +247,11 @@ pnpm verify               # format, lint, typecheck, all tests
 
 ## Assurance levels
 
-| Level | What it is | Status |
-|---|---|---|
-| **A0** | Secure-link assent: 256-bit token, typed name, affirmative checkbox, timestamp, IP hash, user agent | default, available |
-| **A1** | A0 plus a one-time code to the recorded approver phone | available when the plan includes it |
-| **A2** | Licensed e-signature with a provider certificate | **not in this release** — rejected explicitly, never silently downgraded |
+| Level  | What it is                                                                                          | Status                                                                   |
+| ------ | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **A0** | Secure-link assent: 256-bit token, typed name, affirmative checkbox, timestamp, IP hash, user agent | default, available                                                       |
+| **A1** | A0 plus a one-time code to the recorded approver phone                                              | available when the plan includes it                                      |
+| **A2** | Licensed e-signature with a provider certificate                                                    | **not in this release** — rejected explicitly, never silently downgraded |
 
 The wording for every level lives in one file
 (`packages/contracts/src/assurance.ts`) so counsel can review it in one place,
@@ -262,14 +262,14 @@ that an A0 pack never claims a certified signature.
 
 ## Testing
 
-| Suite | What it proves | Command |
-|---|---|---|
-| unit | money/tax/rounding, state-transition matrix, authorization matrix, canonical JSON, tokens | `pnpm test:unit` |
-| property | totals invariants, key-order independence of digests, terminal states never transition, chain verification | `pnpm test:property` |
+| Suite       | What it proves                                                                                                                             | Command                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| unit        | money/tax/rounding, state-transition matrix, authorization matrix, canonical JSON, tokens                                                  | `pnpm test:unit`        |
+| property    | totals invariants, key-order independence of digests, terminal states never transition, chain verification                                 | `pnpm test:property`    |
 | integration | **real PostgreSQL**: tenant isolation on every repository, approval races, idempotency, outbox atomicity, versioning, projection integrity | `pnpm test:integration` |
-| security | token leakage and enumeration, minimal public projection, malicious files and polyglots, webhook forgery, read-only mode | `pnpm test:security` |
-| golden | canonical snapshot structure and digest, manifest reproducibility, **rendered PDF text extraction** | `pnpm test:golden` |
-| e2e | Playwright mobile and desktop through the real UI | `pnpm test:e2e` |
+| security    | token leakage and enumeration, minimal public projection, malicious files and polyglots, webhook forgery, read-only mode                   | `pnpm test:security`    |
+| golden      | canonical snapshot structure and digest, manifest reproducibility, **rendered PDF text extraction**                                        | `pnpm test:golden`      |
+| e2e         | Playwright mobile and desktop through the real UI                                                                                          | `pnpm test:e2e`         |
 
 The database-backed suites talk to a real PostgreSQL instance — never an
 in-memory fake, because the locking, constraint and trigger behaviour under test
@@ -313,10 +313,10 @@ actually deliver, or if TLS to the database is disabled.
 
 ### Health and metrics
 
-| Endpoint | Purpose |
-|---|---|
-| `/healthz` | liveness — never touches the database |
-| `/readyz` | readiness — checks the database, reports driver configuration |
+| Endpoint   | Purpose                                                                                                              |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `/healthz` | liveness — never touches the database                                                                                |
+| `/readyz`  | readiness — checks the database, reports driver configuration                                                        |
 | `/metrics` | Prometheus text: decision success/failure, outbox age, queue depth, PDF duration, integrity and audit-chain failures |
 
 Page an operator for sustained decision failures, database unavailability,
@@ -344,18 +344,18 @@ Backups: `scripts/backup.sh` (encrypted, refuses to write plaintext),
 Report §15.2. Each of these has an adapter or interface in place so it can be
 added without reworking the domain:
 
-| Deferred | Trigger to build it |
-|---|---|
-| Automated WhatsApp Cloud API sending | evidence that automation improves send, decision or retention rates over native share |
-| Contractor-owned WhatsApp numbers (Embedded Signup) | sender trust or branding demonstrably blocking adoption |
-| A2 licensed e-signature | a contractual requirement from a paying customer, plus counsel sign-off on how the certificate is represented |
-| Multiple / sequential approvers | repeated field evidence of multi-party approval disputes |
-| Full invoicing and GST filing | never in this product — it belongs to an accounting integration |
-| Redis / dedicated queue | measured queue contention or lease-throughput limits in PostgreSQL |
-| Elasticsearch | p95 tenant search missing its SLO after index and query tuning |
-| WORM storage and external timestamping | a customer requirement for proof-of-time beyond tamper-evidence |
-| Native mobile apps | installable PWA proving insufficient for home-screen and offline drafts |
-| AI drafting, OCR, translation | only with a disclosed processing basis and a redaction strategy |
+| Deferred                                            | Trigger to build it                                                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Automated WhatsApp Cloud API sending                | evidence that automation improves send, decision or retention rates over native share                         |
+| Contractor-owned WhatsApp numbers (Embedded Signup) | sender trust or branding demonstrably blocking adoption                                                       |
+| A2 licensed e-signature                             | a contractual requirement from a paying customer, plus counsel sign-off on how the certificate is represented |
+| Multiple / sequential approvers                     | repeated field evidence of multi-party approval disputes                                                      |
+| Full invoicing and GST filing                       | never in this product — it belongs to an accounting integration                                               |
+| Redis / dedicated queue                             | measured queue contention or lease-throughput limits in PostgreSQL                                            |
+| Elasticsearch                                       | p95 tenant search missing its SLO after index and query tuning                                                |
+| WORM storage and external timestamping              | a customer requirement for proof-of-time beyond tamper-evidence                                               |
+| Native mobile apps                                  | installable PWA proving insufficient for home-screen and offline drafts                                       |
+| AI drafting, OCR, translation                       | only with a disclosed processing basis and a redaction strategy                                               |
 
 ---
 
@@ -364,18 +364,18 @@ added without reworking the domain:
 Report §16.3. Automated gates run in CI; the rest are explicitly not
 engineering's to close.
 
-| Gate | Status |
-|---|---|
-| Cross-tenant negative tests on every repository | automated — `tests/integration/tenant-isolation.test.ts` |
-| Approval races and idempotency on real PostgreSQL | automated — `tests/integration/approval-race.test.ts` |
-| Golden evidence snapshots and hashes | automated — `tests/golden/evidence.test.ts` |
-| Files private and scanned before display | automated — quarantine pipeline + `tests/security` |
-| No public link in logs, analytics or referrers | automated — redaction tests + E2E header assertions |
-| Backups exist and one restore completed | **ops task** — follow `infra/runbooks/backup-and-restore.md` and record the rehearsal |
-| Alerting on decision and audit-integrity failure | metrics and thresholds ship here; wiring needs a real monitoring provider |
-| Counsel review of approval copy, privacy and evidence claims | **business blocker** — cannot be closed by code |
-| Export available after subscription lapse | automated — `tests/security/token-and-files.test.ts` |
-| Three or more paying pilot businesses | **business blocker** — cannot be closed by code |
+| Gate                                                         | Status                                                                                |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Cross-tenant negative tests on every repository              | automated — `tests/integration/tenant-isolation.test.ts`                              |
+| Approval races and idempotency on real PostgreSQL            | automated — `tests/integration/approval-race.test.ts`                                 |
+| Golden evidence snapshots and hashes                         | automated — `tests/golden/evidence.test.ts`                                           |
+| Files private and scanned before display                     | automated — quarantine pipeline + `tests/security`                                    |
+| No public link in logs, analytics or referrers               | automated — redaction tests + E2E header assertions                                   |
+| Backups exist and one restore completed                      | **ops task** — follow `infra/runbooks/backup-and-restore.md` and record the rehearsal |
+| Alerting on decision and audit-integrity failure             | metrics and thresholds ship here; wiring needs a real monitoring provider             |
+| Counsel review of approval copy, privacy and evidence claims | **business blocker** — cannot be closed by code                                       |
+| Export available after subscription lapse                    | automated — `tests/security/token-and-files.test.ts`                                  |
+| Three or more paying pilot businesses                        | **business blocker** — cannot be closed by code                                       |
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_db_migrations_0006_intake_without_user_sql",
+      "label": "0006_intake_without_user.sql",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0006_intake_without_user.sql",
+      "source_location": null
+    },
+    {
+      "id": "change_orders",
+      "label": "change_orders",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0006_intake_without_user.sql"
+    }
+  ],
+  "edges": []
+}

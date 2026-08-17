@@ -1,0 +1,191 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_md",
+      "label": "ExtraWork_Product_Brief.md",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "label": "ExtraWork \u2014 Product Brief",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_what_extrawork_is",
+      "label": "What ExtraWork is",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_the_underlying_idea",
+      "label": "The underlying idea",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_who_uses_it",
+      "label": "Who uses it",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L25"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_business_owner_or_administrator",
+      "label": "Business owner or administrator",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L27"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_field_employee",
+      "label": "Field employee",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L41"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_customer_or_authorized_approver",
+      "label": "Customer or authorized approver",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L67"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_end_to_end_workflow",
+      "label": "End-to-end workflow",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L79"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_core_product_value",
+      "label": "Core product value",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L95"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_mvp_scope",
+      "label": "MVP scope",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L110"
+    },
+    {
+      "id": "$graphify-root$_docs_extrawork_product_brief_later_expansion",
+      "label": "Later expansion",
+      "file_type": "document",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L129"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_md",
+      "target": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_what_extrawork_is",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_the_underlying_idea",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_who_uses_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_who_uses_it",
+      "target": "$graphify-root$_docs_extrawork_product_brief_business_owner_or_administrator",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_who_uses_it",
+      "target": "$graphify-root$_docs_extrawork_product_brief_field_employee",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L41",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_who_uses_it",
+      "target": "$graphify-root$_docs_extrawork_product_brief_customer_or_authorized_approver",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L67",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_end_to_end_workflow",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L79",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_core_product_value",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L95",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_mvp_scope",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L110",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_extrawork_product_brief_extrawork_product_brief",
+      "target": "$graphify-root$_docs_extrawork_product_brief_later_expansion",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/ExtraWork_Product_Brief.md",
+      "source_location": "L129",
+      "weight": 1.0
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

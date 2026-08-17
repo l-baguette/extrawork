@@ -1,0 +1,707 @@
+{
+  "nodes": [
+    {
+      "id": "docs_implementation_plan_source_of_truth",
+      "label": "ExtraWork Technical Design Report and Master Build Specification v1.0",
+      "file_type": "document",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "header",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_build_order",
+      "label": "Build order S1\u2013S10",
+      "file_type": "document",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a71",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_module_map",
+      "label": "Module map to package",
+      "file_type": "document",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a72",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_mvp_posture",
+      "label": "Adapter-with-deferred-driver MVP posture",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_nativesharegateway",
+      "label": "NativeShareGateway",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_whatsappcloudgateway",
+      "label": "WhatsAppCloudGateway",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_otp_a1",
+      "label": "OTP challenge engine (A1)",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_a2_esign_rejection",
+      "label": "A2 rejected with ASSURANCE_UNAVAILABLE",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_paymentgateway",
+      "label": "PaymentGateway interface",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_requirement_traceability",
+      "label": "Requirement traceability matrix",
+      "file_type": "document",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_state_machine",
+      "label": "Change-order state machine",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_money_engine",
+      "label": "Money and totals engine",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_canonical_jcs",
+      "label": "Canonical JSON (JCS) + SHA-256 digest",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_audit_hash_chain",
+      "label": "Audit hash chain",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_entitlements",
+      "label": "Server-side entitlements and lapse read/export mode",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_tenant_context",
+      "label": "TenantContext required on every repository",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_approval_token",
+      "label": "32-byte approval token, SHA-256 stored",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_idempotency",
+      "label": "Idempotency key (scope, subject, key)",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_unit_of_work",
+      "label": "UnitOfWork atomic domain+audit+outbox commit",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.3",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_append_only_role",
+      "label": "Append-only via denied UPDATE/DELETE privileges",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_evidence_manifest",
+      "label": "Evidence manifest and PDF template",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.4",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_job_queue",
+      "label": "Job queue with lease, dead-letter and priorities",
+      "file_type": "concept",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.5",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_launch_gates",
+      "label": "Launch gates with owners",
+      "file_type": "document",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a75",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_final_status",
+      "label": "Final verified status (280 automated tests)",
+      "file_type": "document",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_timestamptz_string",
+      "label": "Defect: timestamptz returned as string",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_public_etag",
+      "label": "Defect: public decision ETag from lock_version",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_cancelled_draft_constraint",
+      "label": "Defect: CHECK constraints made a cancelled draft unrepresentable",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_job_tenant_payload",
+      "label": "Defect: job handlers read tenant from payload",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_outbox_duplicate_jobs",
+      "label": "Defect: outbox pump duplicated atomically enqueued jobs",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_manifest_digest",
+      "label": "Defect: manifest digest computed over its own wrapper",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_public_session_cookie",
+      "label": "Defect: public session cookie discarded during SSR",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_code_redaction",
+      "label": "Defect: 'code' in the log redaction list",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_implementation_plan_defect_missing_gitignore",
+      "label": "Defect: no .gitignore protecting .env",
+      "file_type": "rationale",
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "docs_implementation_plan_build_order",
+      "target": "docs_implementation_plan_source_of_truth",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a71 report refs",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_module_map",
+      "target": "docs_implementation_plan_source_of_truth",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a72 (\u00a77.1)",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_requirement_traceability",
+      "target": "docs_implementation_plan_source_of_truth",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_mvp_posture",
+      "target": "docs_implementation_plan_nativesharegateway",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_mvp_posture",
+      "target": "docs_implementation_plan_whatsappcloudgateway",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_mvp_posture",
+      "target": "docs_implementation_plan_paymentgateway",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_whatsappcloudgateway",
+      "target": "docs_implementation_plan_entitlements",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73 automatedWhatsApp entitlement",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_otp_a1",
+      "target": "docs_implementation_plan_entitlements",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73 otpApprovals entitlement",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_nativesharegateway",
+      "target": "docs_implementation_plan_whatsappcloudgateway",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_audit_hash_chain",
+      "target": "docs_implementation_plan_canonical_jcs",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.1 h[n]=SHA256(h[n-1]||canonical(e[n]))",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_evidence_manifest",
+      "target": "docs_implementation_plan_canonical_jcs",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.4",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_evidence_manifest",
+      "target": "docs_implementation_plan_audit_hash_chain",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.4 terminal audit hash",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_unit_of_work",
+      "target": "docs_implementation_plan_job_queue",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.3/\u00a74.5 outbox and jobs",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_tenant_context",
+      "target": "docs_implementation_plan_append_only_role",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_approval_token",
+      "target": "docs_implementation_plan_state_machine",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2 revoke on supersede/decide",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_public_etag",
+      "target": "docs_implementation_plan_canonical_jcs",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 publicDecisionEtag is the frozen snapshot digest",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_manifest_digest",
+      "target": "docs_implementation_plan_evidence_manifest",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_outbox_duplicate_jobs",
+      "target": "docs_implementation_plan_job_queue",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_job_tenant_payload",
+      "target": "docs_implementation_plan_tenant_context",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_cancelled_draft_constraint",
+      "target": "docs_implementation_plan_state_machine",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_public_session_cookie",
+      "target": "readme_public_approval_page",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_code_redaction",
+      "target": "docs_implementation_plan_otp_a1",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects (redaction narrowed to OTP material)",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_missing_gitignore",
+      "target": "readme_local_dev_options",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 Defects (.env.example retained)",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_defect_timestamptz_string",
+      "target": "docs_implementation_plan_final_status",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_final_status",
+      "target": "_github_workflows_ci_static",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 pnpm typecheck / pnpm lint",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_final_status",
+      "target": "_github_workflows_ci_database",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a76 integration/security/golden results",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_launch_gates",
+      "target": "_github_workflows_ci_blocker_named_jobs",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a75",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_build_order",
+      "target": "pnpm_workspace_packages",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a71 S1 monorepo, workspace",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_module_map",
+      "target": "pnpm_workspace_packages",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a72 packages/* and apps/*",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_evidence_manifest",
+      "target": "readme_evidence_pack",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.4",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_a2_esign_rejection",
+      "target": "readme_not_an_esignature_disclaimer",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a73",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_implementation_plan_approval_token",
+      "target": "readme_assurance_a0",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md",
+      "source_location": "\u00a74.2 256-bit token",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "deferred_provider_adapters",
+      "label": "Deferred-provider adapter set",
+      "nodes": [
+        "docs_implementation_plan_nativesharegateway",
+        "docs_implementation_plan_whatsappcloudgateway",
+        "docs_implementation_plan_otp_a1",
+        "docs_implementation_plan_a2_esign_rejection",
+        "docs_implementation_plan_paymentgateway",
+        "docs_implementation_plan_mvp_posture"
+      ],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/IMPLEMENTATION_PLAN.md"
+    }
+  ]
+}

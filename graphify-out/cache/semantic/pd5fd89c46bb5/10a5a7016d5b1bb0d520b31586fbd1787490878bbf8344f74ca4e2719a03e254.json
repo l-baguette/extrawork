@@ -1,0 +1,306 @@
+{
+  "nodes": [
+    {
+      "id": "_github_workflows_ci_static",
+      "label": "CI job: Format, lint, typecheck",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.static",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_unit",
+      "label": "CI job: Unit and property tests",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.unit",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_migrations",
+      "label": "CI job: Migration lint",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.migrations",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_database",
+      "label": "CI job: Integration, security and golden tests",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.database",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_build",
+      "label": "CI job: Build web, API and worker",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.build",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_supply_chain",
+      "label": "CI job: Dependency and secret scan",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.supply-chain",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_e2e",
+      "label": "CI job: End-to-end (Playwright)",
+      "file_type": "code",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.e2e",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_migration_idempotency_check",
+      "label": "Migration idempotency check",
+      "file_type": "rationale",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.migrations.steps[Re-apply is a no-op]",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_openapi_drift_check",
+      "label": "OpenAPI drift check",
+      "file_type": "rationale",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.build.steps[OpenAPI document is up to date]",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_blocker_named_jobs",
+      "label": "One CI job per launch blocker",
+      "file_type": "rationale",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "header comment",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_real_postgres_service",
+      "label": "Ephemeral PostgreSQL 16 CI service",
+      "file_type": "rationale",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "services.postgres",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "_github_workflows_ci_placeholder_secrets",
+      "label": "CI placeholder secrets",
+      "file_type": "concept",
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "env SESSION_SECRET/PRIVACY_HASH_SECRET/STORAGE_URL_SECRET",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "_github_workflows_ci_migrations",
+      "target": "_github_workflows_ci_migration_idempotency_check",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.migrations",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_build",
+      "target": "_github_workflows_ci_openapi_drift_check",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.build",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_e2e",
+      "target": "_github_workflows_ci_build",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.e2e.needs",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_database",
+      "target": "_github_workflows_ci_real_postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.database.services",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_migrations",
+      "target": "_github_workflows_ci_real_postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.migrations.services",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_e2e",
+      "target": "_github_workflows_ci_real_postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.e2e.services",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_blocker_named_jobs",
+      "target": "_github_workflows_ci_database",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "header comment",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_database",
+      "target": "readme_launch_gates",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.database step comments (\u00a716.3)",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_placeholder_secrets",
+      "target": "readme_production_config_guard",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_database",
+      "target": "readme_testing_suites",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "pnpm test:integration/security/golden",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_unit",
+      "target": "readme_testing_suites",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "pnpm test:unit/property",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_e2e",
+      "target": "readme_testing_suites",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "pnpm test:e2e",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_openapi_drift_check",
+      "target": "docs_implementation_plan_requirement_traceability",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "docs/openapi/openapi.json",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_e2e",
+      "target": "docker_compose_app_env",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": "jobs.e2e.env",
+      "weight": 1.0
+    },
+    {
+      "source": "_github_workflows_ci_real_postgres_service",
+      "target": "readme_real_postgres_testing",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": ".github/workflows/ci.yml",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "ci_launch_blocker_gates",
+      "label": "CI jobs that close automated launch blockers",
+      "nodes": [
+        "_github_workflows_ci_migrations",
+        "_github_workflows_ci_database",
+        "_github_workflows_ci_build",
+        "_github_workflows_ci_supply_chain",
+        "_github_workflows_ci_e2e",
+        "readme_launch_gates"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".github/workflows/ci.yml"
+    }
+  ]
+}

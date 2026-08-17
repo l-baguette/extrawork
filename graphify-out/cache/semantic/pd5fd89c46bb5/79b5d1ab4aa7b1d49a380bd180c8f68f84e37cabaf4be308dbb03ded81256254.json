@@ -1,0 +1,676 @@
+{
+  "nodes": [
+    {
+      "id": "readme_extrawork",
+      "label": "ExtraWork",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "\u00a7 intro",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_modular_monolith",
+      "label": "Modular monolith (ADR-001)",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Architecture",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_dependency_direction",
+      "label": "Enforced dependency direction",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Architecture / Packages",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_money_integer_minor_units",
+      "label": "Money as integer minor units (ADR-005)",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_frozen_sent_version",
+      "label": "A sent version is frozen",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_atomic_idempotent_decisions",
+      "label": "Atomic and idempotent decisions",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_transactional_outbox",
+      "label": "No provider call inside a transaction",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_append_only_evidence",
+      "label": "Append-only evidence",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_assurance_a0",
+      "label": "Assurance level A0 \u2014 secure-link assent",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "Assurance levels",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_assurance_a1",
+      "label": "Assurance level A1 \u2014 OTP to approver phone",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "Assurance levels",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_assurance_a2",
+      "label": "Assurance level A2 \u2014 licensed e-signature",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "Assurance levels",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_not_an_esignature_disclaimer",
+      "label": "Not a licensed electronic signature disclaimer",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "What this is not",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_core_journey",
+      "label": "The core journey",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "The core journey",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_native_share_send",
+      "label": "Native WhatsApp share (SHARE_INTENT_OPENED)",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "The core journey step 4",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_public_approval_page",
+      "label": "Public approval page /r/{token}",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "The core journey step 5",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_evidence_pack",
+      "label": "Evidence pack (PDF + manifest)",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "The core journey step 8",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_testing_suites",
+      "label": "Test suite matrix",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "Testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_real_postgres_testing",
+      "label": "Real PostgreSQL, never an in-memory fake",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Testing",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_deployment_topology",
+      "label": "Deployment topology (report \u00a711.1)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "Deployment",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_expand_and_contract_release",
+      "label": "Expand-and-contract release order",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Deployment",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_production_config_guard",
+      "label": "Production config guard (packages/config)",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Deployment",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_db_harden_runtime_role",
+      "label": "db:harden restricted runtime role",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "Commands / Deployment",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_health_and_metrics",
+      "label": "Health and metrics endpoints",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "Health and metrics",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_runbooks",
+      "label": "Operational runbooks",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "Operations",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_backup_scripts",
+      "label": "Backup, verify and restore scripts",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "Operations",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_deliberately_deferred",
+      "label": "Deliberately deferred scope (report \u00a715.2)",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "Deliberately deferred",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_launch_gates",
+      "label": "Launch gates (report \u00a716.3)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "Launch gates",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_seed_data",
+      "label": "Demonstration seed data",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "What the seed gives you",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_local_dev_options",
+      "label": "Quick start \u2014 Docker or host PostgreSQL",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "Quick start",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "readme_extrawork",
+      "target": "docs_implementation_plan_source_of_truth",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "intro",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_extrawork",
+      "target": "readme_modular_monolith",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Architecture",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_modular_monolith",
+      "target": "readme_dependency_direction",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Packages",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_frozen_sent_version",
+      "target": "readme_evidence_pack",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing / core journey",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_atomic_idempotent_decisions",
+      "target": "readme_transactional_outbox",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_append_only_evidence",
+      "target": "readme_db_harden_runtime_role",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Decisions worth knowing / Deployment",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_not_an_esignature_disclaimer",
+      "target": "readme_assurance_a0",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "What this is not / Assurance levels",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_assurance_a1",
+      "target": "readme_assurance_a0",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Assurance levels",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_assurance_a2",
+      "target": "readme_deliberately_deferred",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Assurance levels / Deliberately deferred",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_core_journey",
+      "target": "readme_native_share_send",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "step 4",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_core_journey",
+      "target": "readme_public_approval_page",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "step 5",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_core_journey",
+      "target": "readme_evidence_pack",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "step 8",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_public_approval_page",
+      "target": "readme_assurance_a0",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_real_postgres_testing",
+      "target": "readme_testing_suites",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Testing",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_deployment_topology",
+      "target": "readme_expand_and_contract_release",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Deployment",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_deployment_topology",
+      "target": "readme_production_config_guard",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Deployment",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_runbooks",
+      "target": "readme_backup_scripts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Operations",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_launch_gates",
+      "target": "readme_backup_scripts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Launch gates",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_health_and_metrics",
+      "target": "readme_append_only_evidence",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Health and metrics (audit-chain failures)",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_seed_data",
+      "target": "readme_frozen_sent_version",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "What the seed gives you",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_local_dev_options",
+      "target": "docker_compose_db",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Quick start Option A",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_local_dev_options",
+      "target": "docker_compose_minio",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Quick start Option A",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_local_dev_options",
+      "target": "docker_compose_mailpit",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Quick start Option A",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_deployment_topology",
+      "target": "docker_compose_same_image_processes",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Deployment (same image)",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_native_share_send",
+      "target": "docs_implementation_plan_nativesharegateway",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "core journey step 4",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_deliberately_deferred",
+      "target": "docs_implementation_plan_mvp_posture",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "Deliberately deferred (\u00a715.2)",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_launch_gates",
+      "target": "docs_implementation_plan_launch_gates",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": "Launch gates (\u00a716.3)",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_money_integer_minor_units",
+      "target": "docs_implementation_plan_money_engine",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_frozen_sent_version",
+      "target": "docs_implementation_plan_canonical_jcs",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_append_only_evidence",
+      "target": "docs_implementation_plan_append_only_role",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_transactional_outbox",
+      "target": "docs_implementation_plan_unit_of_work",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_atomic_idempotent_decisions",
+      "target": "docs_implementation_plan_idempotency",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_assurance_a2",
+      "target": "docs_implementation_plan_a2_esign_rejection",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_assurance_a1",
+      "target": "docs_implementation_plan_otp_a1",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_dependency_direction",
+      "target": "pnpm_workspace_packages",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -1,0 +1,191 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_md",
+      "label": "hosted-migration.md",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "label": "Moving off this machine: Supabase + Cloudflare R2",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_before_you_start",
+      "label": "Before you start",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_1_supabase",
+      "label": "1. Supabase",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L33"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_use_the_direct_connection_not_the_transaction_pooler",
+      "label": "Use the direct connection, not the transaction pooler",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L42"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_2_cloudflare_r2",
+      "label": "2. Cloudflare R2",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L60"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_3_put_the_values_in_env_yourself",
+      "label": "3. Put the values in `.env` yourself",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L73"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_4_run_the_migration",
+      "label": "4. Run the migration",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L98"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_5_verify",
+      "label": "5. Verify",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L121"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_rolling_back",
+      "label": "Rolling back",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L135"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_gotchas_found_doing_this_for_real",
+      "label": "Gotchas found doing this for real",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L141"
+    },
+    {
+      "id": "$graphify-root$_infra_runbooks_hosted_migration_what_this_does_not_cover",
+      "label": "What this does not cover",
+      "file_type": "document",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L164"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_md",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_before_you_start",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_1_supabase",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_1_supabase",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_use_the_direct_connection_not_the_transaction_pooler",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_2_cloudflare_r2",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L60",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_3_put_the_values_in_env_yourself",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L73",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_4_run_the_migration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L98",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_5_verify",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_rolling_back",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L135",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_gotchas_found_doing_this_for_real",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_infra_runbooks_hosted_migration_moving_off_this_machine_supabase_cloudflare_r2",
+      "target": "$graphify-root$_infra_runbooks_hosted_migration_what_this_does_not_cover",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "infra/runbooks/hosted-migration.md",
+      "source_location": "L164",
+      "weight": 1.0
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

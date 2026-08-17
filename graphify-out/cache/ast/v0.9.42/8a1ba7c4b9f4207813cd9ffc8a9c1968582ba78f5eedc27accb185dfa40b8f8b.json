@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_infra_docker_init_db_sql",
+      "label": "init-db.sql",
+      "file_type": "code",
+      "source_file": "infra/docker/init-db.sql",
+      "source_location": null
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@extrawork/testkit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./seed": "./src/seed/seed.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed": "tsx src/seed/cli.ts"
+  },
+  "dependencies": {
+    "@extrawork/application": "workspace:*",
+    "@extrawork/config": "workspace:*",
+    "@extrawork/contracts": "workspace:*",
+    "@extrawork/db": "workspace:*",
+    "@extrawork/domain": "workspace:*",
+    "@extrawork/files": "workspace:*",
+    "@extrawork/integrations": "workspace:*",
+    "@extrawork/observability": "workspace:*",
+    "@extrawork/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  }
+}

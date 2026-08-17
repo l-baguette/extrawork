@@ -1,0 +1,185 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_revoke_leaked_token_revoke_leaked_token_runbook",
+      "label": "Revoke a Leaked Approval Token Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_approval_token_revocation",
+      "label": "Approval Token Revocation",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_spent_token",
+      "label": "Spent Token With Recorded Decision",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_revocation_is_not_evidence",
+      "label": "Revocation Is Not Evidence",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_one_token_one_version_one_approver",
+      "label": "One Token, One Version, One Approver",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_create_a_new_version",
+      "label": "Create a New Version as Replacement",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_assurance_level_a0",
+      "label": "A0 Bearer-Link Assurance Level",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_revoke_leaked_token_corrective_change",
+      "label": "Corrective Change to Undo an Approval",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_revoke_leaked_token_revoke_leaked_token_runbook",
+      "target": "infra_runbooks_revoke_leaked_token_approval_token_revocation",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_revocation_is_not_evidence",
+      "target": "infra_runbooks_revoke_leaked_token_approval_token_revocation",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_revocation_is_not_evidence",
+      "target": "infra_runbooks_readme_two_connections",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_one_token_one_version_one_approver",
+      "target": "infra_runbooks_revoke_leaked_token_create_a_new_version",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_spent_token",
+      "target": "infra_runbooks_revoke_leaked_token_corrective_change",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_spent_token",
+      "target": "infra_runbooks_revoke_leaked_token_assurance_level_a0",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_corrective_change",
+      "target": "infra_runbooks_data_subject_request_non_erasable_decision_record",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_revoke_leaked_token_runbook",
+      "target": "infra_runbooks_readme_record_what_you_did",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_revoke_leaked_token_assurance_level_a0",
+      "target": "infra_runbooks_support_access_token_hash_only_storage",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "infra/runbooks/revoke-leaked-token.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

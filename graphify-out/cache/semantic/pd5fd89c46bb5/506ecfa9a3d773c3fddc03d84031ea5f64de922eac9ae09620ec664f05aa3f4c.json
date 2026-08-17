@@ -1,0 +1,206 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook",
+      "label": "Cross-Tenant Disclosure Response Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_cross_tenant_idor",
+      "label": "Cross-Tenant IDOR Threat",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_tenant_authorization_rule",
+      "label": "Tenant Authorization Rule",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_tenant_context",
+      "label": "TenantContext Repository Scope",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_tenant_isolation_negative_corpus",
+      "label": "Tenant Isolation Negative Corpus",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_preserve_evidence_then_contain",
+      "label": "Preserve Evidence Then Contain",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_pseudonymous_log_correlation",
+      "label": "Pseudonymous Log Correlation by requestId",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_blast_radius_determination",
+      "label": "Blast Radius Determination",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_cross_tenant_disclosure_data_fiduciary_notification",
+      "label": "DPDP Data Fiduciary Notification",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook",
+      "target": "infra_runbooks_cross_tenant_disclosure_cross_tenant_idor",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook",
+      "target": "infra_runbooks_cross_tenant_disclosure_preserve_evidence_then_contain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_preserve_evidence_then_contain",
+      "target": "infra_runbooks_cross_tenant_disclosure_pseudonymous_log_correlation",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_tenant_context",
+      "target": "infra_runbooks_cross_tenant_disclosure_tenant_authorization_rule",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_tenant_isolation_negative_corpus",
+      "target": "infra_runbooks_cross_tenant_disclosure_tenant_authorization_rule",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_tenant_isolation_negative_corpus",
+      "target": "infra_runbooks_cross_tenant_disclosure_cross_tenant_idor",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_blast_radius_determination",
+      "target": "infra_runbooks_cross_tenant_disclosure_data_fiduciary_notification",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook",
+      "target": "infra_runbooks_rotate_credentials_rotate_credentials_runbook",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_blast_radius_determination",
+      "target": "infra_runbooks_freeze_organization_single_tenant_blast_radius_check",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_cross_tenant_disclosure_data_fiduciary_notification",
+      "target": "infra_runbooks_data_subject_request_requester_role_triage",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/cross-tenant-disclosure.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

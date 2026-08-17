@@ -1,0 +1,262 @@
+# CI pipeline — report §11.4.
+#
+#   Pull request
+#     -> format/lint/typecheck
+#     -> unit and property tests
+#     -> migration lint
+#     -> integration tests with ephemeral PostgreSQL
+#     -> build web/api/worker
+#     -> dependency and secret scan
+#     -> preview deployment + Playwright smoke
+#
+# The gates that correspond to launch blockers (§16.3) are deliberately separate
+# jobs so a failure names the blocker rather than "tests failed".
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '11.21.0'
+
+jobs:
+  static:
+    name: Format, lint, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  unit:
+    name: Unit and property tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+      - run: pnpm test:property
+
+  migrations:
+    name: Migration lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: extrawork_test
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 20
+        ports: ['5432:5432']
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/extrawork_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install extensions
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d extrawork_test \
+            -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS unaccent;'
+      - name: Apply migrations
+        env:
+          SESSION_SECRET: ci-session-secret-ci-session-secret-0001
+          PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
+          STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+        run: pnpm db:migrate
+      - name: Re-apply is a no-op (migrations are idempotent)
+        env:
+          SESSION_SECRET: ci-session-secret-ci-session-secret-0001
+          PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
+          STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+        run: |
+          output=$(pnpm db:migrate)
+          echo "$output"
+          echo "$output" | grep -q "No new migrations" || {
+            echo "::error::Re-running migrations applied changes; they are not idempotent"
+            exit 1
+          }
+
+  database:
+    name: Integration, security and golden tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: extrawork_test
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 20
+        ports: ['5432:5432']
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/extrawork_test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/extrawork_test
+      SESSION_SECRET: ci-session-secret-ci-session-secret-0001
+      PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
+      STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install extensions
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d extrawork_test \
+            -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS unaccent;'
+      - name: Install Chromium for evidence rendering
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Launch blocker §16.3 #1 and #2.
+      - name: Tenant isolation, approval races and idempotency
+        run: pnpm test:integration
+
+      # Launch blockers §16.3 #4 and #5.
+      - name: Security — token leakage, malicious files, webhook forgery
+        run: pnpm test:security
+
+      # Launch blocker §16.3 #3.
+      - name: Golden evidence snapshots and digests
+        run: pnpm test:golden
+
+  build:
+    name: Build web, API and worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:server
+      - run: pnpm --filter @extrawork/web build
+      - name: OpenAPI document is up to date
+        env:
+          DATABASE_URL: postgres://unused:unused@localhost:5432/unused
+          SESSION_SECRET: ci-session-secret-ci-session-secret-0001
+          PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
+          STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+        run: |
+          pnpm openapi
+          git diff --exit-code docs/openapi/openapi.json || {
+            echo "::error::docs/openapi/openapi.json is stale. Run 'pnpm openapi' and commit."
+            exit 1
+          }
+
+  supply-chain:
+    name: Dependency and secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Known vulnerabilities
+        run: pnpm audit --audit-level high
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: [build]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: extrawork
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 20
+        ports: ['5432:5432']
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/extrawork
+      SESSION_SECRET: ci-session-secret-ci-session-secret-0001
+      PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
+      STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+      API_PUBLIC_URL: http://localhost:4000
+      WEB_PUBLIC_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      STORAGE_DRIVER: local
+      EMAIL_DRIVER: file
+      RATE_LIMIT_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Install extensions
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d extrawork \
+            -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS unaccent;'
+      - run: pnpm db:migrate
+      - run: pnpm build:server && pnpm --filter @extrawork/web build
+      - name: Start API and web
+        run: |
+          node apps/api/dist/server.js > /tmp/api.log 2>&1 &
+          pnpm --filter @extrawork/web start > /tmp/web.log 2>&1 &
+          npx wait-on http://localhost:4000/healthz http://localhost:3000/sign-in --timeout 90000
+      - run: pnpm test:e2e
+      - name: API logs on failure
+        if: failure()
+        run: tail -200 /tmp/api.log /tmp/web.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,0 +1,1183 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "label": "0001_core_schema.sql",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": null
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "label": "organizations",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L47"
+    },
+    {
+      "id": "users",
+      "label": "users",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0001_core_schema.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_project_members",
+      "label": "project_members",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L254"
+    },
+    {
+      "id": "projects",
+      "label": "projects",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0001_core_schema.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "label": "file_objects",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L268"
+    },
+    {
+      "id": "baseline_versions",
+      "label": "baseline_versions",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0001_core_schema.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "label": "change_orders",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L313"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "label": "change_order_versions",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333"
+    },
+    {
+      "id": "contacts",
+      "label": "contacts",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0001_core_schema.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_line_items",
+      "label": "line_items",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L410"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_version_attachments",
+      "label": "version_attachments",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L433"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_approval_tokens",
+      "label": "approval_tokens",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L448"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "label": "public_sessions",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L473"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_otp_challenges",
+      "label": "otp_challenges",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L492"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_decisions",
+      "label": "decisions",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L514"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_audit_events",
+      "label": "audit_events",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L547"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_document_sequences",
+      "label": "document_sequences",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L576"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_outbox_events",
+      "label": "outbox_events",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L591"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_job_queue",
+      "label": "job_queue",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L611"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_webhook_inbox",
+      "label": "webhook_inbox",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L642"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_idempotency_records",
+      "label": "idempotency_records",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L661"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_rate_limit_counters",
+      "label": "rate_limit_counters",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L681"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_messages",
+      "label": "messages",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L695"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_message_events",
+      "label": "message_events",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L725"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_generated_documents",
+      "label": "generated_documents",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L741"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_subscriptions",
+      "label": "subscriptions",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L778"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_entitlement_counters",
+      "label": "entitlement_counters",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L795"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_payment_intents",
+      "label": "payment_intents",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L804"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_support_access_grants",
+      "label": "support_access_grants",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L826"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_data_subject_requests",
+      "label": "data_subject_requests",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L844"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_legal_holds",
+      "label": "legal_holds",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L860"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_repair_events",
+      "label": "repair_events",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L875"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0001_core_schema_reminder_schedules",
+      "label": "reminder_schedules",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L895"
+    },
+    {
+      "id": "customers",
+      "label": "customers",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0001_core_schema.sql"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L47",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L47",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_project_members",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L254",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_project_members",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L254",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_project_members",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L254",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_project_members",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L254",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L268",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L268",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L268",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L268",
+      "weight": 1.0
+    },
+    {
+      "source": "projects",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L301",
+      "weight": 1.0
+    },
+    {
+      "source": "baseline_versions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L305",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L313",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L313",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L313",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L313",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L313",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "target": "contacts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_orders",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L380",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L385",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_line_items",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L410",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_line_items",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L410",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_line_items",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L410",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_version_attachments",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L433",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_version_attachments",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L433",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_version_attachments",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L433",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_version_attachments",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_file_objects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L433",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_approval_tokens",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L448",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_approval_tokens",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L448",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_approval_tokens",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L448",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_approval_tokens",
+      "target": "contacts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L448",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L473",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L473",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_approval_tokens",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L473",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L473",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_otp_challenges",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L492",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_otp_challenges",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L492",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_otp_challenges",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L492",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_otp_challenges",
+      "target": "contacts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L492",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_decisions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L514",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_decisions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L514",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_decisions",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L514",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_decisions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L514",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_decisions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_public_sessions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L514",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_audit_events",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L547",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_audit_events",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L547",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_audit_events",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L547",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_document_sequences",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L576",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_document_sequences",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L576",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_outbox_events",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L591",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_outbox_events",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L591",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_job_queue",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L611",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_job_queue",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L611",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_webhook_inbox",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L642",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_idempotency_records",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L661",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_rate_limit_counters",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L681",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_messages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_messages",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_messages",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_messages",
+      "target": "contacts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_message_events",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L725",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_message_events",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L725",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_message_events",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_messages",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L725",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_generated_documents",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L741",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_generated_documents",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L741",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_generated_documents",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L741",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_generated_documents",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L741",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_subscriptions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L778",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_subscriptions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L778",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_entitlement_counters",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L795",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_entitlement_counters",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L795",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_payment_intents",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L804",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_payment_intents",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L804",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_payment_intents",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L804",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_payment_intents",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L804",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_support_access_grants",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L826",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_support_access_grants",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L826",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_support_access_grants",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L826",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_support_access_grants",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L826",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_data_subject_requests",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L844",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_data_subject_requests",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L844",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_data_subject_requests",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L844",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_legal_holds",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L860",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_legal_holds",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L860",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_legal_holds",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L860",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_legal_holds",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L860",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_legal_holds",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L860",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_repair_events",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L875",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_repair_events",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L875",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_sql",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_reminder_schedules",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L895",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_reminder_schedules",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L895",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0001_core_schema_reminder_schedules",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_change_order_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L895",
+      "weight": 1.0
+    },
+    {
+      "source": "projects",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "projects",
+      "target": "customers",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "projects",
+      "target": "contacts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "baseline_versions",
+      "target": "$graphify-root$_packages_db_migrations_0001_core_schema_organizations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L237",
+      "weight": 1.0
+    },
+    {
+      "source": "baseline_versions",
+      "target": "projects",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L237",
+      "weight": 1.0
+    },
+    {
+      "source": "baseline_versions",
+      "target": "users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0001_core_schema.sql",
+      "source_location": "L237",
+      "weight": 1.0
+    }
+  ]
+}

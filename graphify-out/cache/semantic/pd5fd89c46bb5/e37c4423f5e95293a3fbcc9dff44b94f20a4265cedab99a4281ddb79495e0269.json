@@ -1,0 +1,153 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_freeze_organization_freeze_organization_runbook",
+      "label": "Freeze One Organization Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_freeze_organization_organization_suspended_status",
+      "label": "ORGANIZATION_SUSPENDED Status",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_freeze_organization_live_tokens_survive_freeze",
+      "label": "Live Approval Tokens Survive a Freeze",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_freeze_organization_reads_and_exports_preserved",
+      "label": "Reads and Exports Preserved During Freeze",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_freeze_organization_bulk_token_revocation_on_compromise",
+      "label": "Bulk Token Revocation on Account Compromise",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_freeze_organization_single_tenant_blast_radius_check",
+      "label": "Single-Tenant Blast Radius Check",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_freeze_organization_freeze_organization_runbook",
+      "target": "infra_runbooks_freeze_organization_organization_suspended_status",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_organization_suspended_status",
+      "target": "infra_runbooks_freeze_organization_live_tokens_survive_freeze",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_organization_suspended_status",
+      "target": "infra_runbooks_freeze_organization_reads_and_exports_preserved",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_bulk_token_revocation_on_compromise",
+      "target": "infra_runbooks_freeze_organization_live_tokens_survive_freeze",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_freeze_organization_runbook",
+      "target": "infra_runbooks_freeze_organization_single_tenant_blast_radius_check",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_bulk_token_revocation_on_compromise",
+      "target": "infra_runbooks_revoke_leaked_token_approval_token_revocation",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_freeze_organization_runbook",
+      "target": "infra_runbooks_readme_record_what_you_did",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_freeze_organization_bulk_token_revocation_on_compromise",
+      "target": "infra_runbooks_revoke_leaked_token_create_a_new_version",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/freeze-organization.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

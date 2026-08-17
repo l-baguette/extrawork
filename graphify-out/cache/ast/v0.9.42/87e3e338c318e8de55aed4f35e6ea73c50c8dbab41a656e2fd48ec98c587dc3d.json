@@ -1,0 +1,495 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_docs_handoff_md",
+      "label": "HANDOFF.md",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "label": "ExtraWork \u2014 Project Handoff",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_1_what_the_product_is",
+      "label": "1. What the product is",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_2_current_status_in_one_table",
+      "label": "2. Current status in one table",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L29"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_3_how_to_get_running_5_minutes",
+      "label": "3. How to get running (5 minutes)",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L53"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_4_architecture",
+      "label": "4. Architecture",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L84"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_packages",
+      "label": "Packages",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L102"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_non_negotiable_invariants",
+      "label": "Non-negotiable invariants",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L120"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_5_the_product_pivot_this_is_the_important_part",
+      "label": "5. The product pivot (this is the important part)",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L145"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_target_flow",
+      "label": "Target flow",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L160"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_the_owner_dashboard_one_website_everything_in_it",
+      "label": "The owner dashboard (one website, everything in it)",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L190"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "label": "6. Decisions made, and why",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L200"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_1_company_field_is_optional_not_required",
+      "label": "6.1 Company field is optional, not required",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L204"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_2_the_parser_refuses_to_guess",
+      "label": "6.2 The parser refuses to guess",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L220"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_3_whatsapp_templates_the_constraint_that_shapes_onboarding",
+      "label": "6.3 WhatsApp templates \u2014 the constraint that shapes onboarding",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L231"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_4_simulator_first_gateway",
+      "label": "6.4 Simulator-first gateway",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L272"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_5_signature_is_stronger_evidence_not_a_stronger_legal_claim",
+      "label": "6.5 Signature is stronger evidence, not a stronger legal claim",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L282"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_6_6_assurance_levels",
+      "label": "6.6 Assurance levels",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L291"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_7_what_was_built_for_the_pivot_this_session",
+      "label": "7. What was built for the pivot (this session)",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L306"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_migration_0005_whatsapp_intake_sql_applied_and_verified",
+      "label": "Migration `0005_whatsapp_intake.sql` \u2014 applied and verified",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L308"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_packages_domain_src_intake_23_tests_passing",
+      "label": "`packages/domain/src/intake/` \u2014 23 tests passing",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L326"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "label": "8. Next steps, in build order",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L345"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_step_1_whatsapp_gateway_with_simulator_driver",
+      "label": "Step 1 \u2014 WhatsApp gateway with simulator driver",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L349"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_step_2_intake_service",
+      "label": "Step 2 \u2014 Intake service",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L362"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_step_3_contract_rendering_signature_pad",
+      "label": "Step 3 \u2014 Contract rendering + signature pad",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L385"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_step_4_owner_dashboard_pages",
+      "label": "Step 4 \u2014 Owner dashboard pages",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L395"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_step_5_notifications_back",
+      "label": "Step 5 \u2014 Notifications back",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L406"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_step_6_register_the_meta_template",
+      "label": "Step 6 \u2014 Register the Meta template",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L411"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_9_known_issues_and_gotchas",
+      "label": "9. Known issues and gotchas",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L417"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_10_test_inventory",
+      "label": "10. Test inventory",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L438"
+    },
+    {
+      "id": "$graphify-root$_docs_handoff_11_open_questions_for_the_founder",
+      "label": "11. Open questions for the founder",
+      "file_type": "document",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L452"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_docs_handoff_md",
+      "target": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_1_what_the_product_is",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_2_current_status_in_one_table",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_3_how_to_get_running_5_minutes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L53",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_4_architecture",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L84",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_4_architecture",
+      "target": "$graphify-root$_docs_handoff_packages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L102",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_4_architecture",
+      "target": "$graphify-root$_docs_handoff_non_negotiable_invariants",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L120",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_5_the_product_pivot_this_is_the_important_part",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L145",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_5_the_product_pivot_this_is_the_important_part",
+      "target": "$graphify-root$_docs_handoff_target_flow",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L160",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_5_the_product_pivot_this_is_the_important_part",
+      "target": "$graphify-root$_docs_handoff_the_owner_dashboard_one_website_everything_in_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L190",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L200",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "target": "$graphify-root$_docs_handoff_6_1_company_field_is_optional_not_required",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L204",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "target": "$graphify-root$_docs_handoff_6_2_the_parser_refuses_to_guess",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L220",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "target": "$graphify-root$_docs_handoff_6_3_whatsapp_templates_the_constraint_that_shapes_onboarding",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "target": "$graphify-root$_docs_handoff_6_4_simulator_first_gateway",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L272",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "target": "$graphify-root$_docs_handoff_6_5_signature_is_stronger_evidence_not_a_stronger_legal_claim",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L282",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_6_decisions_made_and_why",
+      "target": "$graphify-root$_docs_handoff_6_6_assurance_levels",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L291",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_7_what_was_built_for_the_pivot_this_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L306",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_7_what_was_built_for_the_pivot_this_session",
+      "target": "$graphify-root$_docs_handoff_migration_0005_whatsapp_intake_sql_applied_and_verified",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L308",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_7_what_was_built_for_the_pivot_this_session",
+      "target": "$graphify-root$_docs_handoff_packages_domain_src_intake_23_tests_passing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L326",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L345",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "target": "$graphify-root$_docs_handoff_step_1_whatsapp_gateway_with_simulator_driver",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L349",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "target": "$graphify-root$_docs_handoff_step_2_intake_service",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L362",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "target": "$graphify-root$_docs_handoff_step_3_contract_rendering_signature_pad",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L385",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "target": "$graphify-root$_docs_handoff_step_4_owner_dashboard_pages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L395",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "target": "$graphify-root$_docs_handoff_step_5_notifications_back",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L406",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_8_next_steps_in_build_order",
+      "target": "$graphify-root$_docs_handoff_step_6_register_the_meta_template",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L411",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_9_known_issues_and_gotchas",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L417",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_10_test_inventory",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L438",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_docs_handoff_extrawork_project_handoff",
+      "target": "$graphify-root$_docs_handoff_11_open_questions_for_the_founder",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/HANDOFF.md",
+      "source_location": "L452",
+      "weight": 1.0
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

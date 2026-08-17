@@ -1,0 +1,216 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_data_subject_request_data_subject_request_runbook",
+      "label": "Data Access, Export and Deletion Request Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_erasure_versus_contractual_evidence",
+      "label": "Erasure Versus Contractual Evidence Tension",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_requester_role_triage",
+      "label": "Requester Role Triage",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_export_subject_cli",
+      "label": "export-subject.ts Export CLI",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_erase_contact_cli",
+      "label": "erase-contact.ts Pseudonymisation CLI",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_non_erasable_decision_record",
+      "label": "Non-Erasable Decision Record",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_organization_account_deletion",
+      "label": "Organization Account Deletion with 30-Day Grace",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_legal_hold",
+      "label": "Legal Hold",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_data_subject_request_export_never_gated_on_billing",
+      "label": "Export Never Gated on Billing Status",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_data_subject_request_data_subject_request_runbook",
+      "target": "infra_runbooks_data_subject_request_erasure_versus_contractual_evidence",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_erasure_versus_contractual_evidence",
+      "target": "infra_runbooks_data_subject_request_non_erasable_decision_record",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_erase_contact_cli",
+      "target": "infra_runbooks_data_subject_request_non_erasable_decision_record",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_export_subject_cli",
+      "target": "infra_runbooks_data_subject_request_export_never_gated_on_billing",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_organization_account_deletion",
+      "target": "infra_runbooks_data_subject_request_legal_hold",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_organization_account_deletion",
+      "target": "infra_runbooks_data_subject_request_export_subject_cli",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_data_subject_request_runbook",
+      "target": "infra_runbooks_data_subject_request_requester_role_triage",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_non_erasable_decision_record",
+      "target": "infra_runbooks_readme_never_edit_evidence_by_hand",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_legal_hold",
+      "target": "infra_runbooks_freeze_organization_freeze_organization_runbook",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_export_never_gated_on_billing",
+      "target": "infra_runbooks_freeze_organization_reads_and_exports_preserved",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_data_subject_request_organization_account_deletion",
+      "target": "infra_runbooks_readme_record_what_you_did",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/data-subject-request.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -1,0 +1,243 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_restore_database_restore_database_runbook",
+      "label": "Restore Database and Verify Audit Chains Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_verify_before_reopening_writes",
+      "label": "Verify Before Reopening Writes",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_stop_writes",
+      "label": "Stop Writes by Scaling to Zero",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_decision_write_path_priority",
+      "label": "Decision Write Path Priority",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_restore_to_new_instance",
+      "label": "Restore to a New Instance for Forensics",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_schema_verification_before_data",
+      "label": "Verify Schema Before Data",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_audit_chain_verification",
+      "label": "Audit Chain Verification After Restore",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_projection_rebuild",
+      "label": "Projection Rebuild After Restore",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_restore_database_side_effect_reconciliation",
+      "label": "Side Effect Reconciliation After Rewind",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_restore_database_restore_database_runbook",
+      "target": "infra_runbooks_restore_database_verify_before_reopening_writes",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_verify_before_reopening_writes",
+      "target": "infra_runbooks_restore_database_audit_chain_verification",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_decision_write_path_priority",
+      "target": "infra_runbooks_restore_database_stop_writes",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_restore_database_runbook",
+      "target": "infra_runbooks_restore_database_restore_to_new_instance",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_restore_to_new_instance",
+      "target": "infra_runbooks_backup_and_restore_managed_postgresql_pitr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_schema_verification_before_data",
+      "target": "infra_runbooks_failed_migration_migration_checksum_guard",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_audit_chain_verification",
+      "target": "infra_runbooks_readme_db_verify_chain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_projection_rebuild",
+      "target": "infra_runbooks_repair_project_totals_repair_project_totals_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_projection_rebuild",
+      "target": "infra_runbooks_repair_project_totals_project_integrity_mismatches",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_side_effect_reconciliation",
+      "target": "infra_runbooks_replay_events_handler_idempotency",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_side_effect_reconciliation",
+      "target": "infra_runbooks_replay_events_message_dedupe_key",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_restore_database_restore_database_runbook",
+      "target": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "post_restore_verification_sequence",
+      "label": "Post-Restore Verification Sequence",
+      "nodes": [
+        "infra_runbooks_restore_database_stop_writes",
+        "infra_runbooks_restore_database_schema_verification_before_data",
+        "infra_runbooks_restore_database_audit_chain_verification",
+        "infra_runbooks_restore_database_projection_rebuild",
+        "infra_runbooks_restore_database_side_effect_reconciliation",
+        "infra_runbooks_repair_project_totals_repair_project_totals_runbook"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/restore-database.md"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+  '@parcel/watcher': true
+  sharp: true
+  playwright: true
+  '@playwright/test': true
+  unrs-resolver: true

@@ -1,0 +1,164 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_failed_migration_failed_migration_runbook",
+      "label": "Failed Migration Recovery Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_failed_migration_expand_and_contract_migrations",
+      "label": "Expand-and-Contract Migrations",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_failed_migration_per_migration_transaction",
+      "label": "Per-Migration Transaction Atomicity",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_failed_migration_fix_forward_or_roll_back_code",
+      "label": "Fix Forward or Roll Back the Code",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_failed_migration_migration_checksum_guard",
+      "label": "Migration Checksum Guard",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_failed_migration_concurrent_index_rebuild",
+      "label": "Concurrent Index Rebuild",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_failed_migration_constraint_violation_means_bad_data",
+      "label": "Constraint Violation Means Real Bad Data",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_failed_migration_failed_migration_runbook",
+      "target": "infra_runbooks_failed_migration_expand_and_contract_migrations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_expand_and_contract_migrations",
+      "target": "infra_runbooks_failed_migration_fix_forward_or_roll_back_code",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_per_migration_transaction",
+      "target": "infra_runbooks_failed_migration_fix_forward_or_roll_back_code",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_concurrent_index_rebuild",
+      "target": "infra_runbooks_failed_migration_per_migration_transaction",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_migration_checksum_guard",
+      "target": "infra_runbooks_readme_never_edit_evidence_by_hand",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_failed_migration_runbook",
+      "target": "infra_runbooks_readme_db_verify_chain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_expand_and_contract_migrations",
+      "target": "infra_runbooks_rotate_credentials_overlapping_key_versions",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_failed_migration_failed_migration_runbook",
+      "target": "infra_runbooks_restore_database_restore_database_runbook",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/failed-migration.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_db_migrations_0004_cancelled_draft_constraints_sql",
+      "label": "0004_cancelled_draft_constraints.sql",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0004_cancelled_draft_constraints.sql",
+      "source_location": null
+    },
+    {
+      "id": "change_order_versions",
+      "label": "change_order_versions",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0004_cancelled_draft_constraints.sql"
+    }
+  ],
+  "edges": []
+}

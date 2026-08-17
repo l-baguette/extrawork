@@ -1,0 +1,41 @@
+{
+  "name": "@extrawork/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "openapi": "tsx src/openapi/generate.ts"
+  },
+  "dependencies": {
+    "@extrawork/application": "workspace:*",
+    "@extrawork/config": "workspace:*",
+    "@extrawork/contracts": "workspace:*",
+    "@extrawork/db": "workspace:*",
+    "@extrawork/domain": "workspace:*",
+    "@extrawork/files": "workspace:*",
+    "@extrawork/integrations": "workspace:*",
+    "@extrawork/observability": "workspace:*",
+    "@extrawork/runtime": "workspace:*",
+    "@fastify/cookie": "11.0.2",
+    "@fastify/cors": "10.0.1",
+    "@fastify/helmet": "13.0.1",
+    "drizzle-orm": "0.38.3",
+    "fastify": "5.2.1",
+    "fastify-plugin": "5.0.1",
+    "zod": "3.24.1",
+    "zod-to-json-schema": "3.24.1"
+  },
+  "devDependencies": {
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  },
+  "exports": {
+    ".": "./src/server.ts",
+    "./app": "./src/app.ts"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "id": "pnpm_workspace_packages",
+      "label": "Workspace package globs (apps/*, packages/*)",
+      "file_type": "code",
+      "source_file": "pnpm-workspace.yaml",
+      "source_location": "packages",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "pnpm_workspace_allowbuilds",
+      "label": "allowBuilds native-dependency allowlist",
+      "file_type": "code",
+      "source_file": "pnpm-workspace.yaml",
+      "source_location": "allowBuilds",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "pnpm_workspace_allowbuilds",
+      "target": "_github_workflows_ci_e2e",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "pnpm-workspace.yaml",
+      "source_location": "playwright / @playwright/test allowed to run install scripts",
+      "weight": 1.0
+    },
+    {
+      "source": "pnpm_workspace_allowbuilds",
+      "target": "_github_workflows_ci_database",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "pnpm-workspace.yaml",
+      "source_location": "playwright chromium needed for evidence rendering",
+      "weight": 1.0
+    },
+    {
+      "source": "pnpm_workspace_packages",
+      "target": "docker_compose_api",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "pnpm-workspace.yaml",
+      "source_location": "apps/* glob covers apps/api",
+      "weight": 1.0
+    },
+    {
+      "source": "pnpm_workspace_allowbuilds",
+      "target": "readme_evidence_pack",
+      "relation": "conceptually_related_to",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.25,
+      "source_file": "pnpm-workspace.yaml",
+      "source_location": "sharp \u2014 likely image handling for PDF evidence, not stated",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

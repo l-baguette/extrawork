@@ -1,0 +1,448 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "label": "0003_append_only_evidence.sql",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": null
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_repair_mode_enabled",
+      "label": "repair_mode_enabled()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L23"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_append_only",
+      "label": "audit_events_append_only()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L34"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_no_update",
+      "label": "audit_events_no_update",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L46"
+    },
+    {
+      "id": "audit_events_append_only",
+      "label": "audit_events_append_only",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_no_delete",
+      "label": "audit_events_no_delete",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L50"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_append_only",
+      "label": "decisions_append_only()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L58"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_no_update",
+      "label": "decisions_no_update",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L70"
+    },
+    {
+      "id": "decisions_append_only",
+      "label": "decisions_append_only",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_no_delete",
+      "label": "decisions_no_delete",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L74"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_freeze_guard",
+      "label": "versions_freeze_guard()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L86"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_freeze",
+      "label": "versions_freeze",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L137"
+    },
+    {
+      "id": "versions_freeze_guard",
+      "label": "versions_freeze_guard",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_delete_guard",
+      "label": "versions_delete_guard()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L141"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_no_delete_after_send",
+      "label": "versions_no_delete_after_send",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L156"
+    },
+    {
+      "id": "versions_delete_guard",
+      "label": "versions_delete_guard",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_line_items_freeze_guard",
+      "label": "line_items_freeze_guard()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L164"
+    },
+    {
+      "id": "change_order_versions",
+      "label": "change_order_versions",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_line_items_freeze",
+      "label": "line_items_freeze",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L187"
+    },
+    {
+      "id": "line_items_freeze_guard",
+      "label": "line_items_freeze_guard",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_version_attachments_freeze_guard",
+      "label": "version_attachments_freeze_guard()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L195"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_version_attachments_freeze",
+      "label": "version_attachments_freeze",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L218"
+    },
+    {
+      "id": "version_attachments_freeze_guard",
+      "label": "version_attachments_freeze_guard",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_baseline_versions_append_only",
+      "label": "baseline_versions_append_only()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L226"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_baseline_versions_no_update",
+      "label": "baseline_versions_no_update",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L238"
+    },
+    {
+      "id": "baseline_versions_append_only",
+      "label": "baseline_versions_append_only",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0003_append_only_evidence.sql"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_repair_mode_enabled",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_append_only",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_no_update",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L46",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_no_update",
+      "target": "audit_events_append_only",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L46",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_no_delete",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_audit_events_no_delete",
+      "target": "audit_events_append_only",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_append_only",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L58",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_no_update",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L70",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_no_update",
+      "target": "decisions_append_only",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L70",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_no_delete",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L74",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_decisions_no_delete",
+      "target": "decisions_append_only",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L74",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_freeze_guard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L86",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_freeze",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L137",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_freeze",
+      "target": "versions_freeze_guard",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L137",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_delete_guard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_no_delete_after_send",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L156",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_versions_no_delete_after_send",
+      "target": "versions_delete_guard",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L156",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_line_items_freeze_guard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L164",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_line_items_freeze_guard",
+      "target": "change_order_versions",
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_line_items_freeze",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L187",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_line_items_freeze",
+      "target": "line_items_freeze_guard",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L187",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_version_attachments_freeze_guard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L195",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_version_attachments_freeze_guard",
+      "target": "change_order_versions",
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L206",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_version_attachments_freeze",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L218",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_version_attachments_freeze",
+      "target": "version_attachments_freeze_guard",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L218",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_baseline_versions_append_only",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L226",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_sql",
+      "target": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_baseline_versions_no_update",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L238",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0003_append_only_evidence_baseline_versions_no_update",
+      "target": "baseline_versions_append_only",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0003_append_only_evidence.sql",
+      "source_location": "L238",
+      "weight": 1.0
+    }
+  ]
+}

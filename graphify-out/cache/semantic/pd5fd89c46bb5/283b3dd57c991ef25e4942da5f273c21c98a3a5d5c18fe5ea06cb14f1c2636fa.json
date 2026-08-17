@@ -1,0 +1,206 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_rotate_credentials_rotate_credentials_runbook",
+      "label": "Rotate Provider and Webhook Credentials Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_overlapping_key_versions",
+      "label": "Overlapping Key Versions",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_rotation_order_of_operations",
+      "label": "Add, Switch, Observe, Remove",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_meta_whatsapp_rotation",
+      "label": "Meta WhatsApp App Secret Rotation",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_razorpay_webhook_rotation",
+      "label": "Razorpay Webhook Secret Rotation",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_auth_key_rollover",
+      "label": "Auth Provider JWKS Key Rollover",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_privacy_hash_secret",
+      "label": "PRIVACY_HASH_SECRET",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_session_secret",
+      "label": "SESSION_SECRET",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_rotate_credentials_payment_webhook_authority",
+      "label": "Payment Webhooks Are the Authority for Payment State",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_rotate_credentials_rotate_credentials_runbook",
+      "target": "infra_runbooks_rotate_credentials_overlapping_key_versions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_overlapping_key_versions",
+      "target": "infra_runbooks_rotate_credentials_rotation_order_of_operations",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_meta_whatsapp_rotation",
+      "target": "infra_runbooks_rotate_credentials_rotation_order_of_operations",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_razorpay_webhook_rotation",
+      "target": "infra_runbooks_rotate_credentials_rotation_order_of_operations",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_payment_webhook_authority",
+      "target": "infra_runbooks_rotate_credentials_razorpay_webhook_rotation",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_auth_key_rollover",
+      "target": "infra_runbooks_rotate_credentials_overlapping_key_versions",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_auth_key_rollover",
+      "target": "infra_runbooks_rotate_credentials_session_secret",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_privacy_hash_secret",
+      "target": "infra_runbooks_cross_tenant_disclosure_pseudonymous_log_correlation",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_meta_whatsapp_rotation",
+      "target": "infra_runbooks_replay_events_replay_events_runbook",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_rotate_credentials_privacy_hash_secret",
+      "target": "infra_runbooks_readme_record_what_you_did",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/rotate-credentials.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

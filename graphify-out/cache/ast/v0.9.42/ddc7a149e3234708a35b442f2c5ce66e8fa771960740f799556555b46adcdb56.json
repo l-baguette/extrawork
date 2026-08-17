@@ -1,0 +1,541 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "label": "0002_search_and_projections.sql",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": null
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_extrawork_unaccent",
+      "label": "extrawork_unaccent()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L37"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_extrawork_search_vector",
+      "label": "extrawork_search_vector()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L49"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_search_trigger",
+      "label": "customers_search_trigger()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L59"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_search_update",
+      "label": "customers_search_update",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L69"
+    },
+    {
+      "id": "customers_search_trigger",
+      "label": "customers_search_trigger",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0002_search_and_projections.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_search_trigger",
+      "label": "projects_search_trigger()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L73"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_search_update",
+      "label": "projects_search_update",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L86"
+    },
+    {
+      "id": "projects_search_trigger",
+      "label": "projects_search_trigger",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0002_search_and_projections.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_search_trigger",
+      "label": "change_orders_search_trigger()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L92"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_search_update",
+      "label": "change_orders_search_update",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L105"
+    },
+    {
+      "id": "change_orders_search_trigger",
+      "label": "change_orders_search_trigger",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0002_search_and_projections.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_recomputed_totals",
+      "label": "project_recomputed_totals()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L116"
+    },
+    {
+      "id": "change_order_versions",
+      "label": "change_order_versions",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0002_search_and_projections.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_integrity_mismatches",
+      "label": "project_integrity_mismatches()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L133"
+    },
+    {
+      "id": "projects",
+      "label": "projects",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0002_search_and_projections.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_touch_updated_at",
+      "label": "touch_updated_at()",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L165"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_organizations_touch",
+      "label": "organizations_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L173"
+    },
+    {
+      "id": "touch_updated_at",
+      "label": "touch_updated_at",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/packages/db/migrations/0002_search_and_projections.sql"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_users_touch",
+      "label": "users_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L175"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_touch",
+      "label": "customers_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L177"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_contacts_touch",
+      "label": "contacts_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L179"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_touch",
+      "label": "projects_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L181"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_touch",
+      "label": "change_orders_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L183"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_order_versions_touch",
+      "label": "change_order_versions_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L185"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_messages_touch",
+      "label": "messages_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L187"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_subscriptions_touch",
+      "label": "subscriptions_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L189"
+    },
+    {
+      "id": "$graphify-root$_packages_db_migrations_0002_search_and_projections_job_queue_touch",
+      "label": "job_queue_touch",
+      "file_type": "code",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L191"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_extrawork_unaccent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_extrawork_search_vector",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L49",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_search_trigger",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L59",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_search_update",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L69",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_search_update",
+      "target": "customers_search_trigger",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L69",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_search_trigger",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L73",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_search_update",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L86",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_search_update",
+      "target": "projects_search_trigger",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L86",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_search_trigger",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L92",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_search_update",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_search_update",
+      "target": "change_orders_search_trigger",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_recomputed_totals",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L116",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_recomputed_totals",
+      "target": "change_order_versions",
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L127",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_integrity_mismatches",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L133",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_integrity_mismatches",
+      "target": "projects",
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L150",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_project_integrity_mismatches",
+      "target": "change_order_versions",
+      "relation": "reads_from",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L153",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_touch_updated_at",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L165",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_organizations_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L173",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_organizations_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L173",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_users_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_users_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_customers_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_contacts_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L179",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_contacts_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L179",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L181",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_projects_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L181",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L183",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_orders_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L183",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_order_versions_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L185",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_change_order_versions_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L185",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_messages_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L187",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_messages_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L187",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_subscriptions_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L189",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_subscriptions_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L189",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_sql",
+      "target": "$graphify-root$_packages_db_migrations_0002_search_and_projections_job_queue_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L191",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_db_migrations_0002_search_and_projections_job_queue_touch",
+      "target": "touch_updated_at",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/db/migrations/0002_search_and_projections.sql",
+      "source_location": "L191",
+      "weight": 1.0
+    }
+  ]
+}

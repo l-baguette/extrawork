@@ -1,0 +1,195 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_support_access_support_access_runbook",
+      "label": "Grant and Revoke Support Access Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_metadata_only_by_default",
+      "label": "Metadata-Only by Default",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_customer_granted_time_bound_access",
+      "label": "Customer-Granted Time-Bound Access",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_support_access_grants",
+      "label": "support_access_grants Record",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_emergency_grant",
+      "label": "Two-Staff Emergency Grant",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_support_actor_auditing",
+      "label": "SUPPORT Actor Type Auditing",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_support_prohibitions",
+      "label": "What Support May Never Do",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_support_access_token_hash_only_storage",
+      "label": "Approval Token Hash-Only Storage",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_support_access_support_access_runbook",
+      "target": "infra_runbooks_support_access_metadata_only_by_default",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_metadata_only_by_default",
+      "target": "infra_runbooks_support_access_customer_granted_time_bound_access",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_customer_granted_time_bound_access",
+      "target": "infra_runbooks_support_access_support_access_grants",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_emergency_grant",
+      "target": "infra_runbooks_support_access_support_access_grants",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_support_actor_auditing",
+      "target": "infra_runbooks_support_access_support_access_grants",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_support_prohibitions",
+      "target": "infra_runbooks_readme_never_edit_evidence_by_hand",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_support_prohibitions",
+      "target": "infra_runbooks_support_access_token_hash_only_storage",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_support_actor_auditing",
+      "target": "infra_runbooks_cross_tenant_disclosure_preserve_evidence_then_contain",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_customer_granted_time_bound_access",
+      "target": "infra_runbooks_data_subject_request_requester_role_triage",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_support_access_emergency_grant",
+      "target": "infra_runbooks_readme_record_what_you_did",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/support-access.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

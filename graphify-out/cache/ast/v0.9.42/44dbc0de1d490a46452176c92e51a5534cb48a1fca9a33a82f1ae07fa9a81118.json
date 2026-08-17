@@ -1,0 +1,76 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_scripts_verify_backup_sh",
+      "label": "verify-backup.sh",
+      "file_type": "code",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L1",
+      "metadata": { "language": "bash", "kind": "file" }
+    },
+    {
+      "id": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "label": "verify-backup.sh script",
+      "file_type": "code",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L1",
+      "metadata": { "language": "bash", "kind": "bash_entrypoint" }
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_scripts_verify_backup_sh",
+      "target": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L1",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "language": "bash",
+      "callee": "set",
+      "caller_nid": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L7"
+    },
+    {
+      "language": "bash",
+      "callee": "trap",
+      "caller_nid": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L13"
+    },
+    {
+      "language": "bash",
+      "callee": "gpg",
+      "caller_nid": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L15"
+    },
+    {
+      "language": "bash",
+      "callee": "echo",
+      "caller_nid": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L19"
+    },
+    {
+      "language": "bash",
+      "callee": "grep",
+      "caller_nid": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L19"
+    },
+    {
+      "language": "bash",
+      "callee": "exit",
+      "caller_nid": "$graphify-root$_scripts_verify_backup_sh__entry",
+      "source_file": "scripts/verify-backup.sh",
+      "source_location": "L21"
+    }
+  ],
+  "bash_sources": []
+}

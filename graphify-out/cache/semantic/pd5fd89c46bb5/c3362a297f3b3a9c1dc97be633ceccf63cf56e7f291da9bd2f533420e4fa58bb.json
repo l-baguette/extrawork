@@ -1,0 +1,268 @@
+{
+  "nodes": [
+    {
+      "id": "infra_runbooks_backup_and_restore_backup_and_restore_runbook",
+      "label": "Backups, Health Checks and Restore Rehearsal Runbook",
+      "file_type": "document",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_backup_schedule",
+      "label": "Backup Schedule and Retention Matrix",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_managed_postgresql_pitr",
+      "label": "Managed PostgreSQL PITR",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_daily_logical_dump",
+      "label": "Daily Logical Dump",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_backup_sh",
+      "label": "scripts/backup.sh",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_verify_backup_sh",
+      "label": "scripts/verify-backup.sh Daily Health Check",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_backup_freshness_alert",
+      "label": "Backup Freshness Alert",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "label": "Monthly Restore Rehearsal",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_measured_rto",
+      "label": "Measured RTO Target",
+      "file_type": "concept",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_object_storage_versioning",
+      "label": "Object Storage Bucket Versioning",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "infra_runbooks_backup_and_restore_regenerable_evidence_pdfs",
+      "label": "Regenerable Evidence PDFs",
+      "file_type": "rationale",
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "infra_runbooks_backup_and_restore_backup_and_restore_runbook",
+      "target": "infra_runbooks_backup_and_restore_backup_schedule",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_backup_schedule",
+      "target": "infra_runbooks_backup_and_restore_managed_postgresql_pitr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_backup_schedule",
+      "target": "infra_runbooks_backup_and_restore_daily_logical_dump",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_daily_logical_dump",
+      "target": "infra_runbooks_backup_and_restore_managed_postgresql_pitr",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_backup_sh",
+      "target": "infra_runbooks_backup_and_restore_daily_logical_dump",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_verify_backup_sh",
+      "target": "infra_runbooks_backup_and_restore_backup_sh",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_verify_backup_sh",
+      "target": "infra_runbooks_backup_and_restore_backup_freshness_alert",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "target": "infra_runbooks_restore_database_restore_database_runbook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "target": "infra_runbooks_backup_and_restore_measured_rto",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "target": "infra_runbooks_readme_db_verify_chain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "target": "infra_runbooks_repair_project_totals_project_integrity_mismatches",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_verify_backup_sh",
+      "target": "infra_runbooks_backup_and_restore_restore_rehearsal",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_regenerable_evidence_pdfs",
+      "target": "infra_runbooks_backup_and_restore_object_storage_versioning",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "infra_runbooks_backup_and_restore_regenerable_evidence_pdfs",
+      "target": "infra_runbooks_restore_database_side_effect_reconciliation",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "infra/runbooks/backup-and-restore.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@extrawork/runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@extrawork/application": "workspace:*",
+    "@extrawork/config": "workspace:*",
+    "@extrawork/contracts": "workspace:*",
+    "@extrawork/db": "workspace:*",
+    "@extrawork/domain": "workspace:*",
+    "@extrawork/files": "workspace:*",
+    "@extrawork/integrations": "workspace:*",
+    "@extrawork/observability": "workspace:*"
+  }
+}
