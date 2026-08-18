@@ -117,7 +117,7 @@ export async function registerAuthRoutes(
 
   app.post(
     '/v1/auth/password',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_SIGN_IN_ATTEMPT', subject: ipSubject }) },
     async (request, reply) => {
       const { email, password } = PasswordSignInSchema.parse(request.body);
       const identity = await app.services.auth.verifyPassword(email, password);

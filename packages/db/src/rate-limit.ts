@@ -25,7 +25,23 @@ export const RATE_LIMITS = {
   OTP_SEND_WINDOW: { limit: 3, windowSeconds: 900 },
   OTP_SEND_DAILY: { limit: 10, windowSeconds: 86_400 },
   UPLOAD_CREATE: { limit: 30, windowSeconds: 3_600 },
+  /**
+   * Guards routes that SEND email — the sign-in link, registration and resend.
+   * Tight on purpose: each request puts a message in someone's inbox, so this
+   * is spam control, and five in fifteen minutes is generous for a real person.
+   */
   AUTH_MAGIC_LINK: { limit: 5, windowSeconds: 900 },
+  /**
+   * Password attempts, which send nothing.
+   *
+   * Separated because sharing the mail bucket meant a person who mistyped their
+   * password a few times was locked out of *signing in* by a limit that exists
+   * to stop mail being sent — and worse, someone who had just registered had
+   * already spent most of the allowance before their first attempt. Still
+   * bounded, because this is the brute-force surface, just not by a counter
+   * measuring a different thing.
+   */
+  AUTH_SIGN_IN_ATTEMPT: { limit: 20, windowSeconds: 900 },
   WEBHOOK: { limit: 600, windowSeconds: 60 },
 } as const satisfies Record<string, RateLimitRule>;
 

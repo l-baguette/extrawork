@@ -23,6 +23,7 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [googleAvailable, setGoogleAvailable] = useState(false);
   const [sent, setSent] = useState(false);
+  const [exists, setExists] = useState(false);
 
   useEffect(() => {
     void fetch(`${API_URL}/v1/auth/methods`)
@@ -53,6 +54,7 @@ export function RegisterForm() {
       // the person staring at an error for a step that worked.
       setSent(true);
     } catch (cause) {
+      setExists(cause instanceof ApiError && cause.code === 'EMAIL_ALREADY_REGISTERED');
       setError(
         cause instanceof ApiError ? cause.message : 'Something went wrong. Please try again.',
       );
@@ -140,6 +142,12 @@ export function RegisterForm() {
         {error ? (
           <p role="alert" className="error-text">
             {error}
+            {exists ? (
+              <>
+                {' '}
+                <Link href="/sign-in">Go to sign in</Link>.
+              </>
+            ) : null}
           </p>
         ) : null}
 

@@ -137,6 +137,85 @@ describe('email verification', () => {
     expect(found?.emailVerifiedAt?.toISOString()).toBe(first.toISOString());
   });
 
+  it('reissues the link when an unverified address registers again', async () => {
+    // The common case, not the adversarial one: the first link never arrived,
+    // so they try again. Returning in silence would show them "check your
+    // email" for a message that was never sent.
+    await container.services.auth.register({
+      email: 'owner@example.test',
+      password: PASSWORD,
+      displayName: 'Priya Owner',
+    });
+    const before = await container.uow.db.execute<{ n: number }>(
+      sql`SELECT count(*)::int AS n FROM auth_challenges WHERE purpose = 'VERIFY_EMAIL'`,
+    );
+
+    await container.services.auth.register({
+      email: 'owner@example.test',
+      password: PASSWORD,
+      displayName: 'Priya Owner',
+    });
+    const after = await container.uow.db.execute<{ n: number }>(
+      sql`SELECT count(*)::int AS n FROM auth_challenges WHERE purpose = 'VERIFY_EMAIL'`,
+    );
+
+    expect(after.rows[0]!.n).toBe(before.rows[0]!.n + 1);
+  });
+
+  it('does not reissue anything once the address is confirmed', async () => {
+    await container.services.auth.register({
+      email: 'owner@example.test',
+      password: PASSWORD,
+      displayName: 'Priya Owner',
+    });
+    const user = await container.repos.identity.findUserByEmail('owner@example.test');
+    await container.uow.transaction((tx) =>
+      container.repos.identity.markEmailVerified(tx, user!.id, new Date()),
+    );
+
+    const before = await container.uow.db.execute<{ n: number }>(
+      sql`SELECT count(*)::int AS n FROM auth_challenges WHERE purpose = 'VERIFY_EMAIL'`,
+    );
+    // A verified account registering again must not be sent anything: that
+    // would let someone spam a real owner's inbox from the signup form. It now
+    // refuses outright, which is the same guarantee with a clearer answer.
+    await expect(
+      container.services.auth.register({
+        email: 'owner@example.test',
+        password: PASSWORD,
+        displayName: 'Priya Owner',
+      }),
+    ).rejects.toMatchObject({ code: 'EMAIL_ALREADY_REGISTERED' });
+    const after = await container.uow.db.execute<{ n: number }>(
+      sql`SELECT count(*)::int AS n FROM auth_challenges WHERE purpose = 'VERIFY_EMAIL'`,
+    );
+
+    expect(after.rows[0]!.n).toBe(before.rows[0]!.n);
+  });
+
+  it('tells a confirmed account to sign in rather than sending nothing', async () => {
+    // An owner-approved trade against §12.2: this surface does reveal that an
+    // address is registered. The alternative was sending them to an inbox for
+    // a message that would never arrive.
+    await container.services.auth.register({
+      email: 'owner@example.test',
+      password: PASSWORD,
+      displayName: 'Priya Owner',
+    });
+    const user = await container.repos.identity.findUserByEmail('owner@example.test');
+    await container.uow.transaction((tx) =>
+      container.repos.identity.markEmailVerified(tx, user!.id, new Date()),
+    );
+
+    await expect(
+      container.services.auth.register({
+        email: 'owner@example.test',
+        password: PASSWORD,
+        displayName: 'Priya Owner',
+      }),
+    ).rejects.toMatchObject({ code: 'EMAIL_ALREADY_REGISTERED' });
+  });
+
   it('answers a resend identically whether or not the address exists', async () => {
     // No throw either way, and nothing that distinguishes the two — the form
     // must not become a way to test which addresses are registered.

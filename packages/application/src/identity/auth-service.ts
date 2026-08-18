@@ -161,7 +161,32 @@ export class AuthService {
       // Someone already holds this address. Say nothing that distinguishes
       // "taken" from "created"; the sign-in page is where a real owner
       // recovers, and an attacker learns nothing either way.
-      return { created: false };
+      //
+      // But if that account never proved the address, reissue the confirmation
+      // rather than returning in silence. The response is identical either way,
+      // so this is not an enumeration oracle — and without it the caller is
+      // shown "check your email" for a message that was never sent, which is
+      // the exact dead end this branch used to create. Someone who registers
+      // twice because the first link never arrived is the common case, not the
+      // adversarial one.
+      // Unconfirmed: reissue the link and answer as if newly created. The
+      // person almost certainly never received the first one.
+      const verification = await this.app.repos.identity.findUserByEmailWithVerification(email);
+      if (!verification || verification.emailVerifiedAt === null) {
+        await this.resendVerification(email);
+        return { created: false };
+      }
+
+      // Confirmed and usable: say so plainly.
+      //
+      // This is a deliberate, owner-approved trade against report §12.2. It does
+      // make the signup form an account-enumeration oracle — someone can test
+      // whether an address is registered here. The exchange is that a real
+      // owner who has forgotten they signed up is told what happened instead of
+      // being sent to an inbox for a message that will never arrive. The
+      // sign-in and reset paths remain enumeration-resistant, so this is the
+      // only surface that answers the question.
+      throw new AppError('EMAIL_ALREADY_REGISTERED');
     }
 
     const passwordHash = await hashPassword(input.password);
