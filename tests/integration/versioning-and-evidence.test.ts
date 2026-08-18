@@ -14,6 +14,9 @@ import {
   type TenantFixture,
 } from '@extrawork/testkit';
 
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
+
 /**
  * Version rules, freezing, atomic commits and projections — report §4.4, §8.3,
  * §13.2 and §13.3.
@@ -44,6 +47,7 @@ async function decide(token: string, type: 'APPROVE' | 'DECLINE' | 'REQUEST_REVI
       input: {
         type,
         signerName: tenant.approverName,
+        signedDate: today(),
         ...(type === 'REQUEST_REVISION' ? { comment: 'Please split the waterproofing line.' } : {}),
         declarationAccepted: true,
       },

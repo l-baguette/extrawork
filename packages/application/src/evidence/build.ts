@@ -5,6 +5,7 @@ import {
   EVIDENCE_TEMPLATE_VERSION,
   type JsonValue,
   buildEvidenceManifest,
+  buildSection63Certificate,
   calculateVersionTotals,
   formatMoney,
   maskPhone,
@@ -24,6 +25,14 @@ import {
  */
 
 export interface EvidenceViewModel {
+  /**
+   * The Bharatiya Sakshya Adhiniyam s.63 certificate for this record.
+   *
+   * Generated unsigned: the statute wants a person in charge of the device and
+   * an expert to put their names to it, and a system that pre-filled those
+   * would be forging the attestation the section exists to obtain.
+   */
+  section63: ReturnType<typeof buildSection63Certificate>;
   /**
    * The manifest *document* itself — the JSON a recipient is handed. Its digest
    * is `manifestSha256`, reproducible by anyone holding this object alone via
@@ -248,6 +257,21 @@ export async function buildEvidenceViewModel(
     manifestSha256: manifest.sha256Hex,
     manifestCanonicalJson: manifest.canonicalJson,
     templateVersion: EVIDENCE_TEMPLATE_VERSION,
+    // Built from the same digests the pack already pins, so the certificate
+    // cannot state a hash the pack does not carry.
+    section63: buildSection63Certificate({
+      recordDescription:
+        `Change request ${changeOrder.number}, version ${version.versionNumber}, ` +
+        `on project ${project.projectNumber} — ${project.title}`,
+      recordSha256: version.canonicalSha256.toString('hex'),
+      manifestSha256: manifest.sha256Hex,
+      terminalEventHash: chain.terminalHash ?? '',
+      chainVerified: chain.valid,
+      generatedAt: options.now.toISOString(),
+      generatorVersion: options.generatorVersion,
+      organizationLegalName: organization.legalName ?? '',
+      organizationDisplayName: organization.displayName,
+    }),
     render: {
       organizationName: organization.displayName,
       organizationLegalName: organization.legalName,

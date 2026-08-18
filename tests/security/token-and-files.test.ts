@@ -14,6 +14,9 @@ import {
   type TenantFixture,
 } from '@extrawork/testkit';
 
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
+
 /**
  * Security tests — report §14.5 "Security tests" and §16.3 launch blockers:
  * token enumeration and leakage, malicious files and polyglots, webhook
@@ -98,7 +101,12 @@ describe('approval token handling', () => {
       {
         plainToken: token,
         publicSessionToken: resolved.session!.token,
-        input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+        input: {
+          type: 'APPROVE',
+          signerName: tenant.approverName,
+          signedDate: today(),
+          declarationAccepted: true,
+        },
         idempotencyKey: randomUUID(),
         ifMatch: resolved.dto.etag,
       },

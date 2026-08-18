@@ -9,6 +9,9 @@ import {
   type TenantFixture,
 } from '@extrawork/testkit';
 
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
+
 /**
  * The WhatsApp intake path, end to end against real PostgreSQL.
  *
@@ -290,7 +293,12 @@ describe('a decision notifies the team', () => {
       {
         plainToken: token,
         publicSessionToken: resolved.session.token,
-        input: { type, signerName: alpha.approverName, declarationAccepted: true },
+        input: {
+          type,
+          signerName: alpha.approverName,
+          signedDate: today(),
+          declarationAccepted: true,
+        },
         idempotencyKey: randomUUID(),
         ifMatch: resolved.dto.etag,
       },

@@ -40,6 +40,9 @@ export interface PublicSessionRow {
 }
 
 export interface DecisionRow {
+  /** Asserted by the signatory. Null on decisions taken before migration 0010. */
+  signedDate: string | null;
+  signedPlace: string | null;
   id: string;
   organizationId: string;
   projectId: string;
@@ -360,6 +363,9 @@ export class ApprovalRepository {
       versionId: string;
       type: DecisionType;
       signerName: string;
+      /** Asserted by the signatory; never derived from the clock. */
+      signedDate: string;
+      signedPlace: string | null;
       comment: string | null;
       assuranceAchieved: AssuranceLevel;
       verifiedPhoneE164: string | null;
@@ -376,12 +382,14 @@ export class ApprovalRepository {
     const id = newId();
     await tx.db.execute(sql`
       INSERT INTO decisions (
-        id, organization_id, project_id, version_id, type, signer_name, signer_comment,
+        id, organization_id, project_id, version_id, type, signer_name, signed_date,
+        signed_place, signer_comment,
         assurance_achieved, verified_phone_e164, public_session_id, ip_hash, user_agent,
         declaration_text, terms_version, occurred_at, receipt_token_hash, receipt_display_id
       ) VALUES (
         ${id}::uuid, ${ctx.organizationId}::uuid, ${input.projectId}::uuid,
         ${input.versionId}::uuid, ${input.type}::decision_type, ${input.signerName},
+        ${input.signedDate}::date, ${input.signedPlace},
         ${input.comment}, ${input.assuranceAchieved}::assurance_level,
         ${input.verifiedPhoneE164}, ${input.publicSessionId}::uuid, ${input.ipHash},
         ${input.userAgent}, ${input.declarationText}, ${input.termsVersion},
@@ -498,12 +506,14 @@ function mapPublicSession(row: PublicSessionRecord): PublicSessionRow {
  */
 const DECISION_COLUMNS = sql`
   id, organization_id, project_id, version_id, type, signer_name,
+  signed_date, signed_place,
   signer_comment, assurance_achieved, verified_phone_e164, occurred_at,
   receipt_display_id
 `;
 
 const DECISION_COLUMNS_D = sql`
   d.id, d.organization_id, d.project_id, d.version_id, d.type, d.signer_name,
+  d.signed_date, d.signed_place,
   d.signer_comment, d.assurance_achieved, d.verified_phone_e164, d.occurred_at,
   d.receipt_display_id
 `;
@@ -515,6 +525,8 @@ type DecisionRecord = {
   version_id: string;
   type: DecisionType;
   signer_name: string;
+  signed_date: string | Date | null;
+  signed_place: string | null;
   signer_comment: string | null;
   assurance_achieved: AssuranceLevel;
   verified_phone_e164: string | null;
@@ -530,6 +542,15 @@ function mapDecision(row: DecisionRecord): DecisionRow {
     versionId: row.version_id,
     type: row.type,
     signerName: row.signer_name,
+    // `date` comes back as a string from pg; normalise to YYYY-MM-DD either way
+    // so the evidence pack never renders a timezone-shifted day.
+    signedDate:
+      row.signed_date === null
+        ? null
+        : typeof row.signed_date === 'string'
+          ? row.signed_date.slice(0, 10)
+          : row.signed_date.toISOString().slice(0, 10),
+    signedPlace: row.signed_place,
     signerComment: row.signer_comment,
     assuranceAchieved: row.assurance_achieved,
     verifiedPhoneE164: row.verified_phone_e164,

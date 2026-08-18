@@ -506,6 +506,13 @@ export const decisions = pgTable('decisions', {
   declarationText: text('declaration_text').notNull(),
   termsVersion: text('terms_version').notNull(),
   occurredAt: ts('occurred_at').notNull(),
+  /**
+   * Migration 0010. What the signatory wrote, as distinct from `occurredAt`,
+   * which is what the server observed. A divergence between them is evidence
+   * and is never normalised away.
+   */
+  signedDate: date('signed_date'),
+  signedPlace: text('signed_place'),
   receiptTokenHash: bytea('receipt_token_hash'),
   receiptDisplayId: text('receipt_display_id').notNull(),
   // Migration 0005. The signature image itself lives in private object storage;

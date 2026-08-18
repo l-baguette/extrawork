@@ -36,12 +36,27 @@ export function DecisionPanel({ token, request }: Props) {
   const [stage, setStage] = useState<Stage>('choose');
   const [type, setType] = useState<DecisionType | null>(null);
   const [signerName, setSignerName] = useState('');
+  /**
+   * Prefilled with today, and editable.
+   *
+   * Prefilling is not the system asserting the date: the signatory sees it,
+   * can change it, and submits it as their own statement. Leaving it blank
+   * would just make the common case harder without making the assertion more
+   * genuine.
+   */
+  const [signedDate, setSignedDate] = useState(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  });
+  const [signedPlace, setSignedPlace] = useState('');
   const [comment, setComment] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [assurance, setAssurance] = useState(request.assurance.achieved);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<{
+    date?: string;
     name?: string;
     comment?: string;
     accept?: string;
@@ -102,6 +117,9 @@ export function DecisionPanel({ token, request }: Props) {
       // server enforces the same rule and is what actually decides.
       errors.name = `This request was sent to ${request.approver.name}. Enter that name to sign.`;
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(signedDate)) {
+      errors.date = 'Enter the date you are signing on.';
+    }
     if (type === 'REQUEST_REVISION' && comment.trim().length === 0) {
       errors.comment = 'Tell the contractor what needs to change.';
     }
@@ -127,6 +145,8 @@ export function DecisionPanel({ token, request }: Props) {
           body: {
             type,
             signerName: signerName.trim(),
+            signedDate,
+            ...(signedPlace.trim() ? { signedPlace: signedPlace.trim() } : {}),
             ...(comment.trim() ? { comment: comment.trim() } : {}),
             declarationAccepted: true,
           },
@@ -256,6 +276,44 @@ export function DecisionPanel({ token, request }: Props) {
                   {fieldError.name}
                 </p>
               ) : null}
+            </div>
+
+            <div>
+              <label htmlFor="signed-date">Date of signing</label>
+              <input
+                id="signed-date"
+                type="date"
+                value={signedDate}
+                onChange={(event) => setSignedDate(event.target.value)}
+                aria-invalid={fieldError.date ? 'true' : undefined}
+                aria-describedby={
+                  fieldError.date ? 'signed-date-error signed-date-help' : 'signed-date-help'
+                }
+              />
+              <p className="small muted" id="signed-date-help">
+                The date you are agreeing on. This is recorded as your own statement, alongside the
+                time we received it.
+              </p>
+              {fieldError.date ? (
+                <p className="field-error" id="signed-date-error">
+                  {fieldError.date}
+                </p>
+              ) : null}
+            </div>
+
+            <div>
+              <label htmlFor="signed-place">Place of signing (optional)</label>
+              <input
+                id="signed-place"
+                type="text"
+                autoComplete="address-level2"
+                value={signedPlace}
+                onChange={(event) => setSignedPlace(event.target.value)}
+                aria-describedby="signed-place-help"
+              />
+              <p className="small muted" id="signed-place-help">
+                The town or city you are in. Useful later if stamp duty is assessed.
+              </p>
             </div>
 
             <div>

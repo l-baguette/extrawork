@@ -15,6 +15,15 @@ import { renderEvidenceHtml } from '../../apps/worker/src/pdf/template.js';
 import { ChromiumPdfRenderer } from '../../apps/worker/src/pdf/renderer.js';
 
 /**
+ * The signing date comes from the fixture's own pinned clock, not the wall
+ * clock. The golden suite freezes time so the canonical JSON and its digest are
+ * reproducible; a signing date taken from the real today would drift away from
+ * that frozen instant every day and be refused as implausible — which is the
+ * domain rule working, not a test to weaken.
+ */
+const today = () => clock.now().toISOString().slice(0, 10);
+
+/**
  * Golden evidence tests — report §14.5:
  *
  *   "For fixed fixtures, retain canonical JSON, expected digest, rendered PDF
@@ -94,6 +103,8 @@ async function approvedFixture() {
       input: {
         type: 'APPROVE',
         signerName: tenant.approverName,
+        signedDate: today(),
+        signedPlace: 'Bengaluru',
         comment: 'Please go ahead.',
         declarationAccepted: true,
       },

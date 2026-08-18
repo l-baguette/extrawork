@@ -11,6 +11,9 @@ import {
   type TenantFixture,
 } from '@extrawork/testkit';
 
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
+
 /**
  * Concurrency and idempotency on real PostgreSQL — report §16.3 launch blocker
  * #2: "Approval races and idempotency are proven against real PostgreSQL."
@@ -56,7 +59,12 @@ describe('simultaneous decisions', () => {
         {
           plainToken: token,
           publicSessionToken: a.session.token,
-          input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+          input: {
+            type: 'APPROVE',
+            signerName: tenant.approverName,
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: randomUUID(),
           ifMatch: a.dto.etag,
         },
@@ -66,7 +74,12 @@ describe('simultaneous decisions', () => {
         {
           plainToken: token,
           publicSessionToken: b.session.token,
-          input: { type: 'DECLINE', signerName: tenant.approverName, declarationAccepted: true },
+          input: {
+            type: 'DECLINE',
+            signerName: tenant.approverName,
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: randomUUID(),
           ifMatch: b.dto.etag,
         },
@@ -102,6 +115,7 @@ describe('simultaneous decisions', () => {
             input: {
               type: index % 2 === 0 ? 'APPROVE' : 'DECLINE',
               signerName: tenant.approverName,
+              signedDate: today(),
               declarationAccepted: true,
             },
             idempotencyKey: randomUUID(),
@@ -127,7 +141,12 @@ describe('simultaneous decisions', () => {
       {
         plainToken: token,
         publicSessionToken: opened.session.token,
-        input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+        input: {
+          type: 'APPROVE',
+          signerName: tenant.approverName,
+          signedDate: today(),
+          declarationAccepted: true,
+        },
         idempotencyKey: randomUUID(),
         ifMatch: opened.dto.etag,
       },
@@ -162,6 +181,7 @@ describe('idempotency', () => {
       input: {
         type: 'APPROVE' as const,
         signerName: tenant.approverName,
+        signedDate: today(),
         declarationAccepted: true,
       },
       idempotencyKey: key,
@@ -190,7 +210,12 @@ describe('idempotency', () => {
       {
         plainToken: token,
         publicSessionToken: opened.session.token,
-        input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+        input: {
+          type: 'APPROVE',
+          signerName: tenant.approverName,
+          signedDate: today(),
+          declarationAccepted: true,
+        },
         idempotencyKey: key,
         ifMatch: opened.dto.etag,
       },
@@ -202,7 +227,12 @@ describe('idempotency', () => {
         {
           plainToken: token,
           publicSessionToken: opened.session.token,
-          input: { type: 'DECLINE', signerName: tenant.approverName, declarationAccepted: true },
+          input: {
+            type: 'DECLINE',
+            signerName: tenant.approverName,
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: key,
           ifMatch: opened.dto.etag,
         },
@@ -220,6 +250,7 @@ describe('idempotency', () => {
       input: {
         type: 'APPROVE' as const,
         signerName: tenant.approverName,
+        signedDate: today(),
         declarationAccepted: true,
       },
       idempotencyKey: randomUUID(),
@@ -256,7 +287,12 @@ describe('stale and superseded links', () => {
         {
           plainToken: token,
           publicSessionToken: opened.session.token,
-          input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+          input: {
+            type: 'APPROVE',
+            signerName: tenant.approverName,
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: randomUUID(),
           ifMatch: opened.dto.etag,
         },
@@ -274,7 +310,12 @@ describe('stale and superseded links', () => {
         {
           plainToken: token,
           publicSessionToken: opened.session.token,
-          input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+          input: {
+            type: 'APPROVE',
+            signerName: tenant.approverName,
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: randomUUID(),
           ifMatch: '"0000000000000000000000000000000000000000"',
         },
@@ -299,7 +340,12 @@ describe('stale and superseded links', () => {
           {
             plainToken: token,
             publicSessionToken: second.session.token,
-            input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+            input: {
+              type: 'APPROVE',
+              signerName: tenant.approverName,
+              signedDate: today(),
+              declarationAccepted: true,
+            },
             idempotencyKey: randomUUID(),
             ifMatch: first.dto.etag,
           },
@@ -377,7 +423,12 @@ describe('signer name must be the approver', () => {
         {
           plainToken: token,
           publicSessionToken: opened.session.token,
-          input: { type: 'APPROVE', signerName: 'Someone Else', declarationAccepted: true },
+          input: {
+            type: 'APPROVE',
+            signerName: 'Someone Else',
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: randomUUID(),
           ifMatch: opened.dto.etag,
         },
@@ -395,7 +446,12 @@ describe('signer name must be the approver', () => {
         {
           plainToken: token,
           publicSessionToken: opened.session.token,
-          input: { type: 'APPROVE', signerName: 'Someone Else', declarationAccepted: true },
+          input: {
+            type: 'APPROVE',
+            signerName: 'Someone Else',
+            signedDate: today(),
+            declarationAccepted: true,
+          },
           idempotencyKey: randomUUID(),
           ifMatch: opened.dto.etag,
         },
@@ -429,6 +485,7 @@ describe('signer name must be the approver', () => {
           type: 'APPROVE',
           // Lowercased, extra spacing, an honorific and a trailing full stop.
           signerName: `  mrs ${tenant.approverName.toLowerCase()} . `,
+          signedDate: today(),
           declarationAccepted: true,
         },
         idempotencyKey: randomUUID(),
