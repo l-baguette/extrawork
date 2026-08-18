@@ -192,6 +192,34 @@ export function buildDecisionReceiptMessage(input: DecisionReceiptMessageInput):
 }
 
 /**
+ * Ordered substitutions for `extra_work_decision_receipt_v1`.
+ *
+ *   1 customer name   2 company name   3 change number
+ *   4 project name    5 what they did  6 receipt reference
+ *
+ * Same reconciliation rule as the request template: when Meta approves the
+ * wording, this array is the only place the order lives.
+ */
+export function buildDecisionReceiptTemplateParameters(
+  input: DecisionReceiptMessageInput,
+): string[] {
+  const verb =
+    input.decisionType === 'APPROVE'
+      ? 'approved'
+      : input.decisionType === 'DECLINE'
+        ? 'declined'
+        : 'sent back for revision';
+  return [
+    templateParameter(input.customerFirstName, 'there'),
+    templateParameter(input.organizationName, 'Your contractor'),
+    templateParameter(input.changeNumber, '—'),
+    templateParameter(input.projectTitle, 'your project'),
+    templateParameter(verb, 'recorded'),
+    templateParameter(input.receiptId, '—'),
+  ];
+}
+
+/**
  * `https://wa.me/{phone}?text={urlEncodedMessage}` — report §10.3. The phone is
  * digits only, without the leading plus.
  */

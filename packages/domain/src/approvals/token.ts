@@ -71,6 +71,37 @@ export type TokenRevocationReason =
  * the public page can explain the situation accurately (report §13.1: the page
  * must never imply a decision was recorded, and must explain replacement).
  */
+/**
+ * How long a decided link keeps rendering its receipt — report §6.7.
+ *
+ * A customer who approved extra work has a legitimate reason to come back to
+ * the link: it is the only copy of the terms they agreed to that they hold. So
+ * the link outlives the decision rather than dying with it.
+ *
+ * But it cannot outlive it forever, which is what it did before this existed:
+ * `findByToken` applies no time bound, so a decided link rendered the customer's
+ * name, the approver's masked contact, the full scope and the amount to anyone
+ * holding the URL, indefinitely. Six months is long enough to cover an invoice
+ * dispute and short enough that a link in an old phone backup stops being a
+ * disclosure. After it, the record is still complete in the owner's evidence
+ * pack — it is only the public URL that closes.
+ */
+export const DECIDED_LINK_RETENTION_DAYS = 180;
+
+/**
+ * Whether a decided request may still be shown on its public link.
+ *
+ * Read-only by construction: the state machine already refuses a second
+ * decision on a terminal version, so this governs visibility alone.
+ */
+export function decidedLinkStillVisible(
+  decidedAt: Date,
+  now: Date = new Date(),
+  retentionDays: number = DECIDED_LINK_RETENTION_DAYS,
+): boolean {
+  return now.getTime() - decidedAt.getTime() <= retentionDays * 86_400_000;
+}
+
 export function assertTokenUsable(token: TokenRecord, now: Date = new Date()): void {
   if (token.revokedAt) {
     if (token.revokedReason === 'SUPERSEDED') {

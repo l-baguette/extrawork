@@ -7,7 +7,11 @@ import {
   OtpVerifySchema,
 } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
-import { TOKEN_LENGTH } from '@extrawork/domain';
+import {
+  DECIDED_LINK_RETENTION_DAYS,
+  TOKEN_LENGTH,
+  decidedLinkStillVisible,
+} from '@extrawork/domain';
 import { PUBLIC_CSRF_COOKIE, PUBLIC_SESSION_COOKIE } from '../plugins/context.js';
 import { publicTokenSubject, rateLimit } from '../plugins/rate-limit.js';
 
@@ -176,6 +180,15 @@ export async function registerPublicRoutes(
     const { token } = TokenParams.parse(request.params);
     const decision = await app.repos.approvals.findDecisionByReceiptToken(token);
     if (!decision) throw new AppError('NOT_FOUND');
+    // The receipt link closes on the same schedule as the approval link it came
+    // from; leaving one open while the other closed would just move the
+    // disclosure rather than end it.
+    if (!decidedLinkStillVisible(decision.occurredAt)) {
+      throw new AppError('REQUEST_EXPIRED', {
+        message: `This receipt closed ${DECIDED_LINK_RETENTION_DAYS} days after the decision.`,
+        details: { closed: true },
+      });
+    }
 
     const tenant = {
       organizationId: decision.organizationId,

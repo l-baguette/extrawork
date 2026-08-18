@@ -10,7 +10,9 @@ import {
   type PublicRequestDto,
 } from '@extrawork/contracts';
 import {
+  DECIDED_LINK_RETENTION_DAYS,
   assertTokenUsable,
+  decidedLinkStillVisible,
   isWellFormedToken,
   maskedContactLabel,
   systemTenantContext,
@@ -61,7 +63,19 @@ export class PublicApprovalService {
       tenant,
       version.id,
     );
-    if (!decision) {
+    if (decision) {
+      // The receipt outlives the decision, but not indefinitely. Without this
+      // the link rendered the customer's name, the scope and the amount to
+      // anyone holding the URL forever.
+      if (!decidedLinkStillVisible(decision.occurredAt, this.app.clock.now())) {
+        throw new AppError('REQUEST_EXPIRED', {
+          message:
+            `This link closed ${DECIDED_LINK_RETENTION_DAYS} days after the decision was ` +
+            'recorded. Contact the contractor for a copy of the approved request.',
+          details: { decidedAt: decision.occurredAt.toISOString(), closed: true },
+        });
+      }
+    } else {
       try {
         assertTokenUsable(token, this.app.clock.now());
       } catch (error) {

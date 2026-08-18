@@ -3,6 +3,7 @@ import type { JobRow } from '@extrawork/db';
 import {
   DEFAULT_REMINDER_POLICY,
   buildDecisionReceiptMessage,
+  buildDecisionReceiptTemplateParameters,
   buildReminderMessage,
   buildRequestMessage,
   buildRequestTemplateParameters,
@@ -211,7 +212,7 @@ export async function sendDecisionReceipt(job: JobRow, ctx: WorkerContext): Prom
     ctx.repos.customers.findContact(tenant, version.approverContactId),
   ]);
 
-  const body = buildDecisionReceiptMessage({
+  const receiptInput = {
     organizationName: organization?.displayName ?? 'Your contractor',
     customerFirstName: firstName(contact?.name ?? 'there'),
     changeNumber: changeOrder.number,
@@ -220,38 +221,89 @@ export async function sendDecisionReceipt(job: JobRow, ctx: WorkerContext): Prom
     receiptId: decision.receiptDisplayId,
     occurredAt: decision.occurredAt,
     timezone: project.timezone,
-  });
+  };
+  const body = buildDecisionReceiptMessage(receiptInput);
+  const to = {
+    name: contact?.name ?? 'Customer',
+    email: contact?.emailNormalized ?? null,
+    phoneE164: contact?.phoneE164 ?? null,
+  };
 
-  const result = await ctx.app.integrations.email.send({
-    to: {
-      name: contact?.name ?? 'Customer',
-      email: contact?.emailNormalized ?? null,
-      phoneE164: contact?.phoneE164 ?? null,
-    },
-    subject: `Receipt ${decision.receiptDisplayId} — ${changeOrder.number}`,
-    body,
-    purpose: 'DECISION_RECEIPT',
-    idempotencyKey: `receipt:${decision.id}`,
-    organizationName: organization?.displayName ?? 'ExtraWork',
-  });
+  /**
+   * Confirmation goes out on **every** channel the customer is reachable on,
+   * not the first one that works.
+   *
+   * They have just agreed to spend money, and the only record they hold is the
+   * link. A confirmation is the receipt for that, so picking one channel and
+   * hoping means a customer whose email bounces has agreed to a cost with
+   * nothing in hand. Each send is keyed separately so a retry after one
+   * succeeded cannot duplicate the other.
+   */
+  const whatsapp = ctx.app.integrations.whatsapp;
+  const sends: Array<{ channel: string; result: Awaited<ReturnType<typeof whatsapp.send>> }> = [];
+
+  if (whatsapp.canDeliver && to.phoneE164) {
+    const result = await whatsapp.send({
+      to,
+      body,
+      // Business-initiated: the customer decided on a web page, not in a
+      // WhatsApp thread, so no service window is open and this needs the
+      // approved template. Gateways that cannot send templates use `body`.
+      template: {
+        name: WHATSAPP_TEMPLATES.DECISION_RECEIPT,
+        languageCode: WHATSAPP_TEMPLATE_LANGUAGE,
+        bodyParameters: buildDecisionReceiptTemplateParameters(receiptInput),
+      },
+      purpose: 'DECISION_RECEIPT',
+      idempotencyKey: `receipt:${decision.id}:whatsapp`,
+      organizationName: organization?.displayName ?? 'ExtraWork',
+    });
+    sends.push({ channel: whatsapp.channel, result });
+  }
+
+  if (to.email) {
+    const result = await ctx.app.integrations.email.send({
+      to,
+      subject: `Receipt ${decision.receiptDisplayId} — ${changeOrder.number}`,
+      body,
+      purpose: 'DECISION_RECEIPT',
+      idempotencyKey: `receipt:${decision.id}:email`,
+      organizationName: organization?.displayName ?? 'ExtraWork',
+    });
+    sends.push({ channel: 'EMAIL', result });
+  }
+
+  if (sends.length === 0) {
+    // Not a failure to retry: the approver simply has no channel on record.
+    // Retrying cannot change that, and the decision itself is already durable.
+    ctx.logger.warn(
+      { decisionId: decision.id },
+      'approver has no phone or email on record; no confirmation sent',
+    );
+    return;
+  }
 
   await ctx.app.uow.transaction(async (tx) => {
-    await ctx.repos.messages.record(tx, tenant, {
-      versionId: version.id,
-      contactId: version.approverContactId,
-      channel: 'EMAIL',
-      purpose: 'DECISION_RECEIPT',
-      status: result.status,
-      dedupeKey: `receipt:${decision.id}`,
-      provider: result.provider,
-      providerMessageId: result.providerMessageId,
-    });
+    for (const sent of sends) {
+      await ctx.repos.messages.record(tx, tenant, {
+        versionId: version.id,
+        contactId: version.approverContactId,
+        channel: sent.channel,
+        purpose: 'DECISION_RECEIPT',
+        status: sent.result.status,
+        dedupeKey: `receipt:${decision.id}:${sent.channel}`,
+        provider: sent.result.provider,
+        providerMessageId: sent.result.providerMessageId,
+      });
+    }
   });
 
-  metrics.counter(METRIC.PROVIDER_CALLS, 'Provider calls', {
-    provider: result.provider,
-    purpose: 'receipt',
-  });
+  for (const sent of sends) {
+    metrics.counter(METRIC.PROVIDER_CALLS, 'Provider calls', {
+      provider: sent.result.provider,
+      purpose: 'receipt',
+    });
+  }
 }
 
 interface RequestMessagePayload {
