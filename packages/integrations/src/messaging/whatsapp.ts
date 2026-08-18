@@ -63,6 +63,16 @@ export const WHATSAPP_TEMPLATES = {
   REQUEST: 'extra_work_request_v1',
   REMINDER: 'extra_work_reminder_v1',
   DECISION_RECEIPT: 'extra_work_decision_receipt_v1',
+  /**
+   * A1 phone verification.
+   *
+   * This one is **not** a Utility template. Meta puts one-time passwords in a
+   * separate AUTHENTICATION category with its own rules: the body is largely
+   * fixed by Meta, the code travels as a single parameter rather than inside a
+   * sentence you write, and the template is billed and rate-limited
+   * differently. Submitting it as Utility gets it rejected or reclassified.
+   */
+  OTP: 'extra_work_otp_v1',
 } as const;
 
 /** Language code the templates are registered under. */

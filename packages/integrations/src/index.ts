@@ -14,9 +14,14 @@ import {
   SmtpEmailDriver,
   type EmailDriver,
 } from './messaging/email.js';
-import { NativeShareWhatsAppGateway, WhatsAppCloudGateway } from './messaging/whatsapp.js';
+import {
+  NativeShareWhatsAppGateway,
+  WHATSAPP_TEMPLATES,
+  WHATSAPP_TEMPLATE_LANGUAGE,
+  WhatsAppCloudGateway,
+} from './messaging/whatsapp.js';
 import { SimulatorWhatsAppGateway } from './messaging/whatsapp-simulator.js';
-import { ConsoleOtpGateway, UnavailableOtpGateway } from './otp.js';
+import { ConsoleOtpGateway, MessageGatewayOtpGateway, UnavailableOtpGateway } from './otp.js';
 import { RazorpayGateway } from './payments/razorpay.js';
 
 export * from './gateways.js';
@@ -92,6 +97,56 @@ function createWhatsAppGateway(env: Env): MessageGateway {
   }
 }
 
+/**
+ * A1 phone verification.
+ *
+ * The code goes over the channel the approver is already reachable on. Their
+ * phone number is on the contact record because that is where the approval
+ * request itself was sent, so verifying it needs no second provider, no SMS
+ * contract and no new number for the customer to recognise.
+ *
+ * `available` is inherited from the underlying gateway rather than asserted
+ * here. Report §13.1 is explicit that when the provider cannot deliver, A1
+ * shows "verification unavailable" and does **not** silently downgrade to A0 —
+ * and the assurance engine decides that by reading this flag. A gateway that
+ * cannot deliver must therefore report `available: false` rather than accept
+ * the code and drop it.
+ */
+function createOtpGateway(
+  env: Env,
+  whatsapp: MessageGateway,
+  hooks: { onOtpCode?: (phoneE164: string, code: string) => void },
+): OtpGateway {
+  switch (env.OTP_DRIVER) {
+    case 'whatsapp':
+      return new MessageGatewayOtpGateway(
+        (command) =>
+          whatsapp.send({
+            to: { name: 'Customer', phoneE164: command.phoneE164, email: null },
+            body: command.body,
+            // An AUTHENTICATION-category template, not Utility: Meta fixes most
+            // of the wording itself and takes the code as the sole parameter.
+            // The rendered `body` still travels for gateways that cannot send
+            // templates, so the simulator writes something a human can read.
+            template: {
+              name: WHATSAPP_TEMPLATES.OTP,
+              languageCode: WHATSAPP_TEMPLATE_LANGUAGE,
+              bodyParameters: [command.code],
+            },
+            purpose: 'OTP',
+            idempotencyKey: command.idempotencyKey,
+            organizationName: command.organizationName,
+          }),
+        whatsapp.channel,
+        whatsapp.canDeliver,
+      );
+    case 'console':
+      return new ConsoleOtpGateway(hooks.onOtpCode);
+    default:
+      return new UnavailableOtpGateway();
+  }
+}
+
 export function createIntegrations(
   env: Env,
   hooks: { onOtpCode?: (phoneE164: string, code: string) => void } = {},
@@ -100,10 +155,7 @@ export function createIntegrations(
 
   const email = new EmailGateway(createEmailDriver(env), env.EMAIL_FROM);
 
-  const otp =
-    env.OTP_DRIVER === 'console'
-      ? new ConsoleOtpGateway(hooks.onOtpCode)
-      : new UnavailableOtpGateway();
+  const otp = createOtpGateway(env, whatsapp, hooks);
 
   const payments =
     env.PAYMENTS_DRIVER === 'razorpay' &&

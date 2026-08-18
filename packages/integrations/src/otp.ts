@@ -45,6 +45,17 @@ export class MessageGatewayOtpGateway implements OtpGateway {
       body: string;
       idempotencyKey: string;
       organizationName: string;
+      /**
+       * The bare code, alongside the rendered body.
+       *
+       * A provider that delivers this as a template needs the code as its own
+       * substitution — WhatsApp's authentication templates take the code as a
+       * parameter and render the surrounding sentence themselves, so handing
+       * the caller only a finished sentence makes a compliant send impossible.
+       * It is passed separately rather than parsed back out of `body`.
+       */
+      code: string;
+      ttlSeconds: number;
     }) => Promise<ProviderMessageRef>,
     name: string,
     available: boolean,
@@ -58,6 +69,8 @@ export class MessageGatewayOtpGateway implements OtpGateway {
     return this.send({
       phoneE164: command.phoneE164,
       organizationName: command.organizationName,
+      code: command.code,
+      ttlSeconds: command.ttlSeconds,
       idempotencyKey: `otp:${command.phoneE164}:${Date.now()}`,
       body:
         `${command.code} is your verification code for approving a change from ` +

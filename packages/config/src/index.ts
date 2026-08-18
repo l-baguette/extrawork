@@ -143,7 +143,12 @@ export const EnvSchema = z.object({
   EMAIL_OUTBOX_DIR: z.string().default('./.data/mail'),
   SMTP_URL: z.string().optional(),
 
-  OTP_DRIVER: z.enum(['console', 'sms-provider']).default('console'),
+  /**
+   * `whatsapp` sends the A1 code through the configured WhatsApp gateway — the
+   * approver's phone is already on record, so it needs no second provider.
+   * `console` is development only and delivers nothing.
+   */
+  OTP_DRIVER: z.enum(['console', 'whatsapp', 'sms-provider']).default('console'),
   OTP_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
 
@@ -236,6 +241,17 @@ function assertProductionSafe(env: Env): void {
     ] as const) {
       if (!env[key]) problems.push(`${key} is required when WHATSAPP_DRIVER=cloud-api`);
     }
+  }
+  if (env.OTP_DRIVER === 'console') {
+    // A console OTP in production is not a degraded feature, it is a silent
+    // one: A1 would present a verification step whose code reaches nobody, and
+    // the customer would be locked out of approving their own change order.
+    problems.push('OTP_DRIVER=console cannot deliver a code; A1 approval would be unusable');
+  }
+  if (env.OTP_DRIVER === 'whatsapp' && env.WHATSAPP_DRIVER !== 'cloud-api') {
+    problems.push(
+      `OTP_DRIVER=whatsapp needs WHATSAPP_DRIVER=cloud-api to deliver; it is ${env.WHATSAPP_DRIVER}`,
+    );
   }
   if (env.WHATSAPP_DRIVER === 'simulator') {
     // The simulator accepts unauthenticated inbound messages by design. In
