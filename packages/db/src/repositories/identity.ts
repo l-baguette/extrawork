@@ -161,6 +161,30 @@ export class IdentityRepository {
   }
 
   /**
+   * Updates the parts of a profile the person owns.
+   *
+   * Email is deliberately absent. It is the identity the account is reached
+   * and recovered by, and changing it in place would silently move an account
+   * to an address nobody has proved they control — so it needs a verification
+   * round trip, not a text field. Until that exists, this method cannot be the
+   * thing that quietly makes it possible.
+   */
+  async updateProfile(
+    tx: TransactionContext,
+    userId: string,
+    input: { displayName: string },
+  ): Promise<UserRow | null> {
+    const result = await tx.db.execute<UserRecord>(sql`
+      UPDATE users
+      SET display_name = ${input.displayName}, updated_at = now()
+      WHERE id = ${userId}::uuid
+      RETURNING id, auth_provider, auth_provider_subject, email_normalized,
+                display_name, status, last_authenticated_at
+    `);
+    return mapUser(result.rows[0]);
+  }
+
+  /**
    * Creates or refreshes the local profile for a provider identity. Idempotent
    * so a repeated sign-in webhook cannot duplicate a user.
    */

@@ -28,6 +28,10 @@ const PasswordSignInSchema = z.object({
   email: EmailSchema,
   password: z.string().min(1).max(200),
 });
+/** Email is intentionally not here; see the PATCH handler for why. */
+const UpdateProfileSchema = z.object({
+  displayName: z.string().trim().min(1, 'Your name cannot be empty').max(120),
+});
 const GoogleCallbackSchema = z.object({
   code: z.string().min(1).max(2048).optional(),
   state: z.string().min(1).max(512).optional(),
@@ -243,6 +247,33 @@ export async function registerAuthRoutes(
         role: m.role,
       })),
       activeOrganizationId: session.activeOrganizationId,
+    });
+  });
+
+  /**
+   * Updates the signed-in person's own profile.
+   *
+   * Only the display name. Email is the address this account is recovered by,
+   * so moving it needs proof of control over the new one — a verification round
+   * trip this release does not have. Offering the field without that would let
+   * one mistyped character strand somebody outside their own account.
+   */
+  app.patch('/v1/auth/me', async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    if (!auth.actor.userId) throw new AppError('UNAUTHENTICATED');
+    const input = UpdateProfileSchema.parse(request.body);
+
+    const updated = await appContext.uow.transaction((tx) =>
+      app.repos.identity.updateProfile(tx, auth.actor.userId as string, {
+        displayName: input.displayName,
+      }),
+    );
+    if (!updated) throw new AppError('NOT_FOUND');
+
+    return reply.send({
+      id: updated.id,
+      email: updated.emailNormalized,
+      displayName: updated.displayName,
     });
   });
 

@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import type { ProjectSummaryDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
-import { formatMoneyCompact } from '@/lib/format';
+import { formatMoney, formatMoneyCompact } from '@/lib/format';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
+import { Empty, SheetTop } from '@/components/sheet';
+import { IconPlus } from '@/components/icons';
 
 /** Project list — report §6.2 `/app/projects`. */
 export const dynamic = 'force-dynamic';
@@ -17,86 +19,114 @@ export default async function ProjectsPage() {
   if (!result.ok) return <ErrorPanel message={result.message} />;
 
   const projects = result.data.items;
+  const totalRevised = projects.reduce((sum, p) => sum + p.revisedTotalMinor, 0);
+  const totalApproved = projects.reduce((sum, p) => sum + p.approvedDeltaMinor, 0);
+  const currency = projects[0]?.currency ?? 'INR';
 
   return (
-    <main className="page page-wide">
-      <div className="row-between" style={{ marginBottom: 'var(--space-4)' }}>
-        <h1>Projects</h1>
-        <Link className="btn btn-primary" href="/app/projects/new">
-          New project
-        </Link>
-      </div>
-
-      {projects.length === 0 ? (
-        <div className="card">
-          <h2>No projects yet</h2>
-          <p className="muted">
-            A project holds the original contract value. Once it exists you can record any extra
-            work against it and send it for approval.
-          </p>
+    <>
+      <SheetTop
+        title="Projects"
+        meta={
+          projects.length > 0
+            ? `${projects.length} project${projects.length === 1 ? '' : 's'} · ${formatMoneyCompact(totalApproved, currency)} in approved extras`
+            : 'The original contract value each change is measured against'
+        }
+        actions={
           <Link className="btn btn-primary" href="/app/projects/new">
-            Create your first project
+            <IconPlus />
+            New project
           </Link>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Project</th>
-                  <th scope="col">Customer</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
-                    Original
-                  </th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
-                    Approved extras
-                  </th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
-                    Revised total
-                  </th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
-                    Pending
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((project) => (
-                  <tr key={project.id}>
-                    <td>
-                      <Link href={`/app/projects/${project.id}`}>
-                        <strong>{project.projectNumber}</strong>
-                      </Link>
-                      <div className="small muted">{project.title}</div>
-                    </td>
-                    <td>{project.customerName}</td>
-                    <td>
-                      <span className="chip chip-draft">{project.status}</span>
-                    </td>
-                    <td className="tabular" style={{ textAlign: 'right' }}>
-                      {formatMoneyCompact(project.baselineTotalMinor, project.currency)}
-                    </td>
-                    <td className="tabular" style={{ textAlign: 'right' }}>
-                      {formatMoneyCompact(project.approvedDeltaMinor, project.currency)}
-                    </td>
-                    <td className="tabular" style={{ textAlign: 'right', fontWeight: 600 }}>
-                      {formatMoneyCompact(project.revisedTotalMinor, project.currency)}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {project.pendingChangeCount > 0 ? (
-                        <span className="chip chip-pending">{project.pendingChangeCount}</span>
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        }
+      />
+
+      <main className="sheet rule-in">
+        {projects.length === 0 ? (
+          <div className="panel">
+            <Empty
+              title="No projects yet"
+              action={
+                <Link className="btn btn-primary" href="/app/projects/new">
+                  Create your first project
+                </Link>
+              }
+            >
+              A project holds the original contract value. Once it exists you can record extra work
+              against it and send it to the customer for approval.
+            </Empty>
           </div>
-        </div>
-      )}
-    </main>
+        ) : (
+          <div className="panel">
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Project</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col" className="num">
+                      Original
+                    </th>
+                    <th scope="col" className="num">
+                      Approved extras
+                    </th>
+                    <th scope="col" className="num">
+                      Revised total
+                    </th>
+                    <th scope="col" className="num">
+                      Waiting
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((project) => (
+                    <tr key={project.id}>
+                      <td>
+                        <Link href={`/app/projects/${project.id}`}>
+                          <strong className="mono">{project.projectNumber}</strong>
+                        </Link>
+                        <div className="small muted">{project.title}</div>
+                      </td>
+                      <td>
+                        {project.customerName}
+                        {project.status !== 'ACTIVE' ? (
+                          <div className="small muted">{project.status.replace(/_/g, ' ')}</div>
+                        ) : null}
+                      </td>
+                      <td className="num">
+                        {formatMoney(project.baselineTotalMinor, project.currency)}
+                      </td>
+                      <td className="num">
+                        {formatMoney(project.approvedDeltaMinor, project.currency)}
+                      </td>
+                      <td className="num" style={{ fontWeight: 700 }}>
+                        {formatMoney(project.revisedTotalMinor, project.currency)}
+                      </td>
+                      <td className="num">
+                        {project.pendingChangeCount > 0 ? (
+                          <span className="code code-waiting" data-code="W">
+                            {project.pendingChangeCount}
+                          </span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {/* The one heavy rule on the sheet, exactly as a schedule carries
+                    its total forward at the foot of the page. */}
+                <tfoot>
+                  <tr className="table-total">
+                    <td colSpan={4}>All projects</td>
+                    <td className="num">{formatMoney(totalRevised, currency)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+      </main>
+    </>
   );
 }
