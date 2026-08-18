@@ -21,6 +21,7 @@ function SignInForm() {
   const [stage, setStage] = useState<'email' | 'code'>(params.get('token') ? 'code' : 'email');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unverified, setUnverified] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [googleAvailable, setGoogleAvailable] = useState(false);
@@ -53,6 +54,10 @@ function SignInForm() {
       router.push('/app/dashboard');
       router.refresh();
     } catch (caught) {
+      // A correct password on an unconfirmed address is not a failed sign-in,
+      // it is an unfinished registration — and sending someone to a password
+      // reset they do not need is the worst possible next step.
+      setUnverified(caught instanceof ApiError && caught.code === 'EMAIL_NOT_VERIFIED');
       setError(
         caught instanceof ApiError
           ? caught.message
@@ -113,6 +118,12 @@ function SignInForm() {
         {error ? (
           <div className="banner banner-error" role="alert">
             {error}
+            {unverified ? (
+              <>
+                {' '}
+                <Link href="/verify-email">Send a new confirmation link</Link>.
+              </>
+            ) : null}
           </div>
         ) : null}
 

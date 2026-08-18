@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { Providers } from '@/lib/providers';
 import { AppShell, type ShellUser } from '@/components/app-shell';
 import { serverGet } from '@/lib/server-fetch';
@@ -31,6 +32,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ? (me.data.memberships.find((m) => m.organizationId === me.data.activeOrganizationId) ??
       me.data.memberships[0])
     : undefined;
+
+  // A signed-in person with no organization has nothing any of these pages can
+  // show. Rather than rendering empty tables and letting them work out what is
+  // wrong, they go and set the business up. Enforced here, in the shell, so it
+  // holds for every /app/* route including ones added later — a check on the
+  // dashboard alone would be bypassed by any direct link.
+  //
+  // `/onboarding` sits OUTSIDE this route group deliberately. Inside it, this
+  // redirect would re-enter the layout that issued it and loop forever; and a
+  // person with no organization has no navigation to render anyway, so the
+  // shell would be chrome around nothing.
+  if (me.ok && me.data.memberships.length === 0) {
+    redirect('/onboarding');
+  }
 
   const user: ShellUser = {
     displayName: me.ok ? me.data.user.displayName : '',

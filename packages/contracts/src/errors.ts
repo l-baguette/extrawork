@@ -18,6 +18,8 @@ export const ERROR_CODES = {
   UNAUTHENTICATED: 401,
   SESSION_EXPIRED: 401,
   REAUTHENTICATION_REQUIRED: 401,
+  /** Correct password, unproved address. Distinct so the UI can offer a resend. */
+  EMAIL_NOT_VERIFIED: 403,
   FORBIDDEN: 403,
   CSRF_FAILED: 403,
   ORGANIZATION_REQUIRED: 403,
@@ -103,6 +105,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
 
   UNAUTHENTICATED: 'You need to sign in to continue.',
   SESSION_EXPIRED: 'Your session has expired. Please sign in again.',
+  EMAIL_NOT_VERIFIED: 'Confirm your email address before signing in.',
   REAUTHENTICATION_REQUIRED: 'Please confirm your identity again to perform this action.',
   FORBIDDEN: 'You do not have permission to perform this action.',
   CSRF_FAILED: 'The request could not be verified. Please refresh and try again.',

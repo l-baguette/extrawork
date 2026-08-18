@@ -499,13 +499,40 @@ export class IdentityRepository {
     return result.rowCount ?? 0;
   }
 
+  /**
+   * Records that control of the address was proved.
+   *
+   * Idempotent and one-way: `COALESCE` keeps the first proof rather than
+   * moving the timestamp forward on every later sign-in, because the fact
+   * being recorded is when control was established, not when it was last
+   * exercised.
+   */
+  async markEmailVerified(tx: TransactionContext, userId: string, at: Date): Promise<void> {
+    await tx.db.execute(sql`
+      UPDATE users
+         SET email_verified_at = COALESCE(email_verified_at, ${at.toISOString()}::timestamptz),
+             updated_at = now()
+       WHERE id = ${userId}::uuid
+    `);
+  }
+
+  async findUserByEmailWithVerification(
+    email: string,
+  ): Promise<{ id: string; emailVerifiedAt: Date | null } | null> {
+    const result = await this.db.execute<{ id: string; email_verified_at: Date | null }>(sql`
+      SELECT id, email_verified_at FROM users WHERE email_normalized = ${email}
+    `);
+    const row = result.rows[0];
+    return row ? { id: row.id, emailVerifiedAt: toDateOrNull(row.email_verified_at) } : null;
+  }
+
   // --- Magic-link / invitation challenges ----------------------------------
 
   async createAuthChallenge(
     tx: TransactionContext,
     input: {
       email: string;
-      purpose: 'SIGN_IN' | 'INVITATION';
+      purpose: 'SIGN_IN' | 'INVITATION' | 'VERIFY_EMAIL';
       organizationId: string | null;
       ttlMinutes: number;
     },

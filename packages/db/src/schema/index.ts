@@ -155,6 +155,11 @@ export const users = pgTable('users', {
   emailNormalized: text('email_normalized').notNull(),
   displayName: text('display_name').notNull(),
   status: text('status').notNull().default('ACTIVE'),
+  /**
+   * Migration 0011. When control of the address was proved, not merely that it
+   * was. Null means unproved and password sign-in is refused.
+   */
+  emailVerifiedAt: ts('email_verified_at'),
   lastAuthenticatedAt: ts('last_authenticated_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),

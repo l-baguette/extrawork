@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { API_URL, ApiError, api } from '@/lib/api';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -17,13 +16,13 @@ const MIN_PASSWORD_LENGTH = 8;
  * existing address surfaces as an ordinary sign-in failure.
  */
 export function RegisterForm() {
-  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     void fetch(`${API_URL}/v1/auth/methods`)
@@ -48,23 +47,36 @@ export function RegisterForm() {
         method: 'POST',
         body: { email: email.trim(), password, displayName: name.trim() },
       });
-      await api('/v1/auth/password', {
-        method: 'POST',
-        body: { email: email.trim(), password },
-      });
-      router.push('/app/dashboard');
-      router.refresh();
+      // No automatic sign-in any more. The account exists but the address is
+      // unproved, and password sign-in is refused until it is confirmed —
+      // signing in here would simply fail, and doing it silently would leave
+      // the person staring at an error for a step that worked.
+      setSent(true);
     } catch (cause) {
       setError(
-        cause instanceof ApiError
-          ? cause.code === 'UNAUTHENTICATED'
-            ? 'That email is already registered. Try signing in instead.'
-            : cause.message
-          : 'Something went wrong. Please try again.',
+        cause instanceof ApiError ? cause.message : 'Something went wrong. Please try again.',
       );
     } finally {
       setBusy(false);
     }
+  }
+
+  if (sent) {
+    return (
+      <section className="card">
+        <h1>Check your email</h1>
+        <p>
+          We have sent a confirmation link to <strong>{email.trim()}</strong>. Open it to prove the
+          address is yours, then sign in.
+        </p>
+        <p className="small muted">
+          The link lasts 24 hours. Nothing else happens until you use it — you can close this page.
+        </p>
+        <p className="small muted">
+          Nothing arrived? <Link href="/verify-email">Request a new link</Link>.
+        </p>
+      </section>
+    );
   }
 
   return (

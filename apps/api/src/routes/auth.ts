@@ -17,6 +17,7 @@ import { ipSubject, rateLimit } from '../plugins/rate-limit.js';
 const RequestSignInSchema = z.object({ email: EmailSchema });
 const VerifySignInSchema = z.object({ token: z.string().min(16).max(512) });
 const SwitchOrganizationSchema = z.object({ organizationId: z.string().uuid() });
+const VerifyEmailSchema = z.object({ token: z.string().min(16).max(512) });
 const RegisterSchema = z.object({
   email: EmailSchema,
   // Length is checked properly in the domain, which owns the policy; this is
@@ -109,7 +110,7 @@ export async function registerAuthRoutes(
       // registered" is a way to test which addresses exist.
       return reply.status(202).send({
         status: 'ok',
-        message: 'Your account is ready. Sign in with your email and password.',
+        message: 'Check your email. We have sent a link to confirm the address before you sign in.',
       });
     },
   );
@@ -197,7 +198,14 @@ export async function registerAuthRoutes(
         userAgent: request.publicCtx.userAgent,
       });
       setSessionCookies(reply, secure, session);
-      return reply.redirect(`${app.env.WEB_PUBLIC_URL}/app/dashboard`);
+      // A brand-new account has no organization yet, and the dashboard would
+      // render an empty shell with nothing to explain it. Send them to set up
+      // their business; returning users go straight to work.
+      return reply.redirect(
+        session.activeOrganizationId
+          ? `${app.env.WEB_PUBLIC_URL}/app/dashboard`
+          : `${app.env.WEB_PUBLIC_URL}/onboarding`,
+      );
     },
   );
 
@@ -215,6 +223,39 @@ export async function registerAuthRoutes(
         userId: session.userId,
         activeOrganizationId: session.activeOrganizationId,
         expiresAt: session.expiresAt.toISOString(),
+      });
+    },
+  );
+
+  /**
+   * Confirms an address. Unauthenticated by design — the token is the proof,
+   * and the person cannot sign in until this succeeds.
+   */
+  app.post(
+    '/v1/auth/verify-email',
+    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    async (request, reply) => {
+      const { token } = VerifyEmailSchema.parse(request.body);
+      const { verified } = await app.services.auth.verifyEmail(token);
+      if (!verified) {
+        throw new AppError('TOKEN_INVALID', {
+          message: 'That confirmation link has expired or has already been used.',
+        });
+      }
+      return reply.status(200).send({ status: 'verified' });
+    },
+  );
+
+  /** Reissues a confirmation link. Same answer whatever the address is. */
+  app.post(
+    '/v1/auth/verify-email/resend',
+    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    async (request, reply) => {
+      const { email } = RequestSignInSchema.parse(request.body);
+      await app.services.auth.resendVerification(email);
+      return reply.status(202).send({
+        status: 'ok',
+        message: 'If that address needs confirming, a new link is on its way.',
       });
     },
   );
