@@ -1,40 +1,40 @@
 # Graph Report - extrawork  (2026-08-17)
 
 ## Corpus Check
-- 299 files · ~200,292 words
+- 303 files · ~205,469 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3005 nodes · 6361 edges · 178 communities (137 shown, 41 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 115 edges (avg confidence: 0.81)
+- 3040 nodes · 6459 edges · 195 communities (154 shown, 41 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 116 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0110419f`
+- Built from commit: `e185df0a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - TransactionContext
-- LocalObjectStore
+- AppError
 - canonicalize
 - toDate
 - change-orders/service.ts
 - repositories/change-orders.ts
 - schema/index.ts
-- jobs.ts
-- ProjectRepository
+- runner.ts
+- approvals.ts
 - Database
-- client.ts
+- db/src/index.ts
 - authorize
 - totals.ts
 - db/package.json
-- cli.ts
+- application/src/index.ts
 - dependencies
 - testkit/package.json
 - app.ts
 - organizations
-- intake-service.ts
+- money.ts
 - dependencies
 - employee-manager.tsx
 - compilerOptions
@@ -45,12 +45,12 @@
 - scripts
 - validation.ts
 - api/projects.ts
-- google-oauth.ts
+- main.ts
 - runtime/package.json
 - contracts/src/index.ts
 - application/package.json
 - devDependencies
-- main.ts
+- renderer.ts
 - integrations/package.json
 - config/src/index.ts
 - primitives.ts
@@ -60,12 +60,12 @@
 - document.ts
 - api/customers.ts
 - compilerOptions
-- auth-service.ts
+- services.ts
 - decision-panel.tsx
 - 0002_search_and_projections.sql
-- email.ts
+- integrations/src/index.ts
 - Adapter-with-deferred-driver MVP posture
-- gateways.ts
+- razorpay.ts
 - state-machine.ts
 - domain/package.json
 - TenantContext
@@ -76,20 +76,20 @@
 - Compose service: api
 - plugins/errors.ts
 - preflight-hosted.mts
-- send.ts
-- employees/service.ts
+- messaging.ts
+- RequestContext
 - Moving off this machine: Supabase + Cloudflare R2
 - Record What You Did
-- db/src/index.ts
+- AppContext
 - Restore Database and Verify Audit Chains Runbook
 - dashboard/page.tsx
 - config/package.json
 - contracts/package.json
-- ProviderMessageRef
+- gateways.ts
 - dependencies
-- .createUpload
+- files/service.ts
 - src/rate-limit.ts
-- PostgresUnitOfWork
+- evidence.test.ts
 - Non-Erasable Decision Record
 - api/package.json
 - compilerOptions
@@ -121,23 +121,27 @@
 - Audited Repair Command
 - Replay Webhook and Outbox Events Runbook
 - ExtraWork — Project Handoff
-- integrations/src/index.ts
+- ESignGateway
 - scripts
-- api/reports.ts
+- intake-service.ts
 - Append-only evidence
 - Job queue with lease, dead-letter and priorities
 - @extrawork/contracts
-- metrics.ts
+- metrics
 - project_integrity_mismatches
+- projects/service.ts
 - whatsapp.ts
 - .prettierrc.json
+- parse-message.ts
 - next.config.mjs
 - sequences.ts
-- documents.ts
+- outbox-pump.ts
+- inbound.ts
 - Operational Runbooks Index
 - @extrawork/domain
 - MessageGateway
 - @extrawork/config
+- build.ts
 - @fastify/helmet
 - api/employees.ts
 - zod-to-json-schema
@@ -145,6 +149,8 @@
 - @extrawork/db
 - query-keys.ts
 - Money and totals engine
+- api/organizations.ts
+- send.ts
 - Decision Write Path Priority
 - pdfjs-dist
 - @extrawork/contracts
@@ -155,8 +161,8 @@
 - format.ts
 - zod
 - typescript-eslint
-- @eslint/js
-- domain/src/index.ts
+- request-templates.ts
+- decide.ts
 - backup.sh
 - restore.sh
 - verify-backup.sh
@@ -165,12 +171,19 @@
 - Constraint Violation Means Real Bad Data
 - api/change-orders.ts
 - ExtraWork — Product Brief
-- application/src/approvals/otp.ts
-- logger.ts
+- chain.ts
+- domain/src/index.ts
+- inbound-intake.test.ts
 - devDependencies
+- reminders/reminders.ts
+- match.ts
 - CLAUDE.md
 - verify-chain.ts
+- evidence.ts
+- exports.ts
+- replay.ts
 - @typescript-eslint/eslint-plugin
+- IntakeService
 - Cross-Tenant IDOR Threat
 - @extrawork/config
 - @extrawork/integrations
@@ -180,16 +193,20 @@
 - @extrawork/files
 - @extrawork/observability
 - @playwright/test
+- whatsapp-template.test.ts
 - vitest
+- Data Access, Export and Deletion Request Runbook
+- drizzle-orm
+- user_identities
 - AGENTS.md
 - @extrawork/api
 
 ## God Nodes (most connected - your core abstractions)
 1. `TenantContext` - 122 edges
-2. `TransactionContext` - 95 edges
-3. `Database` - 77 edges
+2. `TransactionContext` - 96 edges
+3. `Database` - 78 edges
 4. `AppError` - 73 edges
-5. `newId()` - 54 edges
+5. `newId()` - 56 edges
 6. `authorize()` - 47 edges
 7. `AppContext` - 45 edges
 8. `RequestContext` - 45 edges
@@ -219,63 +236,67 @@
 - **Post-Restore Verification Sequence** — infra_runbooks_restore_database_stop_writes, infra_runbooks_restore_database_schema_verification_before_data, infra_runbooks_restore_database_audit_chain_verification, infra_runbooks_restore_database_projection_rebuild, infra_runbooks_restore_database_side_effect_reconciliation, infra_runbooks_repair_project_totals_repair_project_totals_runbook [EXTRACTED 1.00]
 - **Credential and Access Exposure Response Family** — infra_runbooks_revoke_leaked_token_approval_token_revocation, infra_runbooks_rotate_credentials_rotation_order_of_operations, infra_runbooks_freeze_organization_bulk_token_revocation_on_compromise, infra_runbooks_cross_tenant_disclosure_cross_tenant_disclosure_runbook, infra_runbooks_support_access_customer_granted_time_bound_access [INFERRED 0.85]
 
-## Communities (178 total, 41 thin omitted)
+## Communities (195 total, 41 thin omitted)
 
 ### Community 0 - "TransactionContext"
-Cohesion: 0.05
-Nodes (23): DecisionReceipt, DecisionType, TransactionContext, newId(), ApprovalRepository, ApprovalTokenRow, DECISION_COLUMNS, DECISION_COLUMNS_D (+15 more)
+Cohesion: 0.06
+Nodes (11): TransactionContext, newId(), generateOpaqueToken(), hashOpaqueToken(), IdentityRepository, mapUser(), mapOrganization(), requireRow() (+3 more)
 
-### Community 1 - "LocalObjectStore"
-Cohesion: 0.09
-Nodes (10): LocalObjectStore, LocalSignaturePayload, LocalStoreOptions, assertSafeKey(), ObjectMetadata, ObjectStore, PresignedUpload, UploadRequest (+2 more)
+### Community 1 - "AppError"
+Cohesion: 0.08
+Nodes (13): AppError, assertAllSameTenant(), assertSameTenant(), LocalObjectStore, LocalSignaturePayload, LocalStoreOptions, assertSafeKey(), ObjectMetadata (+5 more)
 
 ### Community 2 - "canonicalize"
-Cohesion: 0.08
-Nodes (31): beginIdempotent(), hashRequest(), IdempotencyBeginResult, canonicalEventBody(), chainEvents(), ChainVerificationResult, computeEventHash(), verifyChainFrom() (+23 more)
+Cohesion: 0.22
+Nodes (12): canonicalBytes(), canonicalize(), ESCAPES, serializeNumber(), serializeString(), serializeValue(), sortKeys(), RFC-8785 (+4 more)
 
 ### Community 3 - "toDate"
-Cohesion: 0.10
-Nodes (20): mapPublicSession(), mapToken(), mapSummary(), mapFile(), mapSubscriptionState(), INBOUND_COLUMNS_ALIASED, INBOUND_COLUMNS_BARE, InboundMessageRepository (+12 more)
+Cohesion: 0.12
+Nodes (13): mapPublicSession(), mapSummary(), mapFile(), mapSubscriptionState(), INBOUND_COLUMNS_ALIASED, INBOUND_COLUMNS_BARE, InboundMessageRepository, InboundRecord (+5 more)
 
 ### Community 4 - "change-orders/service.ts"
-Cohesion: 0.20
-Nodes (13): buildLineItemWrites(), toCalcInputs(), ChangeOrderService, ADR-0005, CreateChangeOrderInput, UpdateDraftInput, VersionRow, assertAssuranceSelectable() (+5 more)
+Cohesion: 0.14
+Nodes (18): buildLineItemWrites(), etagMatches(), toCalcInputs(), ADR-0005, versionEtag(), ChangeOrderService, ADR-0005, CreateChangeOrderInput (+10 more)
 
 ### Community 5 - "repositories/change-orders.ts"
-Cohesion: 0.08
-Nodes (25): ProjectStatus, VersionStatus, AttachmentRow, ChangeOrderRecord, ChangeOrderRow, ChangeOrderSummaryRecord, ChangeOrderSummaryRow, LineItemRow (+17 more)
+Cohesion: 0.09
+Nodes (13): ChangeType, VersionStatus, AttachmentRow, ChangeOrderRecord, ChangeOrderRepository, ChangeOrderRow, ChangeOrderSummaryRecord, ChangeOrderSummaryRow (+5 more)
 
 ### Community 6 - "schema/index.ts"
 Cohesion: 0.04
-Nodes (54): actorType, approvalTokens, assuranceLevel, auditEvents, authChallenges, baselineVersions, bigintNumeric, bytea (+46 more)
+Nodes (55): actorType, approvalTokens, assuranceLevel, auditEvents, authChallenges, baselineVersions, bigintNumeric, bytea (+47 more)
 
-### Community 7 - "jobs.ts"
-Cohesion: 0.06
-Nodes (37): shutdown(), stopLeaseReaper, delay(), jobsFor(), OutboxPump, classify(), delay(), JobRunner (+29 more)
+### Community 7 - "runner.ts"
+Cohesion: 0.12
+Nodes (22): classify(), delay(), JobRunner, RunnerOptions, startLeaseReaper(), truncate(), DomainEventType, JOB_KINDS (+14 more)
+
+### Community 8 - "approvals.ts"
+Cohesion: 0.09
+Nodes (15): AssuranceLevel, ApprovalRepository, ApprovalTokenRow, DECISION_COLUMNS, DECISION_COLUMNS_D, DecisionRecord, DecisionRow, mapDecision() (+7 more)
 
 ### Community 9 - "Database"
-Cohesion: 0.06
-Nodes (9): AssuranceLevel, ChangeType, Database, ChangeOrderRepository, mapVersion(), MessageRepository, WebhookInboxRepository, FileRepository (+1 more)
-
-### Community 10 - "client.ts"
 Cohesion: 0.07
-Nodes (32): ActorType, CreateDatabaseOptions, createPool(), createUnitOfWork(), PgError, sslConfig(), ORG_SCOPE_UUID, AuditEventRow (+24 more)
+Nodes (7): Database, DocumentRepository, mapDocument(), MessageRepository, WebhookInboxRepository, FileRepository, ReminderRepository
+
+### Community 10 - "db/src/index.ts"
+Cohesion: 0.06
+Nodes (37): OutboxTopic, ActorType, CreateDatabaseOptions, PgError, beginIdempotent(), hashRequest(), IdempotencyBeginResult, schema (+29 more)
 
 ### Community 11 - "authorize"
-Cohesion: 0.11
-Nodes (16): RequestContext, ProjectService, ProjectRow, Action, ACTIONS, authorize(), hasProjectAccess(), isAllowed() (+8 more)
+Cohesion: 0.18
+Nodes (12): Action, ACTIONS, Actor, authorize(), hasProjectAccess(), isAllowed(), ORG_WIDE_ROLES, READ_ONLY_SAFE_ACTIONS (+4 more)
 
 ### Community 12 - "totals.ts"
-Cohesion: 0.19
-Nodes (14): DraftValidationInput, DraftValidationResult, parseQuantity(), calculateLine(), calculateRevisedContractTotal(), calculateVersionTotals(), IntegrityCheckResult, LineItemCalcInput (+6 more)
+Cohesion: 0.22
+Nodes (12): DraftValidationInput, DraftValidationResult, parseQuantity(), calculateLine(), calculateVersionTotals(), IntegrityCheckResult, LineItemCalcInput, LineItemCalcResult (+4 more)
 
 ### Community 13 - "db/package.json"
 Cohesion: 0.05
 Nodes (37): drizzle-kit, dependencies, drizzle-orm, @extrawork/config, @extrawork/contracts, @extrawork/domain, @extrawork/observability, pg (+29 more)
 
-### Community 14 - "cli.ts"
-Cohesion: 0.40
-Nodes (4): asJson, config, container, force
+### Community 14 - "application/src/index.ts"
+Cohesion: 0.13
+Nodes (17): localAuthSubject(), actorContext(), ActorSpec, addMember(), asJson, config, container, force (+9 more)
 
 ### Community 15 - "dependencies"
 Cohesion: 0.05
@@ -287,15 +308,15 @@ Nodes (36): dependencies, @extrawork/application, @extrawork/config, @extrawork/
 
 ### Community 17 - "app.ts"
 Cohesion: 0.12
-Nodes (31): buildApp(), authenticatedSubject(), hashForBucket(), ipSubject(), isAuthenticatedLimit(), publicTokenSubject(), rateLimit(), RateLimitOptions (+23 more)
+Nodes (30): buildApp(), authenticatedSubject(), hashForBucket(), ipSubject(), isAuthenticatedLimit(), publicTokenSubject(), rateLimit(), RateLimitOptions (+22 more)
 
 ### Community 18 - "organizations"
-Cohesion: 0.13
-Nodes (40): baseline_versions, approval_tokens, audit_events, change_order_versions, change_orders, data_subject_requests, decisions, document_sequences (+32 more)
+Cohesion: 0.14
+Nodes (39): baseline_versions, approval_tokens, audit_events, change_order_versions, change_orders, data_subject_requests, decisions, document_sequences (+31 more)
 
-### Community 19 - "intake-service.ts"
-Cohesion: 0.05
-Nodes (53): describe(), InboundWhatsAppMessage, IntakeOutcome, IntakeService, titleFrom(), validate(), InboundStatus, normalizeForSearch() (+45 more)
+### Community 19 - "money.ts"
+Cohesion: 0.15
+Nodes (7): assertInt64(), currencySymbol(), MINOR_UNITS, minorUnitScale(), Money, normalizeCurrency(), toIntegerBigint()
 
 ### Community 20 - "dependencies"
 Cohesion: 0.06
@@ -319,11 +340,11 @@ Nodes (8): config, pool, loadMigrations(), MigrateOptions, MigrateResult, Migrat
 
 ### Community 25 - "plugins/context.ts"
 Cohesion: 0.09
-Nodes (26): clientIp(), contextPlugin(), CSRF_COOKIE, fastify, FastifyRequest, headerOrganizationId(), isMutation(), PUBLIC_CSRF_COOKIE (+18 more)
+Nodes (28): clientIp(), contextPlugin(), CSRF_COOKIE, fastify, FastifyRequest, headerOrganizationId(), isMutation(), PUBLIC_CSRF_COOKIE (+20 more)
 
 ### Community 26 - "composer.tsx"
-Cohesion: 0.11
-Nodes (26): OfflineBanner(), useOnlineStatus(), Composer(), estimateLine(), Props, toApiPayload(), ADR-0005, zodResolver() (+18 more)
+Cohesion: 0.12
+Nodes (25): OfflineBanner(), useOnlineStatus(), Composer(), estimateLine(), Props, toApiPayload(), ADR-0005, zodResolver() (+17 more)
 
 ### Community 27 - "scripts"
 Cohesion: 0.06
@@ -335,11 +356,11 @@ Nodes (13): ALLOWED_UPLOAD_MIME_TYPES, AllowedMimeType, MAX_FILE_BYTES, ClamAvSc
 
 ### Community 29 - "api/projects.ts"
 Cohesion: 0.09
-Nodes (29): fullProject(), IdParams, ProjectRowLike, projectTotalsDto(), registerProjectRoutes(), summariseProject(), summaryDto(), AddressDto (+21 more)
+Nodes (27): fullProject(), IdParams, ProjectRowLike, projectTotalsDto(), registerProjectRoutes(), summariseProject(), ChangeOrderSummarySchema, AddressDto (+19 more)
 
-### Community 30 - "google-oauth.ts"
-Cohesion: 0.25
-Nodes (5): base64url(), GoogleAuthStart, GoogleOAuthOptions, GoogleOAuthProvider, GoogleProfile
+### Community 30 - "main.ts"
+Cohesion: 0.14
+Nodes (20): scanFile(), ScanPayload, applyRetention(), checkProjectIntegrity(), enqueueDueReminders(), expireRequests(), scheduleRecurringJobs(), container (+12 more)
 
 ### Community 31 - "runtime/package.json"
 Cohesion: 0.07
@@ -355,11 +376,11 @@ Nodes (25): dependencies, @extrawork/config, @extrawork/contracts, @extrawork/db
 
 ### Community 34 - "devDependencies"
 Cohesion: 0.08
-Nodes (25): eslint, eslint-plugin-react-hooks, @extrawork/testkit, fast-check, @next/eslint-plugin-next, devDependencies, drizzle-orm, eslint (+17 more)
+Nodes (25): eslint, @eslint/js, eslint-plugin-react-hooks, @extrawork/testkit, fast-check, @next/eslint-plugin-next, devDependencies, eslint (+17 more)
 
-### Community 35 - "main.ts"
-Cohesion: 0.08
-Nodes (25): applyRetention(), checkProjectIntegrity(), enqueueDueReminders(), expireRequests(), scheduleRecurringJobs(), container, ctx, handlers (+17 more)
+### Community 35 - "renderer.ts"
+Cohesion: 0.17
+Nodes (4): ChromiumPdfRenderer, PdfRenderer, UnavailablePdfRenderer, METRIC
 
 ### Community 36 - "integrations/package.json"
 Cohesion: 0.08
@@ -371,7 +392,7 @@ Nodes (11): loadEnvFile(), anchorLocalPaths(), assertProductionSafe(), booleanis
 
 ### Community 38 - "primitives.ts"
 Cohesion: 0.05
-Nodes (43): CompleteUploadSchema, CreateUploadSchema, FileObjectDto, FileObjectSchema, PresignedUploadSchema, UploadPurpose, UploadPurposeSchema, CreateOrganizationInput (+35 more)
+Nodes (51): ApproverSchema, AttachmentDto, AttachmentSchema, AuditEventDto, ChangeOrderSchema, ChangeOrderSummaryDto, ChangeOrderVersionDto, ChangeOrderVersionSchema (+43 more)
 
 ### Community 39 - "files/package.json"
 Cohesion: 0.08
@@ -391,47 +412,47 @@ Nodes (23): buildOpenApiDocument(), commonErrors, componentSchemas, errorRespons
 
 ### Community 43 - "api/customers.ts"
 Cohesion: 0.13
-Nodes (17): IdParams, ContactInput, ContactInputSchema, ContactSchema, CreateCustomerInput, CreateCustomerSchema, CustomerSchema, DuplicateCandidateDto (+9 more)
+Nodes (17): IdParams, ContactInput, ContactInputSchema, ContactSchema, CreateCustomerSchema, CustomerSchema, DuplicateCandidateDto, DuplicateCandidateSchema (+9 more)
 
 ### Community 44 - "compilerOptions"
 Cohesion: 0.09
 Nodes (21): compilerOptions, allowJs, incremental, jsx, lib, moduleResolution, noEmit, paths (+13 more)
 
-### Community 45 - "auth-service.ts"
+### Community 45 - "services.ts"
 Cohesion: 0.07
-Nodes (23): RFC-7914, AuthenticatedIdentity, AuthProvider, AuthService, signInUrl(), displayNameFromEmail(), Jwk, LocalMagicLinkProvider (+15 more)
+Nodes (22): RFC-7914, AuthenticatedIdentity, AuthProvider, AuthService, signInUrl(), base64url(), GoogleAuthStart, GoogleOAuthOptions (+14 more)
 
 ### Community 46 - "decision-panel.tsx"
 Cohesion: 0.11
-Nodes (23): DecisionPanel(), messageFor(), Props, Receipt(), satisfies(), Stage, decisionLabel(), dynamic (+15 more)
+Nodes (22): DecisionPanel(), messageFor(), Props, Receipt(), satisfies(), Stage, decisionLabel(), dynamic (+14 more)
 
 ### Community 47 - "0002_search_and_projections.sql"
 Cohesion: 0.16
 Nodes (18): change_order_versions_touch, change_orders_search_trigger(), change_orders_search_update, change_orders_touch, contacts_touch, customers_search_trigger(), customers_search_update, customers_touch (+10 more)
 
-### Community 48 - "email.ts"
+### Community 48 - "integrations/src/index.ts"
 Cohesion: 0.14
-Nodes (7): RFC-822, ConsoleEmailDriver, EmailDriver, EmailGateway, EmailMessage, FileEmailDriver, SmtpEmailDriver
+Nodes (10): RFC-822, createEmailDriver(), createIntegrations(), createWhatsAppGateway(), ConsoleEmailDriver, EmailDriver, EmailGateway, EmailMessage (+2 more)
 
 ### Community 49 - "Adapter-with-deferred-driver MVP posture"
 Cohesion: 0.12
 Nodes (20): A2 rejected with ASSURANCE_UNAVAILABLE, 32-byte approval token, SHA-256 stored, Defect: CHECK constraints made a cancelled draft unrepresentable, Defect: 'code' in the log redaction list, Defect: public session cookie discarded during SSR, Server-side entitlements and lapse read/export mode, Adapter-with-deferred-driver MVP posture, NativeShareGateway (+12 more)
 
-### Community 50 - "gateways.ts"
+### Community 50 - "razorpay.ts"
 Cohesion: 0.14
-Nodes (11): CreatePaymentCommand, DisabledPaymentGateway, OutboundTemplate, PaymentGateway, PaymentOrderRef, ProviderEvent, mapPaymentStatus(), RazorpayEntity (+3 more)
+Nodes (9): CreatePaymentCommand, DisabledPaymentGateway, PaymentGateway, PaymentOrderRef, mapPaymentStatus(), RazorpayEntity, RazorpayGateway, RazorpayOptions (+1 more)
 
 ### Community 51 - "state-machine.ts"
-Cohesion: 0.11
-Nodes (24): canCreateRevision(), canTransition(), isEditable(), isOpenForDecision(), isTerminal(), nextStatus(), OPEN_STATUSES, STATUS_LABEL (+16 more)
+Cohesion: 0.16
+Nodes (15): affectsProjectTotals(), canTransition(), decisionAction(), isEditable(), isTerminal(), nextStatus(), OPEN_STATUSES, STATUS_LABEL (+7 more)
 
 ### Community 52 - "domain/package.json"
 Cohesion: 0.11
 Nodes (17): decimal.js, libphonenumber-js, dependencies, decimal.js, @extrawork/contracts, libphonenumber-js, exports, @extrawork/contracts (+9 more)
 
 ### Community 53 - "TenantContext"
-Cohesion: 0.09
-Nodes (10): CustomerRepository, mapContact(), mapCustomer(), EmployeeRepository, mapEmployeeWithAssignments(), translateUniqueViolation(), ReportingRepository, RequestTemplateRepository (+2 more)
+Cohesion: 0.08
+Nodes (20): ProjectStatus, CONTACT_COLUMNS, ContactRecord, ContactRow, CUSTOMER_COLUMNS, CUSTOMER_COLUMNS_C, CustomerApproverSummary, CustomerRecord (+12 more)
 
 ### Community 54 - "0003_append_only_evidence.sql"
 Cohesion: 0.17
@@ -450,36 +471,36 @@ Cohesion: 0.15
 Nodes (17): One CI job per launch blocker, CI job: Integration, security and golden tests, CI job: End-to-end (Playwright), Migration idempotency check, CI job: Migration lint, Ephemeral PostgreSQL 16 CI service, CI job: Format, lint, typecheck, CI job: Unit and property tests (+9 more)
 
 ### Community 58 - "Compose service: api"
-Cohesion: 0.16
-Nodes (16): CI placeholder secrets, Compose service: api, Shared app-env anchor, app compose profile, C collation for reproducible index behaviour, Compose service: db (PostgreSQL 16), Compose service: minio, Compose service: minio-init (+8 more)
+Cohesion: 0.15
+Nodes (17): CI placeholder secrets, Compose service: api, Shared app-env anchor, app compose profile, C collation for reproducible index behaviour, Compose service: db (PostgreSQL 16), Compose service: mailpit, Compose service: minio (+9 more)
 
 ### Community 59 - "plugins/errors.ts"
 Cohesion: 0.53
 Nodes (4): registerErrorHandler(), toAppError(), zodDetails(), translateDatabaseError()
 
 ### Community 60 - "preflight-hosted.mts"
-Cohesion: 0.47
-Nodes (5): main(), record(), redact(), Result, results
+Cohesion: 0.33
+Nodes (8): createPool(), sslConfig(), createObjectStore(), main(), record(), redact(), Result, results
 
-### Community 61 - "send.ts"
-Cohesion: 0.11
-Nodes (32): generateExport(), scanFile(), firstName(), notifyTeamDecision(), ReceiptPayload, ReminderPayload, RequestMessagePayload, sendDecisionReceipt() (+24 more)
+### Community 61 - "messaging.ts"
+Cohesion: 0.21
+Nodes (20): firstName(), notifyTeamDecision(), ReceiptPayload, ReminderPayload, RequestMessagePayload, sendDecisionReceipt(), sendReminder(), sendRequestMessage() (+12 more)
 
-### Community 62 - "employees/service.ts"
-Cohesion: 0.17
-Nodes (9): decodeInboundCursor(), EmployeeService, encodeInboundCursor(), CreateEmployeeInput, UpdateEmployeeInput, UpdateRequestTemplateInput, EmployeeWithAssignments, InboundMessageRow (+1 more)
+### Community 62 - "RequestContext"
+Cohesion: 0.14
+Nodes (12): RequestContext, decodeInboundCursor(), EmployeeService, encodeInboundCursor(), CreateEmployeeInput, UpdateEmployeeInput, UpdateRequestTemplateInput, EmployeeRow (+4 more)
 
 ### Community 63 - "Moving off this machine: Supabase + Cloudflare R2"
 Cohesion: 0.17
 Nodes (11): 1. Supabase, 2. Cloudflare R2, 3. Put the values in `.env` yourself, 4. Run the migration, 5. Verify, Before you start, Gotchas found doing this for real, Moving off this machine: Supabase + Cloudflare R2 (+3 more)
 
 ### Community 64 - "Record What You Did"
-Cohesion: 0.14
-Nodes (17): Export Never Gated on Billing Status, export-subject.ts Export CLI, Legal Hold, Organization Account Deletion with 30-Day Grace, Bulk Token Revocation on Account Compromise, Freeze One Organization Runbook, Live Approval Tokens Survive a Freeze, ORGANIZATION_SUSPENDED Status (+9 more)
+Cohesion: 0.15
+Nodes (16): Export Never Gated on Billing Status, export-subject.ts Export CLI, Legal Hold, Organization Account Deletion with 30-Day Grace, Bulk Token Revocation on Account Compromise, Freeze One Organization Runbook, Live Approval Tokens Survive a Freeze, ORGANIZATION_SUSPENDED Status (+8 more)
 
-### Community 65 - "db/src/index.ts"
-Cohesion: 0.06
-Nodes (47): BuildAppOptions, ContextPluginOptions, FastifyInstance, workerContext, EVIDENCE_GENERATOR_VERSION, EvidencePayload, csvCell(), EXPORT_TEMPLATE_VERSION (+39 more)
+### Community 65 - "AppContext"
+Cohesion: 0.14
+Nodes (15): BuildAppOptions, ContextPluginOptions, FastifyInstance, workerContext, DecisionService, AppContext, Jwk, LocalMagicLinkOptions (+7 more)
 
 ### Community 66 - "Restore Database and Verify Audit Chains Runbook"
 Cohesion: 0.16
@@ -497,21 +518,25 @@ Nodes (13): dependencies, zod, exports, zod, main, name, private, scripts (+5 mo
 Cohesion: 0.14
 Nodes (13): dependencies, zod, exports, zod, main, name, private, scripts (+5 more)
 
-### Community 70 - "ProviderMessageRef"
-Cohesion: 0.27
-Nodes (6): OtpDeliveryCommand, OtpGateway, ProviderMessageRef, ConsoleOtpGateway, MessageGatewayOtpGateway, UnavailableOtpGateway
+### Community 70 - "gateways.ts"
+Cohesion: 0.25
+Nodes (7): OtpDeliveryCommand, OtpGateway, OutboundTemplate, ProviderMessageRef, ConsoleOtpGateway, MessageGatewayOtpGateway, UnavailableOtpGateway
 
 ### Community 71 - "dependencies"
 Cohesion: 0.15
 Nodes (13): dependencies, drizzle-orm, @extrawork/application, @extrawork/integrations, @extrawork/runtime, @fastify/cookie, @fastify/cors, drizzle-orm (+5 more)
 
-### Community 72 - ".createUpload"
-Cohesion: 0.40
-Nodes (4): CreateUploadInput, PresignedUploadDto, sanitizeFilename(), assertUploadRequestAllowed()
+### Community 72 - "files/service.ts"
+Cohesion: 0.27
+Nodes (6): FileService, CreateUploadInput, PresignedUploadDto, FileObjectRow, sanitizeFilename(), assertUploadRequestAllowed()
 
 ### Community 73 - "src/rate-limit.ts"
 Cohesion: 0.13
 Nodes (9): InMemoryRateLimiter, LocalReadRateLimiter, PostgresRateLimiter, RATE_LIMITS, RateLimiter, RateLimitResult, RateLimitRule, resultFor() (+1 more)
+
+### Community 74 - "evidence.test.ts"
+Cohesion: 0.12
+Nodes (13): FixedClock, publicContext(), approvedFixture(), clock, viewModel(), openLink(), addEmployee(), GOOD_MESSAGE (+5 more)
 
 ### Community 75 - "Non-Erasable Decision Record"
 Cohesion: 0.22
@@ -538,8 +563,8 @@ Cohesion: 0.24
 Nodes (10): CI job: Build web, API and worker, OpenAPI drift check, Build order S1–S10, Module map to package, Requirement traceability matrix, ExtraWork Technical Design Report and Master Build Specification v1.0, Workspace package globs (apps/*, packages/*), Enforced dependency direction (+2 more)
 
 ### Community 82 - "webhook-normalisation.test.ts"
-Cohesion: 0.06
-Nodes (47): localAuthSubject(), claimJobs(), Actor, createSilentLogger(), Container, actorContext(), ActorSpec, publicContext() (+39 more)
+Cohesion: 0.11
+Nodes (19): createTestContainer(), ensureMigrated(), PRESERVED_TABLES, TEST_DATABASE_URL, TestContainerOptions, truncateAll(), withTestContainer(), ChangeOrderFixtureOptions (+11 more)
 
 ### Community 83 - "e2e/fixtures.ts"
 Cohesion: 0.27
@@ -558,8 +583,8 @@ Cohesion: 0.22
 Nodes (8): compilerOptions, declaration, declarationMap, module, moduleResolution, noEmit, extends, ./tsconfig.json
 
 ### Community 87 - "Evidence pack (PDF + manifest)"
-Cohesion: 0.24
-Nodes (10): Compose service: mailpit, Private versioned bucket policy, Audit hash chain, Canonical JSON (JCS) + SHA-256 digest, Defect: manifest digest computed over its own wrapper, Defect: public decision ETag from lock_version, Evidence manifest and PDF template, Evidence pack (PDF + manifest) (+2 more)
+Cohesion: 0.28
+Nodes (9): Private versioned bucket policy, Audit hash chain, Canonical JSON (JCS) + SHA-256 digest, Defect: manifest digest computed over its own wrapper, Defect: public decision ETag from lock_version, Evidence manifest and PDF template, Evidence pack (PDF + manifest), A sent version is frozen (+1 more)
 
 ### Community 88 - "application/tsconfig.json"
 Cohesion: 0.22
@@ -606,12 +631,12 @@ Cohesion: 0.22
 Nodes (8): compilerOptions, noEmit, outDir, rootDir, extends, include, src/**/*.ts, ../../tsconfig.base.json
 
 ### Community 99 - "repositories/organizations.ts"
-Cohesion: 0.06
-Nodes (27): MembershipRole, AuthenticatedSessionContext, AuthenticatedSessionRecord, MembershipRow, SessionRow, UserRecord, UserRow, mapOrganization() (+19 more)
+Cohesion: 0.08
+Nodes (23): MembershipRole, AuthenticatedSessionContext, AuthenticatedSessionRecord, MembershipRow, SessionRow, UserRecord, UserRow, ORG_COLUMNS (+15 more)
 
 ### Community 100 - "Preserve Evidence Then Contain"
-Cohesion: 0.15
-Nodes (13): Blast Radius Determination, DPDP Data Fiduciary Notification, Preserve Evidence Then Contain, Pseudonymous Log Correlation by requestId, Data Access, Export and Deletion Request Runbook, Erasure Versus Contractual Evidence Tension, Requester Role Triage, PRIVACY_HASH_SECRET (+5 more)
+Cohesion: 0.25
+Nodes (8): Preserve Evidence Then Contain, Pseudonymous Log Correlation by requestId, PRIVACY_HASH_SECRET, Customer-Granted Time-Bound Access, Metadata-Only by Default, support_access_grants Record, Grant and Revoke Support Access Runbook, SUPPORT Actor Type Auditing
 
 ### Community 101 - "package.json"
 Cohesion: 0.25
@@ -629,17 +654,13 @@ Nodes (7): Dead-Letter Diagnosis Before Replay, PermanentJobError, Replay Webhoo
 Cohesion: 0.06
 Nodes (30): 10. Test inventory, 11. Open questions for the founder, 1. What the product is, 2. Current status in one table, 3. How to get running (5 minutes), 4. Architecture, 5. The product pivot (this is the important part), 6.1 Company field is optional, not required (+22 more)
 
-### Community 106 - "integrations/src/index.ts"
-Cohesion: 0.25
-Nodes (6): ESignGateway, UnavailableESignGateway, createEmailDriver(), createIntegrations(), createWhatsAppGateway(), Integrations
-
 ### Community 107 - "scripts"
 Cohesion: 0.33
 Nodes (6): scripts, build, dev, openapi, start, typecheck
 
-### Community 108 - "api/reports.ts"
-Cohesion: 0.15
-Nodes (12): ApprovedChangeExport, ApprovedChangeExportSchema, CreateEvidencePackSchema, ExportJobDto, ExportJobSchema, ExtraWorkReportDto, ExtraWorkReportRow, ExtraWorkReportRowSchema (+4 more)
+### Community 108 - "intake-service.ts"
+Cohesion: 0.20
+Nodes (16): describe(), InboundWhatsAppMessage, titleFrom(), validate(), describeUnderstood(), FIELD_EXAMPLES, FIELD_LABEL, FORMAT_HINT (+8 more)
 
 ### Community 109 - "Append-only evidence"
 Cohesion: 0.33
@@ -649,41 +670,65 @@ Nodes (6): Append-only via denied UPDATE/DELETE privileges, Defect: job handlers
 Cohesion: 0.33
 Nodes (6): Defect: outbox pump duplicated atomically enqueued jobs, Idempotency key (scope, subject, key), Job queue with lease, dead-letter and priorities, UnitOfWork atomic domain+audit+outbox commit, Atomic and idempotent decisions, No provider call inside a transaction
 
-### Community 112 - "metrics.ts"
-Cohesion: 0.29
-Nodes (4): labelKey(), Labels, MetricsRegistry, Series
+### Community 112 - "metrics"
+Cohesion: 0.26
+Nodes (5): labelKey(), Labels, metrics, MetricsRegistry, Series
 
 ### Community 113 - "project_integrity_mismatches"
 Cohesion: 0.40
 Nodes (6): INTEGRITY_REVIEW Project State, Nightly Project Integrity Job, project_integrity_mismatches(), Approved Delta Projection Drift, Repair Incorrect Project Totals Runbook, Projection Rebuild After Restore
 
+### Community 114 - "projects/service.ts"
+Cohesion: 0.16
+Nodes (10): ProjectService, CreateCustomerInput, BaselineAmendmentInput, CreateProjectInput, CustomerRow, ProjectRow, assertQuota(), checkQuota() (+2 more)
+
 ### Community 115 - "whatsapp.ts"
-Cohesion: 0.11
-Nodes (15): ShareMessageInput, buildCloudApiPayload(), mapDeliveryStatus(), MetaWebhookPayload, payloadFingerprint(), STATUS_RANK, WHATSAPP_TEMPLATE_LANGUAGE, WHATSAPP_TEMPLATES (+7 more)
+Cohesion: 0.10
+Nodes (18): FetchedMedia, InboundMediaRef, InboundMessageEvent, mapDeliveryStatus(), MetaInboundMessage, MetaMediaObject, MetaWebhookPayload, normalizeInboundMessage() (+10 more)
 
 ### Community 116 - ".prettierrc.json"
 Cohesion: 0.33
 Nodes (5): arrowParens, printWidth, semi, singleQuote, trailingComma
 
-### Community 119 - "sequences.ts"
-Cohesion: 0.29
-Nodes (8): allocateNumber(), peekNextNumber(), DEFAULT_FORMATS, formatDocumentNumber(), NumberFormat, SEQUENCE_KINDS, SequenceKind, sequenceScope()
+### Community 117 - "parse-message.ts"
+Cohesion: 0.18
+Nodes (17): EMPTY, IntakeField, IntakeValidation, LABELS, looksLikeAmount(), looksLikeDays(), normalizeLabel(), parseAmountToMinor() (+9 more)
 
-### Community 121 - "documents.ts"
-Cohesion: 0.14
-Nodes (7): DOC_COLUMNS, DocumentRecord, DocumentRepository, GeneratedDocumentRow, mapDocument(), MessageRow, WebhookEventRow
+### Community 119 - "sequences.ts"
+Cohesion: 0.26
+Nodes (9): ORG_SCOPE_UUID, allocateNumber(), peekNextNumber(), DEFAULT_FORMATS, formatDocumentNumber(), NumberFormat, SEQUENCE_KINDS, SequenceKind (+1 more)
+
+### Community 120 - "outbox-pump.ts"
+Cohesion: 0.18
+Nodes (12): registerHealthRoutes(), delay(), EnqueueInput, jobsFor(), OutboxPump, ADR-0003, queueDepth, leaseOutboxBatch() (+4 more)
+
+### Community 121 - "inbound.ts"
+Cohesion: 0.21
+Nodes (15): extensionFor(), handleInboundMessage(), sendReply(), storeInboundMedia(), toInboundMessageEvent(), applyMessageStatus(), looksLikeInboundMessage(), mapMessageStatuses() (+7 more)
 
 ### Community 122 - "Operational Runbooks Index"
 Cohesion: 0.22
 Nodes (11): Cross-Tenant Disclosure Response Runbook, Concurrent Index Rebuild, Expand-and-Contract Migrations, Failed Migration Recovery Runbook, Fix Forward or Roll Back the Code, Per-Migration Transaction Atomicity, Operational Runbooks Index, Auth Provider JWKS Key Rollover (+3 more)
 
 ### Community 124 - "MessageGateway"
-Cohesion: 0.17
-Nodes (6): MessageGateway, OutboundMessage, NativeShareWhatsAppGateway, SimulatedOutboundRecord, SimulatorOptions, SimulatorWhatsAppGateway
+Cohesion: 0.16
+Nodes (7): MessageGateway, OutboundMessage, ProviderEvent, NativeShareWhatsAppGateway, SimulatedOutboundRecord, SimulatorOptions, SimulatorWhatsAppGateway
+
+### Community 126 - "build.ts"
+Cohesion: 0.18
+Nodes (16): BuildEvidenceOptions, buildEvidenceViewModel(), EvidenceViewModel, formatInTimezone(), EVIDENCE_DISCLAIMER, readChain(), verifyAggregateChain(), JsonValue (+8 more)
 
 ### Community 128 - "api/employees.ts"
-Cohesion: 0.12
-Nodes (21): decorate(), IdParams, registerEmployeeRoutes(), toEmployeeDto(), toTemplateDto(), CreateEmployeeSchema, EmployeeListSchema, EmployeeStatus (+13 more)
+Cohesion: 0.10
+Nodes (25): decorate(), IdParams, registerEmployeeRoutes(), toEmployeeDto(), toTemplateDto(), CreateEmployeeSchema, EmployeeListSchema, EmployeeStatus (+17 more)
+
+### Community 135 - "api/organizations.ts"
+Cohesion: 0.11
+Nodes (17): CreateOrganizationInput, CurrentUserDto, CurrentUserSchema, EntitlementsDto, EntitlementsSchema, GstinSchema, InviteMembershipInput, MembershipDto (+9 more)
+
+### Community 136 - "send.ts"
+Cohesion: 0.23
+Nodes (12): firstName(), SendResult, SendService, SendChangeOrderInput, publishOutbox(), assertTransition(), collectSendBlockers(), maskEmail() (+4 more)
 
 ### Community 142 - "dev-lan.sh"
 Cohesion: 0.29
@@ -697,44 +742,84 @@ Nodes (8): Object Storage Bucket Versioning, Regenerable Evidence PDFs, claimFor
 Cohesion: 0.23
 Nodes (16): ChangePage(), dynamic, EventsResponse, ProjectPage(), ReportsPage(), dynamic, ReceiptPage(), RequestSummary() (+8 more)
 
-### Community 148 - "domain/src/index.ts"
+### Community 147 - "request-templates.ts"
+Cohesion: 0.20
+Nodes (7): mapTemplate(), RequestTemplateRepository, TEMPLATE_COLUMNS, TemplateRecord, TemplateSnapshot, toInt(), toIntArray()
+
+### Community 148 - "decide.ts"
 Cohesion: 0.05
-Nodes (50): generateEvidence(), truncate(), digest(), renderEvidenceHtml(), DecideCommand, DECLARATIONS, summariseAddress(), etagMatches() (+42 more)
+Nodes (51): DecideCommand, DecisionReceipt, DECLARATIONS, OtpChallengeResult, OtpService, PublicApprovalService, summariseAddress(), publicDecisionEtag() (+43 more)
 
 ### Community 162 - "api/change-orders.ts"
-Cohesion: 0.06
-Nodes (40): IdParams, ProjectIdParams, summariseEvent(), versionEtag(), CancelChangeOrderSchema, ChangeOrderEventsDto, ChangeOrderEventsSchema, ChangeOrderVersionListSchema (+32 more)
+Cohesion: 0.10
+Nodes (25): IdParams, ProjectIdParams, registerChangeOrderRoutes(), summariseEvent(), parseLockVersion(), summaryDto(), CancelChangeOrderSchema, ChangeOrderEventsDto (+17 more)
 
 ### Community 163 - "ExtraWork — Product Brief"
 Cohesion: 0.17
 Nodes (11): Business owner or administrator, Core product value, Customer or authorized approver, End-to-end workflow, ExtraWork — Product Brief, Field employee, Later expansion, MVP scope (+3 more)
 
-### Community 164 - "application/src/approvals/otp.ts"
-Cohesion: 0.13
-Nodes (19): OtpChallengeResult, OtpService, PublicRequestContext, assertAssuranceAvailable(), assertOtpSendAllowed(), GeneratedOtp, generateOtp(), hashOtp() (+11 more)
+### Community 164 - "chain.ts"
+Cohesion: 0.21
+Nodes (9): canonicalEventBody(), chainEvents(), ChainVerificationResult, computeEventHash(), verifyChain(), verifyChainFrom(), CanonicalizationError, CANONICALIZER_VERSION (+1 more)
 
-### Community 165 - "logger.ts"
-Cohesion: 0.36
-Nodes (5): LoggerContext, privacyHash(), redact(), REDACTED_KEYS, redactString()
+### Community 165 - "domain/src/index.ts"
+Cohesion: 0.11
+Nodes (16): Clock, systemClock, createUnitOfWork(), createRepositories(), createScanner(), MalwareScanner, StructuralScanner, Integrations (+8 more)
+
+### Community 166 - "inbound-intake.test.ts"
+Cohesion: 0.17
+Nodes (8): claimJobs(), fetchedMediaIds, GOOD_MESSAGE, pdfStub, PHOTO, runQueuedWebhookJob(), sent, claimNormalizeJob()
 
 ### Community 167 - "devDependencies"
 Cohesion: 0.40
 Nodes (5): devDependencies, tsx, typescript, tsx, typescript
 
+### Community 168 - "reminders/reminders.ts"
+Cohesion: 0.22
+Nodes (12): isOpenForDecision(), buildReminderSchedule(), DEFAULT_REMINDER_POLICY, localHourIn(), nextLocalWindow(), ReminderChannel, ReminderContext, ReminderDecision (+4 more)
+
+### Community 169 - "match.ts"
+Cohesion: 0.27
+Nodes (8): normalizeForSearch(), MatchCandidate, MatchOptions, MatchOutcome, matchProject(), scoreCandidate(), STOP_WORDS, tokens()
+
 ### Community 171 - "verify-chain.ts"
 Cohesion: 0.20
 Nodes (11): collectCodes(), collectMessages(), DescribedError, describeError(), formatCliError(), NodeError, redactUrl(), asJson (+3 more)
 
+### Community 172 - "evidence.ts"
+Cohesion: 0.29
+Nodes (7): EVIDENCE_GENERATOR_VERSION, EvidencePayload, generateEvidence(), truncate(), digest(), renderEvidenceHtml(), StorageKeys
+
+### Community 173 - "exports.ts"
+Cohesion: 0.24
+Nodes (8): csvCell(), EXPORT_TEMPLATE_VERSION, ExportPayload, generateExport(), HEADERS, toCsv(), PermanentJobError, RFC-4180
+
+### Community 174 - "replay.ts"
+Cohesion: 0.20
+Nodes (8): config, jobKind, [kind, maybeId], limit, topic, uow, replayJob(), replayOutboxEvent()
+
+### Community 176 - "IntakeService"
+Cohesion: 0.28
+Nodes (3): IntakeOutcome, IntakeService, InboundStatus
+
 ### Community 177 - "Cross-Tenant IDOR Threat"
 Cohesion: 0.50
 Nodes (4): Cross-Tenant IDOR Threat, Tenant Authorization Rule, TenantContext Repository Scope, Tenant Isolation Negative Corpus
+
+### Community 188 - "whatsapp-template.test.ts"
+Cohesion: 0.25
+Nodes (5): ShareMessageInput, buildCloudApiPayload(), WHATSAPP_TEMPLATE_LANGUAGE, WHATSAPP_TEMPLATES, BASE
+
+### Community 190 - "Data Access, Export and Deletion Request Runbook"
+Cohesion: 0.33
+Nodes (6): Blast Radius Determination, DPDP Data Fiduciary Notification, Data Access, Export and Deletion Request Runbook, Erasure Versus Contractual Evidence Tension, Requester Role Triage, Single-Tenant Blast Radius Check
 
 ## Ambiguous Edges - Review These
 - `allowBuilds native-dependency allowlist` → `Evidence pack (PDF + manifest)`  [AMBIGUOUS]
   pnpm-workspace.yaml · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **970 isolated node(s):** `printWidth`, `singleQuote`, `trailingComma`, `semi`, `arrowParens` (+965 more)
+- **979 isolated node(s):** `printWidth`, `singleQuote`, `trailingComma`, `semi`, `arrowParens` (+974 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **41 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -743,15 +828,15 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `allowBuilds native-dependency allowlist` and `Evidence pack (PDF + manifest)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `TenantContext` connect `TenantContext` to `TransactionContext`, `db/src/index.ts`, `toDate`, `repositories/organizations.ts`, `repositories/change-orders.ts`, `ProjectRepository`, `Database`, `client.ts`, `authorize`, `intake-service.ts`, `domain/src/index.ts`, `sequences.ts`, `documents.ts`, `employees/service.ts`?**
-  _High betweenness centrality (0.038) - this node is a cross-community bridge._
-- **Why does `AppError` connect `domain/src/index.ts` to `TransactionContext`, `LocalObjectStore`, `canonicalize`, `toDate`, `change-orders/service.ts`, `repositories/change-orders.ts`, `client.ts`, `authorize`, `totals.ts`, `app.ts`, `intake-service.ts`, `plugins/context.ts`, `validation.ts`, `google-oauth.ts`, `api/change-orders.ts`, `application/src/approvals/otp.ts`, `api.ts`, `auth-service.ts`, `email.ts`, `gateways.ts`, `state-machine.ts`, `plugins/errors.ts`, `send.ts`, `employees/service.ts`, `db/src/index.ts`, `webhook-normalisation.test.ts`, `repositories/organizations.ts`, `whatsapp.ts`, `sequences.ts`, `MessageGateway`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
-- **Why does `LocalObjectStore` connect `LocalObjectStore` to `db/src/index.ts`, `app.ts`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+- **Why does `TenantContext` connect `TenantContext` to `TransactionContext`, `AppError`, `toDate`, `repositories/organizations.ts`, `domain/src/index.ts`, `repositories/change-orders.ts`, `approvals.ts`, `match.ts`, `db/src/index.ts`, `Database`, `intake-service.ts`, `IntakeService`, `projects/service.ts`, `request-templates.ts`, `sequences.ts`, `RequestContext`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `AppError` connect `AppError` to `api/employees.ts`, `toDate`, `change-orders/service.ts`, `repositories/change-orders.ts`, `send.ts`, `approvals.ts`, `db/src/index.ts`, `authorize`, `totals.ts`, `app.ts`, `request-templates.ts`, `decide.ts`, `money.ts`, `plugins/context.ts`, `validation.ts`, `api/change-orders.ts`, `api.ts`, `evidence.ts`, `services.ts`, `integrations/src/index.ts`, `razorpay.ts`, `state-machine.ts`, `TenantContext`, `plugins/errors.ts`, `RequestContext`, `AppContext`, `gateways.ts`, `files/service.ts`, `webhook-normalisation.test.ts`, `repositories/organizations.ts`, `intake-service.ts`, `projects/service.ts`, `whatsapp.ts`, `parse-message.ts`, `sequences.ts`, `MessageGateway`, `build.ts`?**
+  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+- **Why does `TransactionContext` connect `TransactionContext` to `toDate`, `repositories/organizations.ts`, `repositories/change-orders.ts`, `runner.ts`, `approvals.ts`, `Database`, `db/src/index.ts`, `request-templates.ts`, `TenantContext`, `sequences.ts`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **What connects `printWidth`, `singleQuote`, `trailingComma` to the rest of the system?**
-  _970 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _979 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `TransactionContext` be split into smaller, more focused modules?**
-  _Cohesion score 0.04738985560903369 - nodes in this community are weakly interconnected._
-- **Should `LocalObjectStore` be split into smaller, more focused modules?**
-  _Cohesion score 0.08943089430894309 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.061343204653622425 - nodes in this community are weakly interconnected._
+- **Should `AppError` be split into smaller, more focused modules?**
+  _Cohesion score 0.07624113475177305 - nodes in this community are weakly interconnected._
