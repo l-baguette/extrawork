@@ -24,7 +24,19 @@ export interface DashboardData {
 export class ReportingRepository {
   constructor(private readonly db: Database) {}
 
-  async dashboard(ctx: TenantContext, timezone: string): Promise<DashboardData> {
+  async dashboard(
+    ctx: TenantContext,
+    timezone: string,
+    projectGrants?: readonly string[] | null,
+  ): Promise<DashboardData> {
+    const grantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND project_id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
     const result = await this.db.execute<{
       currency: string | null;
       pending_decisions: string;
@@ -37,22 +49,27 @@ export class ReportingRepository {
         (SELECT default_currency FROM organizations WHERE id = ${ctx.organizationId}::uuid) AS currency,
         (SELECT count(*) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status IN ('SENT','VIEWED'))::text AS pending_decisions,
         (SELECT count(*) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status IN ('SENT','VIEWED')
             AND expires_at < now() + interval '48 hours')::text AS overdue_or_expiring,
         (SELECT COALESCE(sum(total_delta_minor), 0) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status = 'APPROVED'
             AND decided_at >= date_trunc('month', now() AT TIME ZONE ${timezone})
                               AT TIME ZONE ${timezone})::text AS approved_value_month,
         (SELECT AVG(EXTRACT(EPOCH FROM (decided_at - sent_at)) / 3600.0)::text
            FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND decided_at IS NOT NULL AND sent_at IS NOT NULL) AS average_hours,
         (SELECT count(DISTINCT project_id) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status = 'APPROVED')::text AS projects_unbilled
     `);
 
@@ -76,6 +93,7 @@ export class ReportingRepository {
     ctx: TenantContext,
     query: string,
     limit: number,
+    projectGrants?: readonly string[] | null,
   ): Promise<{
     customers: Array<{ id: string; displayName: string; snippet: string | null }>;
     projects: Array<{ id: string; projectNumber: string; title: string; customerName: string }>;
@@ -89,6 +107,22 @@ export class ReportingRepository {
     }>;
   }> {
     const like = `%${query}%`;
+    const projectGrantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND p.id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
+    const changeGrantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND co.project_id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
 
     const customers = await this.db.execute<{ id: string; display_name: string }>(sql`
       SELECT id, display_name FROM customers
@@ -110,6 +144,7 @@ export class ReportingRepository {
       FROM projects p
       JOIN customers c ON c.id = p.customer_id
       WHERE p.organization_id = ${ctx.organizationId}::uuid
+        ${projectGrantFilter}
         AND (p.search_document @@ plainto_tsquery('simple', extrawork_unaccent(lower(${query})))
              OR p.title ILIKE ${like} OR p.project_number ILIKE ${like})
       ORDER BY p.updated_at DESC
@@ -129,6 +164,7 @@ export class ReportingRepository {
       JOIN change_order_versions v ON v.id = co.current_version_id
       JOIN projects p ON p.id = co.project_id
       WHERE co.organization_id = ${ctx.organizationId}::uuid
+        ${changeGrantFilter}
         AND (co.search_document @@ plainto_tsquery('simple', extrawork_unaccent(lower(${query})))
              OR v.title ILIKE ${like} OR co.number ILIKE ${like})
       ORDER BY v.updated_at DESC
@@ -169,6 +205,7 @@ export class ReportingRepository {
       createdByUserId?: string;
       status: 'APPROVED' | 'DECLINED' | 'PENDING' | 'ALL';
     },
+    projectGrants?: readonly string[] | null,
   ): Promise<ReportRow[]> {
     const statusFilter = (() => {
       switch (filters.status) {
@@ -182,6 +219,14 @@ export class ReportingRepository {
           return sql`AND v.status <> 'DRAFT'`;
       }
     })();
+    const grantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND co.project_id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
 
     const result = await this.db.execute<ReportRecord>(sql`
       SELECT co.id AS change_order_id, co.number, v.version_number, p.id AS project_id,
@@ -190,14 +235,18 @@ export class ReportingRepository {
              v.subtotal_delta_minor, v.tax_delta_minor, v.total_delta_minor,
              v.schedule_delta_days, v.sent_at, v.decided_at,
              d.type::text AS decision_type, d.assurance_achieved::text,
-             u.display_name AS created_by
+             COALESCE(u.display_name, e.name, 'WhatsApp intake') AS created_by
       FROM change_orders co
       JOIN change_order_versions v ON v.id = co.current_version_id
       JOIN projects p ON p.id = co.project_id
       JOIN customers cu ON cu.id = p.customer_id
-      JOIN users u ON u.id = co.created_by_user_id
+      LEFT JOIN users u ON u.id = co.created_by_user_id
+      LEFT JOIN employees e
+        ON e.id = v.raised_by_employee_id
+       AND e.organization_id = co.organization_id
       LEFT JOIN decisions d ON d.version_id = v.id
       WHERE co.organization_id = ${ctx.organizationId}::uuid
+        ${grantFilter}
         ${statusFilter}
         ${filters.projectId ? sql`AND co.project_id = ${filters.projectId}::uuid` : sql``}
         ${filters.customerId ? sql`AND p.customer_id = ${filters.customerId}::uuid` : sql``}

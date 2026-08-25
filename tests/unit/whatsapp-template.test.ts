@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildRequestTemplateParameters, type ShareMessageInput } from '@extrawork/domain';
+import {
+  buildReminderTemplateParameters,
+  buildRequestTemplateParameters,
+  type ShareMessageInput,
+} from '@extrawork/domain';
 import {
   WHATSAPP_TEMPLATES,
   WHATSAPP_TEMPLATE_LANGUAGE,
@@ -88,6 +92,21 @@ describe('extra_work_request_v1 parameters', () => {
   it('renders a deduction without a stray minus sign', () => {
     const params = buildRequestTemplateParameters({ ...BASE, totalDeltaMinor: -500_000n });
     expect(params[3]).not.toContain('-');
+  });
+});
+
+describe('extra_work_reminder_v1 parameters', () => {
+  it('emits the six documented substitutions in order and keeps them non-empty', () => {
+    const params = buildReminderTemplateParameters(BASE);
+    expect(params).toEqual([
+      'Priya',
+      'Shree Interiors',
+      'CO-0007',
+      'Tower 4',
+      expect.stringContaining('15,800'),
+      expect.stringContaining('2026'),
+    ]);
+    for (const value of params) expect(value.length).toBeGreaterThan(0);
   });
 });
 

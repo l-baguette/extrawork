@@ -128,7 +128,7 @@ export async function buildEvidenceViewModel(
 
   // Integrity gate 1: the snapshot must still hash to its recorded digest.
   if (!verifySnapshotDigest(version.canonicalSnapshot, version.canonicalSha256)) {
-    throw new AppError('INTERNAL_ERROR', {
+    throw new AppError('PROJECT_INTEGRITY_REVIEW', {
       message:
         'The stored change snapshot does not match its recorded digest. Evidence generation is blocked pending review.',
       details: { versionId: version.id, integrity: 'SNAPSHOT_DIGEST_MISMATCH' },
@@ -140,8 +140,8 @@ export async function buildEvidenceViewModel(
       repos.changeOrders.requireChangeOrder(db, tenant, version.changeOrderId),
       repos.projects.requireById(tenant, version.projectId),
       repos.organizations.findById(tenant),
-      repos.changeOrders.listLineItems(db, version.id),
-      repos.changeOrders.listAttachments(db, version.id),
+      repos.changeOrders.listLineItems(db, tenant, version.id),
+      repos.changeOrders.listAttachments(db, tenant, version.id),
       repos.customers.requireContact(tenant, version.approverContactId),
       repos.approvals.findDecisionByVersion(db, tenant, version.id),
     ]);
@@ -158,7 +158,7 @@ export async function buildEvidenceViewModel(
     })),
   );
   if (recomputed.totalDeltaMinor !== version.totalDeltaMinor) {
-    throw new AppError('INTERNAL_ERROR', {
+    throw new AppError('PROJECT_INTEGRITY_REVIEW', {
       message:
         'The stored totals do not match a recomputation from line items. Evidence generation is blocked pending review.',
       details: { versionId: version.id, integrity: 'TOTALS_MISMATCH' },
@@ -167,6 +167,18 @@ export async function buildEvidenceViewModel(
 
   // Integrity gate 3: the audit chain must recompute (report §8.5).
   const chain = await verifyAggregateChain(db, tenant, 'change_order', version.changeOrderId);
+  if (!chain.valid || chain.eventCount === 0 || !chain.terminalHash) {
+    throw new AppError('PROJECT_INTEGRITY_REVIEW', {
+      message:
+        'The audit chain for this change request did not verify. Evidence generation is blocked pending review.',
+      details: {
+        versionId: version.id,
+        changeOrderId: version.changeOrderId,
+        integrity: 'AUDIT_CHAIN_MISMATCH',
+        eventCount: chain.eventCount,
+      },
+    });
+  }
   const events = await readChain(db, tenant, 'change_order', version.changeOrderId);
 
   const decisionCopy = decision ? assuranceCopy(decision.assuranceAchieved) : null;

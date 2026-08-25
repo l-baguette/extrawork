@@ -82,30 +82,28 @@ export async function handleInboundMessage(
   // replay protection, so a job retry re-reads the stored outcome rather than
   // raising a second change request.
   const outcome = await ctx.services.intake.handleInbound({
+    provider: event.provider,
+    providerAccountId: event.providerAccountId,
     providerMessageId: message.providerMessageId,
     fromPhoneE164: message.fromPhoneE164,
     body: message.body,
     mediaCount: message.media.length,
   });
 
+  // Reply first: media quarantine may be temporarily unavailable, but an
+  // employee standing on site should still hear that the request was accepted.
+  await sendReply(message.fromPhoneE164, outcome.reply, ctx);
+
   if (outcome.organizationId && message.media.length > 0) {
-    // Deliberately after intake: the tenant has to be known before a byte is
-    // fetched. A failure here must not lose the request that already succeeded,
-    // so it is caught and logged rather than failing the job into a retry that
-    // would re-send the reply.
-    try {
-      await storeInboundMedia(message, outcome.inboundMessageId, outcome.organizationId, ctx);
-    } catch (error) {
-      log.error({ err: error }, 'inbound media could not be stored; request itself is unaffected');
-    }
+    // Failure stays retryable at the webhook/job boundary. Already-linked media
+    // is skipped on retry, so a partial batch resumes instead of duplicating.
+    await storeInboundMedia(message, outcome.inboundMessageId, outcome.organizationId, ctx);
   } else if (message.media.length > 0) {
     log.warn(
       { mediaCount: message.media.length },
       'discarding media from an unrecognised sender without fetching it',
     );
   }
-
-  await sendReply(message.fromPhoneE164, outcome.reply, ctx);
 
   log.info(
     {
@@ -173,7 +171,7 @@ async function storeInboundMedia(
   for (const ref of message.media) {
     if (alreadyFetched.has(ref.mediaId)) continue;
 
-    const fetched = await gateway.fetchMedia(ref.mediaId);
+    const fetched = await gateway.fetchMedia(ref.mediaId, { maxBytes: ctx.env.MAX_UPLOAD_BYTES });
 
     // The provider caps its own uploads, but this is the boundary that protects
     // our storage, so it is enforced here rather than assumed upstream.

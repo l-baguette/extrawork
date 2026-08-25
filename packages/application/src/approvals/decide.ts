@@ -166,11 +166,11 @@ export class DecisionService {
         throw new AppError('TOKEN_INVALID');
       }
       assertTokenUsable(token, now);
+      const tenant = systemTenantContext(token.organizationId, ctx.requestId);
 
       // 3. Lock the version and revalidate under the lock.
-      const version = await this.repos.changeOrders.lockVersion(tx, token.versionId);
+      const version = await this.repos.changeOrders.lockVersion(tx, tenant, token.versionId);
       if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
-      const tenant = systemTenantContext(version.organizationId, ctx.requestId);
 
       // Report §4.6: the first committed terminal decision wins; a second gets
       // 409 with the recorded state.
@@ -216,7 +216,8 @@ export class DecisionService {
       const dateCheck = assertSignedDatePlausible(command.input.signedDate, now, project0.timezone);
 
       const approver = await this.repos.customers.findContact(tenant, version.approverContactId);
-      if (approver && !signerNameMatches(command.input.signerName, approver.name)) {
+      if (!approver) throw new AppError('CONTACT_NOT_FOUND');
+      if (!signerNameMatches(command.input.signerName, approver.name)) {
         throw new AppError('SIGNER_NAME_MISMATCH', {
           // The expected name is already on the page the customer is looking
           // at, so echoing it here tells them nothing they cannot see.
@@ -248,9 +249,9 @@ export class DecisionService {
       });
 
       // 6. Terminal state and token revocation.
-      await this.repos.changeOrders.setStatus(tx, version.id, nextStatus, now);
-      await this.repos.approvals.revoke(tx, token.id, 'DECIDED');
-      await this.repos.reminders.cancelForVersion(tx, version.id, 'DECIDED');
+      await this.repos.changeOrders.setStatus(tx, tenant, version.id, nextStatus, now);
+      await this.repos.approvals.revoke(tx, tenant.organizationId, token.id, 'DECIDED');
+      await this.repos.reminders.cancelForVersion(tx, tenant.organizationId, version.id, 'DECIDED');
 
       // 7. Project projection, only on approve.
       let revisedTotalMinor = project.revisedTotalMinor;

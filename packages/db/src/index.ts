@@ -18,6 +18,7 @@ export * from './repositories/files.js';
 export * from './repositories/documents.js';
 export * from './repositories/reporting.js';
 export * from './repositories/reminders.js';
+export * from './repositories/payments.js';
 export * from './repositories/employees.js';
 export * from './repositories/inbound-messages.js';
 export * from './repositories/request-templates.js';

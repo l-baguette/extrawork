@@ -1,5 +1,5 @@
 import { AppError } from '@extrawork/contracts';
-import type { InboundStatus } from '@extrawork/db';
+import type { InboundMessageRow, InboundStatus, VersionRow } from '@extrawork/db';
 import {
   helpReply,
   incompleteReply,
@@ -37,6 +37,8 @@ import type { SendService } from '../change-orders/send.js';
  */
 
 export interface InboundWhatsAppMessage {
+  provider?: string;
+  providerAccountId?: string | null;
   /** Provider message id. Redelivery of the same id must not create a second request. */
   providerMessageId: string;
   fromPhoneE164: string;
@@ -85,13 +87,15 @@ export class IntakeService {
     const { row, alreadySeen } = await this.app.uow.transaction((tx) =>
       this.app.repos.inboundMessages.record(tx, {
         providerMessageId: message.providerMessageId,
+        provider: message.provider,
+        providerAccountId: message.providerAccountId,
         fromPhoneE164: message.fromPhoneE164,
         body: message.body,
         mediaCount: message.mediaCount ?? 0,
       }),
     );
 
-    if (alreadySeen) {
+    if (alreadySeen && row.status !== 'RECEIVED') {
       // WhatsApp redelivers. Replaying would bill the customer twice for one
       // message, so the stored outcome is returned as-is.
       return {
@@ -105,34 +109,38 @@ export class IntakeService {
       };
     }
 
-    try {
-      return await this.process(row.id, message);
-    } catch (error) {
-      // An unexpected failure must still leave a record and still answer the
-      // employee, who is standing on a site waiting.
-      this.app.logger.error({ err: error, inboundMessageId: row.id }, 'intake failed unexpectedly');
-      const reply =
-        'Something went wrong on our side and your request was not sent. ' +
-        'Nothing has been charged or approved. Please try again in a moment.';
-      await this.finish(row.id, 'REJECTED_UNPARSEABLE', reply, {
-        rejectionReason: error instanceof Error ? error.message : 'unknown error',
+    const claimed = await this.app.uow.transaction((tx) =>
+      this.app.repos.inboundMessages.claimForProcessing(tx, row.id),
+    );
+    if (!claimed) {
+      throw new AppError('IDEMPOTENCY_IN_PROGRESS', {
+        message: 'This inbound message is already being processed.',
       });
-      return {
-        status: 'REJECTED_UNPARSEABLE',
-        reply,
-        inboundMessageId: row.id,
-        changeOrderId: null,
-        approvalUrl: null,
-        duplicate: false,
-        organizationId: null,
-      };
+    }
+
+    try {
+      return await this.process(row, message);
+    } catch (error) {
+      // Infrastructure and provider failures are retryable. Keep the durable
+      // checkpoint at RECEIVED and release its processing lease so the webhook
+      // retry resumes instead of permanently rejecting or duplicating it.
+      this.app.logger.error({ err: error, inboundMessageId: row.id }, 'intake failed unexpectedly');
+      await this.app.uow.transaction((tx) =>
+        this.app.repos.inboundMessages.recordRetryableError(
+          tx,
+          row.id,
+          error instanceof Error ? error.message : 'unknown error',
+        ),
+      );
+      throw error;
     }
   }
 
   private async process(
-    inboundId: string,
+    inbound: InboundMessageRow,
     message: InboundWhatsAppMessage,
   ): Promise<IntakeOutcome> {
+    const inboundId = inbound.id;
     // 1. Who is this? The phone number is the entire credential, and the global
     //    unique index guarantees it resolves to at most one active employee.
     const employee = await this.app.repos.employees.findByPhoneGlobal(message.fromPhoneE164);
@@ -250,40 +258,85 @@ export class IntakeService {
     }
 
     // 5. Create and send through the same services the web composer uses.
-    const ctx = this.intakeContext(tenant, employee.projectIds, project.id);
-    const created = await this.changeOrders.create(ctx, project.id, {
-      type: amountMinor === 0n ? 'TIME_ONLY' : 'ADDITION',
-      title: titleFrom(parsed),
-      scope: parsed.description ?? '',
-      ...(parsed.reason ? { reason: parsed.reason } : {}),
-      // One line item priced at the figure the employee gave. The money engine
-      // computes the totals; nothing here does arithmetic.
-      lineItems:
-        amountMinor === 0n
-          ? []
-          : [
-              {
-                description: titleFrom(parsed),
-                quantity: '1',
-                unit: 'item',
-                unitPriceMinor: Number(amountMinor),
-                // The employee quotes one all-in figure, not a pre-tax rate, so
-                // adding tax here would inflate what they were told it costs.
-                taxRateBps: 0,
-                direction: 1 as const,
-              },
-            ],
-      scheduleDeltaDays: days,
-      approverContactId: projectRow.defaultApproverContactId,
-      assuranceRequired: 'A0' as const,
-    });
+    const ctx = this.intakeContext(tenant, project.id);
+    let created: {
+      changeOrderId: string;
+      number: string;
+      version: VersionRow;
+    };
 
-    const sent = await this.sender.send(ctx, created.changeOrderId, {
-      channel: 'WHATSAPP' as const,
-    });
+    if (inbound.changeOrderId) {
+      const existing = await this.app.repos.changeOrders.requireChangeOrder(
+        this.app.uow.db,
+        tenant,
+        inbound.changeOrderId,
+      );
+      if (existing.projectId !== project.id) {
+        throw new AppError('INTERNAL_ERROR', {
+          message: 'Inbound checkpoint is linked to the wrong project.',
+        });
+      }
+      const version = await this.app.repos.changeOrders.getCurrentVersion(
+        tenant,
+        inbound.changeOrderId,
+      );
+      if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
+      created = { changeOrderId: existing.id, number: existing.number, version };
+    } else {
+      created = await this.changeOrders.create(
+        ctx,
+        project.id,
+        {
+          type: amountMinor === 0n ? 'TIME_ONLY' : 'ADDITION',
+          title: titleFrom(parsed),
+          scope: parsed.description ?? '',
+          ...(parsed.reason ? { reason: parsed.reason } : {}),
+          // One line item priced at the figure the employee gave. The money engine
+          // computes the totals; nothing here does arithmetic.
+          lineItems:
+            amountMinor === 0n
+              ? []
+              : [
+                  {
+                    description: titleFrom(parsed),
+                    quantity: '1',
+                    unit: 'item',
+                    unitPriceMinor: Number(amountMinor),
+                    // The employee quotes one all-in figure, not a pre-tax rate, so
+                    // adding tax here would inflate what they were told it costs.
+                    taxRateBps: 0,
+                    direction: 1 as const,
+                  },
+                ],
+          scheduleDeltaDays: days,
+          approverContactId: projectRow.defaultApproverContactId,
+          assuranceRequired: 'A0' as const,
+        },
+        {
+          afterCreate: (tx, checkpoint) =>
+            this.app.repos.inboundMessages.markProgress(tx, inboundId, {
+              organizationId: employee.organizationId,
+              employeeId: employee.id,
+              projectId: project.id,
+              changeOrderId: checkpoint.changeOrderId,
+              parsed: describe(parsed),
+            }),
+        },
+      );
+    }
+
+    let approvalUrl: string | null = null;
+    let versionId = created.version.id;
+    if (created.version.status === 'DRAFT') {
+      const sent = await this.sender.send(ctx, created.changeOrderId, {
+        channel: 'WHATSAPP' as const,
+      });
+      approvalUrl = sent.approvalUrl;
+      versionId = sent.versionId;
+    }
 
     await this.app.uow.transaction((tx) =>
-      this.app.repos.changeOrders.markIntakeOrigin(tx, tenant, sent.versionId, employee.id),
+      this.app.repos.changeOrders.markIntakeOrigin(tx, tenant, versionId, employee.id),
     );
 
     const customer = await this.app.repos.customers.requireById(tenant, projectRow.customerId);
@@ -309,7 +362,7 @@ export class IntakeService {
       reply,
       inboundMessageId: inboundId,
       changeOrderId: created.changeOrderId,
-      approvalUrl: sent.approvalUrl,
+      approvalUrl,
       duplicate: false,
       organizationId: employee.organizationId,
     };
@@ -350,22 +403,16 @@ export class IntakeService {
    * record. The person who actually raised it is stored as
    * `change_order_versions.raised_by_employee_id`.
    *
-   * The role is OWNER because the organization has delegated exactly this
-   * authority — the owner registered the employee, assigned their projects and
-   * set their spending ceiling, all of which have already been enforced above.
-   * The grant is narrowed to the single project being acted on, so a bug here
-   * cannot reach a project the employee was never assigned.
+   * PROJECT_MANAGER is the narrowest existing role that may create and send a
+   * change request. The grant contains only the resolved project, so this
+   * machine context cannot use broader owner powers or reach another project.
    */
-  private intakeContext(
-    tenant: TenantContext,
-    assignedProjectIds: string[],
-    projectId: string,
-  ): RequestContext {
+  private intakeContext(tenant: TenantContext, projectId: string): RequestContext {
     const actor: Actor = {
       userId: null,
       organizationId: tenant.organizationId,
-      role: 'OWNER',
-      projectGrants: new Set([projectId, ...assignedProjectIds]),
+      role: 'PROJECT_MANAGER',
+      projectGrants: new Set([projectId]),
       authenticatedAt: Date.now(),
     };
     return {

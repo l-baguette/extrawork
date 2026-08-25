@@ -1,6 +1,9 @@
-import type { JobRow, WebhookEventRow } from '@extrawork/db';
+import type { JobRow, PaymentIntentStatus, WebhookEventRow } from '@extrawork/db';
+import { DOMAIN_EVENTS } from '@extrawork/contracts';
+import { systemTenantContext } from '@extrawork/domain';
+import { normalizeRazorpayPaymentEvent, verifyPaymentMatchesIntent } from '@extrawork/integrations';
 import type { WorkerContext } from '../context.js';
-import { PermanentJobError } from '../runner.js';
+import { PermanentJobError, requirePayloadUuid } from '../runner.js';
 import { handleInboundMessage } from './inbound.js';
 
 /**
@@ -23,10 +26,6 @@ import { handleInboundMessage } from './inbound.js';
  * and matches what the API and the outbox pump enqueue — a mismatch here reads
  * `undefined`, finds no row, and fails every job as WEBHOOK_MISSING.
  */
-interface WebhookPayload {
-  webhookInboxId: string;
-}
-
 /** Delivery states in the order a provider may legitimately advance through. */
 const STATUS_RANK: Record<string, number> = {
   PENDING: 0,
@@ -39,10 +38,10 @@ const STATUS_RANK: Record<string, number> = {
 };
 
 export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise<void> {
-  const payload = job.payload as unknown as WebhookPayload;
-  const log = ctx.logger.child({ webhookInboxId: payload.webhookInboxId });
+  const webhookInboxId = requirePayloadUuid(job, 'webhookInboxId');
+  const log = ctx.logger.child({ webhookInboxId });
 
-  const event = await ctx.repos.webhooks.findById(ctx.db, payload.webhookInboxId);
+  const event = await ctx.repos.webhooks.findById(ctx.db, webhookInboxId);
   if (!event) throw new PermanentJobError('WEBHOOK_MISSING', 'Webhook event no longer exists');
   if (event.processedAt) {
     log.debug('webhook already normalised');
@@ -54,7 +53,7 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
   if (!event.signatureVerified) {
     await ctx.repos.webhooks.markProcessed(
       ctx.db,
-      payload.webhookInboxId,
+      webhookInboxId,
       'signature not verified; ignored',
     );
     log.warn({ provider: event.provider }, 'ignoring webhook with unverified signature');
@@ -67,7 +66,13 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
     // the whole handler relied on previously.
     if (event.kind === 'INBOUND_MESSAGE') {
       await handleInboundMessage(event, ctx);
-      await ctx.repos.webhooks.markProcessed(ctx.db, payload.webhookInboxId, null);
+      await ctx.repos.webhooks.markProcessed(ctx.db, webhookInboxId, null);
+      return;
+    }
+
+    if (event.kind === 'PAYMENT_STATUS') {
+      const processError = await reconcilePaymentStatus(event, ctx);
+      await ctx.repos.webhooks.markProcessed(ctx.db, webhookInboxId, processError);
       return;
     }
 
@@ -88,13 +93,116 @@ export async function normalizeWebhook(job: JobRow, ctx: WorkerContext): Promise
         'webhook has no applicable normaliser; raw event preserved for review',
       );
     }
-    await ctx.repos.webhooks.markProcessed(ctx.db, payload.webhookInboxId, null);
+    await ctx.repos.webhooks.markProcessed(ctx.db, webhookInboxId, null);
   } catch (error) {
     await ctx.repos.webhooks
-      .markProcessed(ctx.db, payload.webhookInboxId, String((error as Error).message))
+      .recordProcessingError(ctx.db, webhookInboxId, String((error as Error).message))
       .catch(() => undefined);
     throw error;
   }
+}
+
+const PAYMENT_STATUS_RANK: Record<PaymentIntentStatus, number> = {
+  CREATED: 0,
+  PENDING: 1,
+  FAILED: 1,
+  CANCELLED: 1,
+  PAID: 2,
+  REFUNDED: 3,
+};
+
+/** Reconciles an already signature-verified Razorpay event atomically. */
+async function reconcilePaymentStatus(
+  event: WebhookEventRow,
+  ctx: WorkerContext,
+): Promise<string | null> {
+  if (event.provider !== 'razorpay') {
+    throw new PermanentJobError(
+      'PAYMENT_PROVIDER_UNSUPPORTED',
+      `No payment normaliser exists for ${event.provider}`,
+    );
+  }
+
+  const normalized = normalizeRazorpayPaymentEvent(event.rawPayload);
+  if (!normalized) {
+    throw new PermanentJobError(
+      'PAYMENT_EVENT_INVALID',
+      'Verified payment webhook did not contain a usable order identity',
+    );
+  }
+
+  return ctx.app.uow.transaction(async (tx) => {
+    const intent = await ctx.repos.payments.lockByProviderOrder(
+      tx,
+      event.provider,
+      normalized.providerOrderId,
+    );
+    // This can be a real ordering race: retain the unprocessed inbox row and
+    // retry rather than acknowledging money we cannot yet associate.
+    if (!intent) {
+      throw new Error(`Payment intent not found for order ${normalized.providerOrderId}`);
+    }
+
+    const tenant = systemTenantContext(intent.organizationId, `webhook:${event.id}`);
+    const match = verifyPaymentMatchesIntent(normalized, intent);
+    if (!match.ok) {
+      const reason = match.reason ?? 'Payment reconciliation mismatch';
+      await ctx.repos.audit.append(tx, tenant, [
+        {
+          aggregateType: 'PAYMENT_INTENT',
+          aggregateId: intent.id,
+          projectId: intent.projectId,
+          eventType: DOMAIN_EVENTS.INTEGRITY_MISMATCH_DETECTED,
+          actorType: 'SYSTEM',
+          actorId: event.provider,
+          occurredAt: event.providerEventAt ?? ctx.app.clock.now(),
+          payload: {
+            source: 'PAYMENT_WEBHOOK',
+            providerEventId: event.providerEventId,
+            providerOrderId: normalized.providerOrderId,
+            reason,
+          },
+        },
+      ]);
+      ctx.logger.error(
+        { paymentIntentId: intent.id, providerEventId: event.providerEventId, reason },
+        'payment webhook did not match stored intent',
+      );
+      return reason;
+    }
+
+    const incoming = normalized.status as PaymentIntentStatus;
+    const shouldAdvance = PAYMENT_STATUS_RANK[incoming] >= PAYMENT_STATUS_RANK[intent.status];
+    // PAID is authoritative even after a local cancellation or an earlier
+    // failed attempt on the same order; no lower state can regress PAID.
+    const nextStatus = shouldAdvance || incoming === 'PAID' ? incoming : intent.status;
+
+    await ctx.repos.payments.updateFromProvider(tx, intent, {
+      status: nextStatus,
+      providerPaymentId: normalized.providerPaymentId,
+    });
+    await ctx.repos.audit.append(tx, tenant, [
+      {
+        aggregateType: 'PAYMENT_INTENT',
+        aggregateId: intent.id,
+        projectId: intent.projectId,
+        eventType: DOMAIN_EVENTS.PAYMENT_STATUS_CHANGED,
+        actorType: 'SYSTEM',
+        actorId: event.provider,
+        occurredAt: event.providerEventAt ?? ctx.app.clock.now(),
+        payload: {
+          providerEventId: event.providerEventId,
+          providerOrderId: normalized.providerOrderId,
+          providerPaymentId: normalized.providerPaymentId,
+          providerStatus: normalized.status,
+          previousStatus: intent.status,
+          status: nextStatus,
+          applied: nextStatus !== intent.status,
+        },
+      },
+    ]);
+    return null;
+  });
 }
 
 /**
@@ -192,6 +300,8 @@ async function applyMessageStatus(
 ): Promise<void> {
   const message = await ctx.repos.messages.findByProviderMessageId(
     ctx.db,
+    event.provider,
+    event.providerAccountId,
     normalized.providerMessageId,
   );
   if (!message) {
@@ -209,7 +319,11 @@ async function applyMessageStatus(
     messageId: message.id,
     status: normalized.status,
     providerEventAt: normalized.occurredAt,
-    payload: { provider: event.provider, errorCode: normalized.errorCode },
+    payload: {
+      provider: event.provider,
+      providerAccountId: event.providerAccountId,
+      errorCode: normalized.errorCode,
+    },
   });
 
   // Out-of-order delivery is normal, so only a forward move updates state.

@@ -76,15 +76,18 @@ Confirmed in code:
 - Inputs never below 16px, or iOS zooms the viewport.
 - `prefers-reduced-motion` is already honoured globally and must remain so.
 
-Not yet built, in scope for this work: editing the owner's own profile and
-business details (email is not editable), signing out, and the ordinary account
-affordances a logged-in product is expected to have.
+Implemented account controls include editing the owner's profile and business
+details (email deliberately remains read-only), switching organizations,
+signing out, and first-login business onboarding.
 
 ## Brand Commitments
 
-The name **ExtraWork** stays. Nothing else is binding — the user confirmed the
-current blue (`#1f6feb`), typography and component styling are placeholders to
-be replaced outright, not a brand to preserve.
+The name **ExtraWork** stays. The authenticated console now uses the
+**reinforcement schedule** design system: graphite on cool drafting paper,
+hairline rules instead of shadows, square cells, Archivo for the working text,
+Spline Sans Mono for references, and legend-backed status colours. Revision
+red and structural blue are reserved for annotations and interaction; status
+colour is always paired with a letter and a written label.
 
 ## Evidence on Hand
 

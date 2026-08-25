@@ -602,7 +602,7 @@ export function buildOpenApiDocument(): JsonObject {
           tags: ['change-orders'],
           summary: 'Freeze the version and issue the approval link',
           description:
-            'Returns the approval URL exactly once. Only the SHA-256 of the token is stored.',
+            'Returns the approval URL once. The token record stores only SHA-256; automated delivery uses short-lived authenticated ciphertext.',
           parameters: [pathParam('id', 'Change order id')],
           requestBody: jsonBody('SendChangeOrder', false),
           responses: { '201': jsonResponse('Sent', 'SendResult'), ...commonErrors },

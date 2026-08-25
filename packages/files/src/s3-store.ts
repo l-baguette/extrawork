@@ -108,11 +108,23 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
-  async get(key: string): Promise<Buffer> {
+  async get(key: string, maxBytes?: number): Promise<Buffer> {
     assertSafeKey(key);
     const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     if (!result.Body) throw new AppError('NOT_FOUND');
-    return Buffer.from(await result.Body.transformToByteArray());
+    if (maxBytes !== undefined && (result.ContentLength ?? 0) > maxBytes) {
+      (result.Body as { destroy?: () => void }).destroy?.();
+      throw new AppError('FILE_TOO_LARGE', {
+        details: { maxBytes, actualBytes: result.ContentLength },
+      });
+    }
+    const bytes = Buffer.from(await result.Body.transformToByteArray());
+    if (maxBytes !== undefined && bytes.byteLength > maxBytes) {
+      throw new AppError('FILE_TOO_LARGE', {
+        details: { maxBytes, actualBytes: bytes.byteLength },
+      });
+    }
+    return bytes;
   }
 
   async put(

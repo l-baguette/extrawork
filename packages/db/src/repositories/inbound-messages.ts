@@ -41,6 +41,7 @@ export interface InboundMessageRow {
   projectId: string | null;
   changeOrderId: string | null;
   provider: string;
+  providerAccountId: string | null;
   providerMessageId: string;
   fromPhoneE164: string;
   body: string | null;
@@ -67,7 +68,8 @@ export class InboundMessageRepository {
    * fact is a phone number, and `employees.findByPhoneGlobal` has not run yet.
    * Attributing the row to an organization here would be a guess.
    *
-   * Idempotent on `(provider, provider_message_id)`. WhatsApp redelivers, and a
+   * Idempotent on `(provider, provider_account_id, provider_message_id)`.
+   * WhatsApp redelivers, and a
    * redelivery must not produce a second change order — so a repeat returns the
    * existing row untouched and the caller can see it was already handled by its
    * `status`.
@@ -76,6 +78,7 @@ export class InboundMessageRepository {
     tx: TransactionContext,
     input: {
       provider?: string;
+      providerAccountId?: string | null;
       providerMessageId: string;
       fromPhoneE164: string;
       body: string | null;
@@ -85,12 +88,12 @@ export class InboundMessageRepository {
     const provider = input.provider ?? 'whatsapp';
     const result = await tx.db.execute<InboundRecord>(sql`
       INSERT INTO inbound_messages (
-        id, provider, provider_message_id, from_phone_e164, body, media_count
+        id, provider, provider_account_id, provider_message_id, from_phone_e164, body, media_count
       ) VALUES (
-        ${newId()}::uuid, ${provider}, ${input.providerMessageId},
+        ${newId()}::uuid, ${provider}, ${input.providerAccountId ?? null}, ${input.providerMessageId},
         ${input.fromPhoneE164}, ${input.body}, ${input.mediaCount ?? 0}
       )
-      ON CONFLICT (provider, provider_message_id) DO NOTHING
+      ON CONFLICT DO NOTHING
       RETURNING ${INBOUND_COLUMNS_BARE}
     `);
 
@@ -100,7 +103,9 @@ export class InboundMessageRepository {
     const existing = await tx.db.execute<InboundRecord>(sql`
       SELECT ${INBOUND_COLUMNS_BARE}
       FROM inbound_messages
-      WHERE provider = ${provider} AND provider_message_id = ${input.providerMessageId}
+      WHERE provider = ${provider}
+        AND provider_account_id IS NOT DISTINCT FROM ${input.providerAccountId ?? null}
+        AND provider_message_id = ${input.providerMessageId}
     `);
     const row = existing.rows[0];
     if (!row) {
@@ -109,6 +114,64 @@ export class InboundMessageRepository {
       });
     }
     return { row: mapInbound(row), alreadySeen: true };
+  }
+
+  /**
+   * Saves a durable processing checkpoint without making the message terminal.
+   * A worker retry can resume from the linked change order after a crash rather
+   * than creating a second request for the same provider message.
+   */
+  async markProgress(
+    tx: TransactionContext,
+    id: string,
+    progress: {
+      organizationId: string;
+      employeeId: string;
+      projectId: string;
+      changeOrderId: string;
+      parsed: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    const result = await tx.db.execute<{ id: string }>(sql`
+      UPDATE inbound_messages SET
+        organization_id = ${progress.organizationId}::uuid,
+        employee_id = ${progress.employeeId}::uuid,
+        project_id = ${progress.projectId}::uuid,
+        change_order_id = ${progress.changeOrderId}::uuid,
+        parsed = ${JSON.stringify(progress.parsed)}::jsonb,
+        rejection_reason = NULL
+      WHERE id = ${id}::uuid AND status = 'RECEIVED'
+      RETURNING id
+    `);
+    if (!result.rows[0]) throw new AppError('NOT_FOUND');
+  }
+
+  /**
+   * Claims an unfinished message for one processor. `processed_at` doubles as
+   * a short lease while status remains RECEIVED; terminal outcomes retain it
+   * as their completion timestamp. A dead worker's lease can be reclaimed.
+   */
+  async claimForProcessing(tx: TransactionContext, id: string): Promise<boolean> {
+    const result = await tx.db.execute<{ id: string }>(sql`
+      UPDATE inbound_messages
+         SET processed_at = now()
+       WHERE id = ${id}::uuid
+         AND status = 'RECEIVED'
+         AND (processed_at IS NULL OR processed_at < now() - interval '5 minutes')
+       RETURNING id
+    `);
+    return result.rows.length > 0;
+  }
+
+  /** Keep a transient failure retryable while retaining its operator-visible cause. */
+  async recordRetryableError(tx: TransactionContext, id: string, reason: string): Promise<void> {
+    const result = await tx.db.execute<{ id: string }>(sql`
+      UPDATE inbound_messages
+         SET rejection_reason = ${reason}, processed_at = NULL
+       WHERE id = ${id}::uuid AND status = 'RECEIVED'
+       RETURNING id
+    `);
+    if (!result.rows[0]) throw new AppError('NOT_FOUND');
   }
 
   /**
@@ -296,13 +359,14 @@ export class InboundMessageRepository {
 
 const INBOUND_COLUMNS_BARE = sql`
   id, organization_id, employee_id, project_id, change_order_id, provider,
-  provider_message_id, from_phone_e164, body, media_count, status, parsed,
+  provider_account_id, provider_message_id, from_phone_e164, body, media_count, status, parsed,
   rejection_reason, reply_text, received_at, processed_at
 `;
 
 const INBOUND_COLUMNS_ALIASED = sql`
   im.id, im.organization_id, im.employee_id, im.project_id, im.change_order_id, im.provider,
-  im.provider_message_id, im.from_phone_e164, im.body, im.media_count, im.status, im.parsed,
+  im.provider_account_id, im.provider_message_id, im.from_phone_e164, im.body, im.media_count,
+  im.status, im.parsed,
   im.rejection_reason, im.reply_text, im.received_at, im.processed_at
 `;
 
@@ -313,6 +377,7 @@ type InboundRecord = {
   project_id: string | null;
   change_order_id: string | null;
   provider: string;
+  provider_account_id: string | null;
   provider_message_id: string;
   from_phone_e164: string;
   body: string | null;
@@ -335,6 +400,7 @@ function mapInbound(row: InboundRecord): InboundMessageRow {
     projectId: row.project_id,
     changeOrderId: row.change_order_id,
     provider: row.provider,
+    providerAccountId: row.provider_account_id,
     providerMessageId: row.provider_message_id,
     fromPhoneE164: row.from_phone_e164,
     body: row.body,

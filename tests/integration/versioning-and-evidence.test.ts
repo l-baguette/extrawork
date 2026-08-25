@@ -120,6 +120,144 @@ describe('draft editing and freezing', () => {
     expect(verifySnapshotDigest(version.canonicalSnapshot, version.canonicalSha256!)).toBe(true);
   });
 
+  it('freezes the committed winner when a draft edit races with send', async () => {
+    const created = await createDraftChangeOrder(container, tenant);
+    const client = await container.uow.pool.connect();
+    const repository = container.repos.changeOrders;
+    const getCurrentVersion = repository.getCurrentVersion.bind(repository);
+    let announceInitialRead!: () => void;
+    let releaseInitialRead!: () => void;
+    const initialReadReached = new Promise<void>((resolve) => {
+      announceInitialRead = resolve;
+    });
+    const initialReadGate = new Promise<void>((resolve) => {
+      releaseInitialRead = resolve;
+    });
+    let committed = false;
+    let gateReleased = false;
+    let pendingSend: Promise<unknown> | null = null;
+
+    // Pause send immediately after its optimistic preflight read. The database
+    // transaction below can then commit a newer draft while send still holds
+    // the old candidate, deterministically reproducing the original race.
+    repository.getCurrentVersion = async (...args: Parameters<typeof getCurrentVersion>) => {
+      const value = await getCurrentVersion(...args);
+      announceInitialRead();
+      await initialReadGate;
+      return value;
+    };
+
+    try {
+      pendingSend = container.services.send.send(tenant.owner, created.changeOrderId, {
+        channel: 'WHATSAPP_NATIVE_SHARE',
+      });
+      await initialReadReached;
+
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE change_order_versions
+            SET title = $2, lock_version = lock_version + 1
+          WHERE id = $1`,
+        [created.version.id, 'Committed concurrent title'],
+      );
+      await client.query(
+        `UPDATE line_items
+            SET description = $2
+          WHERE version_id = $1`,
+        [created.version.id, 'Committed concurrent line item'],
+      );
+      await client.query(`UPDATE projects SET title = $2 WHERE id = $1`, [
+        tenant.projectId,
+        'Committed concurrent project',
+      ]);
+      await client.query(`UPDATE organizations SET display_name = $2 WHERE id = $1`, [
+        tenant.organizationId,
+        'Committed Concurrent Contractor',
+      ]);
+      await client.query(`UPDATE contacts SET name = $2 WHERE id = $1`, [
+        tenant.approverContactId,
+        'Committed Concurrent Approver',
+      ]);
+
+      releaseInitialRead();
+      gateReleased = true;
+      // Give the old implementation enough time to read the pre-commit values
+      // before it blocks on its final UPDATE. The fixed implementation blocks
+      // on the version lock before loading any snapshot input.
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
+      await client.query('COMMIT');
+      committed = true;
+      await pendingSend;
+
+      const sent = await container.repos.changeOrders.requireVersion(
+        container.uow.db,
+        tenant.owner.tenant,
+        created.version.id,
+      );
+      const snapshot = sent.canonicalSnapshot as {
+        organization: { displayName: string };
+        project: { title: string };
+        scope: { title: string };
+        commercial: { lines: Array<{ description: string }> };
+        approver: { name: string };
+      };
+      expect(snapshot.organization.displayName).toBe('Committed Concurrent Contractor');
+      expect(snapshot.project.title).toBe('Committed concurrent project');
+      expect(snapshot.scope.title).toBe('Committed concurrent title');
+      expect(snapshot.commercial.lines[0]?.description).toBe('Committed concurrent line item');
+      expect(snapshot.approver.name).toBe('Committed Concurrent Approver');
+      expect(verifySnapshotDigest(sent.canonicalSnapshot, sent.canonicalSha256!)).toBe(true);
+    } finally {
+      repository.getCurrentVersion = getCurrentVersion;
+      if (!gateReleased) releaseInitialRead();
+      if (!committed) await client.query('ROLLBACK');
+      if (!committed && pendingSend) await pendingSend.catch(() => undefined);
+      client.release();
+    }
+  });
+
+  it('allows exactly one winner when two sends race', async () => {
+    const created = await createDraftChangeOrder(container, tenant);
+    const attempts = await Promise.allSettled([
+      container.services.send.send(tenant.owner, created.changeOrderId, {
+        channel: 'WHATSAPP_NATIVE_SHARE',
+      }),
+      container.services.send.send(tenant.owner, created.changeOrderId, {
+        channel: 'WHATSAPP_NATIVE_SHARE',
+      }),
+    ]);
+
+    expect(attempts.filter((attempt) => attempt.status === 'fulfilled')).toHaveLength(1);
+    const rejected = attempts.find((attempt) => attempt.status === 'rejected');
+    expect(rejected).toMatchObject({
+      status: 'rejected',
+      reason: expect.objectContaining({ code: 'INVALID_STATE_TRANSITION' }),
+    });
+
+    const tokens = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM approval_tokens WHERE version_id = $1',
+      [created.version.id],
+    );
+    expect(tokens.rows[0]?.count).toBe('1');
+  });
+
+  it('rejects attachment inserts that arrive after send has frozen the version', async () => {
+    const { changeOrder } = await createSentChangeOrder(container, tenant);
+    await expect(
+      container.uow.transaction((tx) =>
+        container.repos.changeOrders.addAttachment(
+          tx,
+          tenant.owner.tenant,
+          changeOrder.version.id,
+          randomUUID(),
+          null,
+          12,
+        ),
+      ),
+    ).rejects.toThrowError(expect.objectContaining({ code: 'INVALID_STATE_TRANSITION' }));
+  });
+
   it('refuses to edit a version once sent', async () => {
     const { changeOrder } = await createSentChangeOrder(container, tenant);
     await expect(
@@ -199,6 +337,30 @@ describe('revisions', () => {
     );
     expect(v2.versionNumber).toBe(2);
     expect(v2.status).toBe('DRAFT');
+  });
+
+  it('serializes two concurrent attempts to create the same revision', async () => {
+    const { changeOrder } = await createSentChangeOrder(container, tenant);
+
+    const results = await Promise.allSettled([
+      container.services.changeOrders.createRevision(tenant.owner, changeOrder.changeOrderId),
+      container.services.changeOrders.createRevision(tenant.owner, changeOrder.changeOrderId),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected?.reason).toEqual(expect.objectContaining({ code: 'INVALID_STATE_TRANSITION' }));
+
+    const versions = await container.repos.changeOrders.listVersions(
+      tenant.owner.tenant,
+      changeOrder.changeOrderId,
+    );
+    expect(versions.map((version) => [version.versionNumber, version.status])).toEqual([
+      [1, 'SUPERSEDED'],
+      [2, 'DRAFT'],
+    ]);
   });
 });
 

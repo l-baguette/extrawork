@@ -32,11 +32,15 @@ export interface Scenario {
 }
 
 async function helper<T>(...args: string[]): Promise<T> {
-  const { stdout } = await run('npx', ['tsx', HELPER, ...args], {
-    cwd: ROOT,
-    env: process.env,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const { stdout } = await run(
+    process.execPath,
+    ['--conditions=development', '--import', 'tsx', HELPER, ...args],
+    {
+      cwd: ROOT,
+      env: process.env,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
   // The helper prints exactly one JSON line; tsx may emit warnings before it.
   const line = stdout
     .trim()

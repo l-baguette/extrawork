@@ -158,10 +158,19 @@ export class ProjectRepository {
       query?: string;
       cursor?: string;
       limit: number;
+      projectGrants?: readonly string[] | null;
     },
   ): Promise<{ items: ProjectRow[]; nextCursor: string | null }> {
     const cursor = decodeCursor(options.cursor);
     const term = options.query?.trim();
+    const grantFilter = options.projectGrants
+      ? options.projectGrants.length > 0
+        ? sql`AND p.id IN (${sql.join(
+            options.projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
 
     const result = await this.db.execute<ProjectRecord>(sql`
       SELECT ${PROJECT_COLUMNS}
@@ -170,6 +179,7 @@ export class ProjectRepository {
       WHERE p.organization_id = ${ctx.organizationId}::uuid
         ${options.status ? sql`AND p.status = ${options.status}::project_status` : sql``}
         ${options.customerId ? sql`AND p.customer_id = ${options.customerId}::uuid` : sql``}
+        ${grantFilter}
         ${
           term
             ? sql`AND (p.search_document @@ plainto_tsquery('simple', extrawork_unaccent(lower(${term})))

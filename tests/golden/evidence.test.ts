@@ -11,7 +11,10 @@ import {
   truncateAll,
   type TenantFixture,
 } from '@extrawork/testkit';
-import { renderEvidenceHtml } from '../../apps/worker/src/pdf/template.js';
+import {
+  renderEvidenceHtml,
+  renderProjectEvidencePackHtml,
+} from '../../apps/worker/src/pdf/template.js';
 import { ChromiumPdfRenderer } from '../../apps/worker/src/pdf/renderer.js';
 
 /**
@@ -204,6 +207,80 @@ describe('canonical snapshot golden', () => {
     expect(model.render.chainVerified).toBe(true);
     expect(model.render.terminalEventHash).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it('blocks evidence when the frozen snapshot digest no longer matches', async () => {
+    const { versionId } = await approvedFixture();
+    await repairUpdate(
+      `UPDATE change_order_versions
+       SET canonical_sha256 = decode(repeat('00', 32), 'hex')
+       WHERE id = $1`,
+      [versionId],
+    );
+
+    await expect(viewModel(versionId)).rejects.toMatchObject({
+      code: 'PROJECT_INTEGRITY_REVIEW',
+      details: { integrity: 'SNAPSHOT_DIGEST_MISMATCH' },
+    });
+  });
+
+  it('blocks evidence when line items no longer recompute to the frozen total', async () => {
+    const { versionId } = await approvedFixture();
+    await repairUpdate(
+      `UPDATE line_items
+       SET unit_price_minor = unit_price_minor + 1
+       WHERE version_id = $1`,
+      [versionId],
+    );
+
+    await expect(viewModel(versionId)).rejects.toMatchObject({
+      code: 'PROJECT_INTEGRITY_REVIEW',
+      details: { integrity: 'TOTALS_MISMATCH' },
+    });
+  });
+
+  it('blocks evidence when the append-only audit chain does not verify', async () => {
+    const { versionId } = await approvedFixture();
+    const version = await container.repos.changeOrders.requireVersion(
+      container.uow.db,
+      tenant.owner.tenant,
+      versionId,
+    );
+    await repairUpdate(
+      `UPDATE audit_events
+       SET event_hash = decode(repeat('00', 32), 'hex')
+       WHERE organization_id = $1 AND aggregate_type = 'change_order'
+         AND aggregate_id = $2 AND sequence = 1`,
+      [tenant.organizationId, version.changeOrderId],
+    );
+
+    await expect(viewModel(versionId)).rejects.toMatchObject({
+      code: 'PROJECT_INTEGRITY_REVIEW',
+      details: { integrity: 'AUDIT_CHAIN_MISMATCH' },
+    });
+  });
+
+  it('blocks evidence when a valid hash chain is bound to the wrong project', async () => {
+    const { versionId } = await approvedFixture();
+    const version = await container.repos.changeOrders.requireVersion(
+      container.uow.db,
+      tenant.owner.tenant,
+      versionId,
+    );
+    // project_id is routing metadata and is intentionally not part of the
+    // event hash. This keeps the cryptographic chain valid while exercising
+    // the separate semantic binding gate.
+    await repairUpdate(
+      `UPDATE audit_events SET project_id = NULL
+       WHERE organization_id = $1 AND aggregate_type = 'change_order'
+         AND aggregate_id = $2 AND sequence = 1`,
+      [tenant.organizationId, version.changeOrderId],
+    );
+
+    await expect(viewModel(versionId)).rejects.toMatchObject({
+      code: 'PROJECT_INTEGRITY_REVIEW',
+      details: { integrity: 'AUDIT_CHAIN_MISMATCH' },
+    });
+  });
 });
 
 describe('rendered evidence golden', () => {
@@ -281,6 +358,40 @@ describe('rendered evidence golden', () => {
     expect(html).toContain(ASSURANCE_COPY.A0.limitation);
   });
 
+  it('renders a genuine combined project PDF with its cover, index and full record', async () => {
+    const { versionId } = await approvedFixture();
+    const model = await viewModel(versionId);
+    const html = renderProjectEvidencePackHtml({
+      organizationName: model.render.organizationName,
+      organizationLegalName: model.render.organizationLegalName,
+      projectNumber: model.render.projectNumber,
+      projectTitle: model.render.projectTitle,
+      generatedAt: model.render.generatedAt,
+      templateVersion: 'evidence-pack-v1',
+      manifestSha256: model.manifestSha256,
+      records: [model],
+    });
+
+    const renderer = new ChromiumPdfRenderer(container.logger, 60_000);
+    let pdf: Buffer;
+    try {
+      pdf = await renderer.render(html);
+    } finally {
+      await renderer.close();
+    }
+
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    const text = await extractPdfText(pdf);
+    expect(text).toContain('Complete project evidence pack');
+    expect(text).toContain('Contents');
+    expect(text).toContain(model.render.changeNumber);
+    expect(text).toContain(model.render.title);
+    // eslint-disable-next-line no-irregular-whitespace
+    const compactText = text.replace(/[\s​]/g, '');
+    expect(compactText).toContain(model.render.canonicalSha256);
+    expect(compactText).toContain(model.render.manifestSha256);
+  }, 180_000);
+
   it('marks the pack when the chain does not verify', async () => {
     const { versionId } = await approvedFixture();
     const model = await viewModel(versionId);
@@ -332,4 +443,24 @@ async function extractPdfText(pdf: Buffer): Promise<string> {
 
 function normalise(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Test-only forensic corruption by explicitly disabling user triggers as the
+ * disposable test database superuser. Production application roles cannot do
+ * this, and there is deliberately no repair-mode setting anymore.
+ */
+async function repairUpdate(query: string, values: unknown[]): Promise<void> {
+  const client = await container.uow.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL session_replication_role = 'replica'");
+    await client.query(query, values);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

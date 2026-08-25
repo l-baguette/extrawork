@@ -91,11 +91,8 @@ for (const table of APPEND_ONLY_TABLES) {
 for (const table of FROZEN_TABLES) {
   statements.push(`REVOKE DELETE ON ${table} FROM ${roleName}`);
 }
-// The runtime role must never be able to disable the repair guard.
-statements.push(
-  `REVOKE ALL ON FUNCTION repair_mode_enabled() FROM ${roleName}`,
-  `GRANT EXECUTE ON FUNCTION repair_mode_enabled() TO ${roleName}`,
-);
+// Migration 0014 removes application-visible repair mode entirely. Projection
+// repairs do not rewrite frozen evidence, so this role needs no bypass.
 
 function literal(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;

@@ -30,6 +30,9 @@ export interface FileObjectRow {
   purpose: string;
   imageWidth: number | null;
   imageHeight: number | null;
+  scanLeaseToken: string | null;
+  scanLeasedUntil: Date | null;
+  scanAttemptCount: number;
   uploadedAt: Date | null;
   createdAt: Date;
 }
@@ -98,10 +101,26 @@ export class FileRepository {
     `);
   }
 
-  async claimForScan(db: Database, id: string): Promise<boolean> {
+  async claimForScan(
+    db: Database,
+    organizationId: string,
+    id: string,
+    leaseToken: string,
+    leaseSeconds: number,
+  ): Promise<boolean> {
     const result = await db.execute(sql`
-      UPDATE file_objects SET scan_status = 'SCANNING'
-      WHERE id = ${id}::uuid AND scan_status IN ('PENDING','FAILED')
+      UPDATE file_objects SET
+        scan_status = 'SCANNING',
+        scan_lease_token = ${leaseToken},
+        scan_leased_until = now() + make_interval(secs => ${leaseSeconds}),
+        scan_attempt_count = scan_attempt_count + 1
+      WHERE id = ${id}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND uploaded_at IS NOT NULL
+        AND (
+          scan_status IN ('PENDING','FAILED')
+          OR (scan_status = 'SCANNING' AND scan_leased_until < now())
+        )
     `);
     return (result.rowCount ?? 0) > 0;
   }
@@ -112,7 +131,9 @@ export class FileRepository {
    */
   async recordScanResult(
     db: Database,
+    organizationId: string,
     id: string,
+    leaseToken: string,
     input: {
       status: 'CLEAN' | 'REJECTED' | 'FAILED';
       detail: string | null;
@@ -124,8 +145,8 @@ export class FileRepository {
       imageHeight: number | null;
       storageVersion: string | null;
     },
-  ): Promise<void> {
-    await db.execute(sql`
+  ): Promise<boolean> {
+    const result = await db.execute(sql`
       UPDATE file_objects SET
         scan_status = ${input.status}::scan_status,
         scan_detail = ${input.detail},
@@ -136,9 +157,15 @@ export class FileRepository {
         image_width = COALESCE(${input.imageWidth}, image_width),
         image_height = COALESCE(${input.imageHeight}, image_height),
         storage_version = COALESCE(${input.storageVersion}, storage_version),
-        scanned_at = now()
+        scanned_at = now(),
+        scan_lease_token = NULL,
+        scan_leased_until = NULL
       WHERE id = ${id}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND scan_status = 'SCANNING'
+        AND scan_lease_token = ${leaseToken}
     `);
+    return (result.rowCount ?? 0) > 0;
   }
 
   /**
@@ -191,7 +218,7 @@ const FILE_COLUMNS = sql`
   id, organization_id, project_id, storage_key, promoted_storage_key,
   derivative_storage_key, original_filename, declared_mime_type, detected_mime_type,
   byte_size, sha256, scan_status, scan_detail, purpose, image_width, image_height,
-  uploaded_at, created_at
+  scan_lease_token, scan_leased_until, scan_attempt_count, uploaded_at, created_at
 `;
 
 type FileRecord = {
@@ -211,6 +238,9 @@ type FileRecord = {
   purpose: string;
   image_width: number | null;
   image_height: number | null;
+  scan_lease_token: string | null;
+  scan_leased_until: Date | null;
+  scan_attempt_count: number;
   uploaded_at: Date | null;
   created_at: Date;
 };
@@ -233,6 +263,9 @@ function mapFile(row: FileRecord): FileObjectRow {
     purpose: row.purpose,
     imageWidth: row.image_width,
     imageHeight: row.image_height,
+    scanLeaseToken: row.scan_lease_token,
+    scanLeasedUntil: toDateOrNull(row.scan_leased_until),
+    scanAttemptCount: row.scan_attempt_count,
     uploadedAt: toDateOrNull(row.uploaded_at),
     createdAt: toDate(row.created_at),
   };

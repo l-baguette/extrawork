@@ -107,12 +107,21 @@ export async function leaseOutboxBatch(
   }));
 }
 
-export async function markOutboxPublished(db: Database, id: string): Promise<void> {
-  await db.execute(sql`
+export async function markOutboxPublished(
+  db: Database,
+  id: string,
+  attemptCount: number,
+): Promise<boolean> {
+  const result = await db.execute(sql`
     UPDATE outbox_events
        SET published_at = now(), leased_until = NULL, last_error_code = NULL
      WHERE id = ${id}::uuid
+       AND attempt_count = ${attemptCount}
+       AND leased_until IS NOT NULL
+       AND published_at IS NULL
+       AND dead_lettered_at IS NULL
   `);
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
@@ -122,26 +131,37 @@ export async function markOutboxPublished(db: Database, id: string): Promise<voi
 export async function markOutboxFailed(
   db: Database,
   id: string,
+  attemptCount: number,
   errorCode: string,
   retryDelaySeconds: number | null,
-): Promise<'RETRY' | 'DEAD_LETTER'> {
+): Promise<'RETRY' | 'DEAD_LETTER' | 'LEASE_LOST'> {
   if (retryDelaySeconds === null) {
-    await db.execute(sql`
+    const result = await db.execute(sql`
       UPDATE outbox_events
          SET dead_lettered_at = now(), leased_until = NULL,
              last_error_code = ${errorCode}, last_error_at = now()
        WHERE id = ${id}::uuid
+         AND attempt_count = ${attemptCount}
+         AND leased_until IS NOT NULL
+         AND published_at IS NULL
+         AND dead_lettered_at IS NULL
     `);
+    if ((result.rowCount ?? 0) === 0) return 'LEASE_LOST';
     return 'DEAD_LETTER';
   }
-  await db.execute(sql`
+  const result = await db.execute(sql`
     UPDATE outbox_events
        SET available_at = now() + make_interval(secs => ${retryDelaySeconds}),
            leased_until = NULL,
            last_error_code = ${errorCode},
            last_error_at = now()
      WHERE id = ${id}::uuid
+       AND attempt_count = ${attemptCount}
+       AND leased_until IS NOT NULL
+       AND published_at IS NULL
+       AND dead_lettered_at IS NULL
   `);
+  if ((result.rowCount ?? 0) === 0) return 'LEASE_LOST';
   return 'RETRY';
 }
 

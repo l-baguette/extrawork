@@ -1,18 +1,27 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AppError } from '@extrawork/contracts';
+import { AppError, JOB_KINDS } from '@extrawork/contracts';
+import { claimJobs, completeJob } from '@extrawork/db';
 import { redact, redactString } from '@extrawork/observability';
 import { validateBytes } from '@extrawork/files';
-import { verifyMetaSignature, verifyRazorpaySignature } from '@extrawork/integrations';
+import {
+  verifyMetaSignature,
+  verifyRazorpaySignature,
+  type MessageGateway,
+} from '@extrawork/integrations';
 import type { Container } from '@extrawork/runtime';
 import {
   createSentChangeOrder,
+  createDraftChangeOrder,
   createTenant,
   createTestContainer,
   publicContext,
   truncateAll,
   type TenantFixture,
 } from '@extrawork/testkit';
+import { workerContext } from '../../apps/worker/src/context.js';
+import { sendRequestMessage } from '../../apps/worker/src/jobs/messaging.js';
+import type { PdfRenderer } from '../../apps/worker/src/pdf/renderer.js';
 
 /** The suite asserts against the same day the server will see. */
 const today = () => new Date().toISOString().slice(0, 10);
@@ -25,6 +34,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 let container: Container;
 let tenant: TenantFixture;
+
+const pdfStub: PdfRenderer = {
+  render: () => Promise.reject(new Error('message delivery must not render a PDF')),
+  rendererVersion: () => Promise.resolve('test-renderer'),
+  close: () => Promise.resolve(),
+};
 
 beforeAll(() => {
   container = createTestContainer();
@@ -39,7 +54,11 @@ beforeEach(async () => {
 
 describe('approval token handling', () => {
   it('stores only a hash — the plaintext is nowhere in the database', async () => {
-    const { token } = await createSentChangeOrder(container, tenant);
+    const draft = await createDraftChangeOrder(container, tenant);
+    const sent = await container.services.send.send(tenant.owner, draft.changeOrderId, {
+      channel: 'EMAIL',
+    });
+    const token = sent.approvalUrl.split('/r/')[1]!;
 
     // Sweep every text and jsonb column in the schema for the token.
     const { rows: columns } = await container.uow.pool.query<{
@@ -63,6 +82,71 @@ describe('approval token handling', () => {
         `${column.table_name}.${column.column_name} contains the plaintext approval token`,
       ).toBe(0);
     }
+
+    const queued = await container.uow.pool.query<{
+      id: string;
+      payload: Record<string, unknown>;
+    }>(`SELECT id, payload FROM job_queue WHERE kind = 'send_request_message'`);
+    expect(queued.rows).toHaveLength(1);
+    expect(queued.rows[0]?.payload).not.toHaveProperty('approvalUrl');
+    expect(queued.rows[0]?.payload.approvalUrlCiphertext).toEqual(expect.any(String));
+    expect(JSON.stringify(queued.rows[0]?.payload)).not.toContain(token);
+
+    const [claimed] = await claimJobs(container.uow.db, {
+      limit: 1,
+      leaseSeconds: 60,
+      workerId: 'security-scrub-test',
+      kinds: [JOB_KINDS.SEND_REQUEST_MESSAGE],
+    });
+    expect(claimed?.id).toBe(queued.rows[0]!.id);
+    await expect(
+      completeJob(container.uow.db, queued.rows[0]!.id, 'security-scrub-test'),
+    ).resolves.toBe(true);
+    const completed = await container.uow.pool.query<{ payload: Record<string, unknown> }>(
+      'SELECT payload FROM job_queue WHERE id = $1',
+      [queued.rows[0]!.id],
+    );
+    expect(completed.rows[0]?.payload).not.toHaveProperty('approvalUrlCiphertext');
+  });
+
+  it('decrypts the queued link only inside the worker delivery boundary', async () => {
+    const draft = await createDraftChangeOrder(container, tenant);
+    const sent = await container.services.send.send(tenant.owner, draft.changeOrderId, {
+      channel: 'EMAIL',
+    });
+    const jobs = await claimJobs(container.uow.db, {
+      limit: 1,
+      leaseSeconds: 60,
+      workerId: 'security-test',
+      kinds: [JOB_KINDS.SEND_REQUEST_MESSAGE],
+    });
+    const job = jobs[0];
+    if (!job) throw new Error('send did not enqueue a request-message job');
+
+    let deliveredBody = '';
+    const gateway: MessageGateway = {
+      channel: 'EMAIL',
+      canDeliver: true,
+      send: (command) => {
+        deliveredBody = command.body;
+        return Promise.resolve({
+          provider: 'security-test',
+          providerMessageId: 'provider-message-1',
+          status: 'SENT',
+        });
+      },
+      verifyAndParse: () => [],
+    };
+    const originalGateway = container.appContext.integrations.email;
+    container.appContext.integrations.email = gateway;
+    try {
+      await sendRequestMessage(job, workerContext(container, pdfStub));
+    } finally {
+      container.appContext.integrations.email = originalGateway;
+    }
+
+    expect(deliveredBody).toContain(sent.approvalUrl);
+    expect(deliveredBody).not.toContain(String(job.payload.approvalUrlCiphertext));
   });
 
   it('rejects a malformed token without touching the database', async () => {

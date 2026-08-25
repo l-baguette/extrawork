@@ -86,6 +86,8 @@ export const JOB_KINDS = {
    * must never retry the customer's copy.
    */
   NOTIFY_TEAM_DECISION: 'notify_team_decision',
+  /** Delivers one durable message-ledger row to exactly one recipient. */
+  SEND_MESSAGE_DELIVERY: 'send_message_delivery',
   SEND_REQUEST_MESSAGE: 'send_request_message',
   SEND_OTP: 'send_otp',
   SEND_REMINDER: 'send_reminder',
@@ -106,6 +108,7 @@ export const JOB_PRIORITY: Record<JobKind, number> = {
   // Just behind the customer's own receipt: the team wants to know quickly,
   // but never at the cost of the customer's confirmation.
   [JOB_KINDS.NOTIFY_TEAM_DECISION]: 15,
+  [JOB_KINDS.SEND_MESSAGE_DELIVERY]: 16,
   [JOB_KINDS.SEND_REQUEST_MESSAGE]: 20,
   [JOB_KINDS.SEND_OTP]: 30,
   [JOB_KINDS.SEND_REMINDER]: 40,

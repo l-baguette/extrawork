@@ -9,7 +9,7 @@ import {
   UpdateCustomerSchema,
 } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
-import { authorize, normalizeEmail, normalizePhone } from '@extrawork/domain';
+import { authorize, normalizeEmail, normalizePhone, projectAccessFilter } from '@extrawork/domain';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 
 const IdParams = z.object({ id: z.string().uuid() });
@@ -75,7 +75,11 @@ export async function registerCustomerRoutes(
       app.repos.customers.listContacts(auth.tenant, id),
       app.repos.customers.findDuplicateCandidates(auth.tenant, id),
     ]);
-    const projects = await app.repos.projects.list(auth.tenant, { customerId: id, limit: 50 });
+    const projects = await app.repos.projects.list(auth.tenant, {
+      customerId: id,
+      limit: 50,
+      projectGrants: projectAccessFilter(auth.actor),
+    });
 
     return reply.send({
       id: customer.id,

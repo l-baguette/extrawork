@@ -2,6 +2,7 @@ import { AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
 import {
   assertUsablePassword,
   hashPassword,
+  needsRehash,
   normalizeEmail,
   systemTenantContext,
   verifyPassword as verifyPasswordHash,
@@ -194,13 +195,16 @@ export class AuthService {
     const displayName = input.displayName.trim() || displayNameFromEmail(email);
 
     const challenge = await this.app.uow.transaction(async (tx) => {
-      const user = await this.app.repos.identity.upsertUser(tx, {
-        provider: 'local',
+      const user = await this.app.repos.identity.createLocalAccount(tx, {
         subject,
         email,
         displayName,
+        passwordHash,
       });
-      await this.app.repos.identity.setPassword(tx, user.id, passwordHash);
+      // The preflight read is only an optimization. This INSERT is the
+      // authoritative claim: another registration may have committed while
+      // scrypt was running, and must not overwrite its password.
+      if (!user) return null;
       // The account exists but cannot be signed into yet. Creating it now and
       // gating sign-in — rather than holding the registration in limbo — means
       // the address is claimed, so a second person cannot register it while the
@@ -212,6 +216,13 @@ export class AuthService {
         ttlMinutes: VERIFY_EMAIL_TTL_MINUTES,
       });
     });
+
+    if (!challenge) {
+      const verification = await this.app.repos.identity.findUserByEmailWithVerification(email);
+      if (verification?.emailVerifiedAt) throw new AppError('EMAIL_ALREADY_REGISTERED');
+      await this.resendVerification(email);
+      return { created: false };
+    }
 
     await this.app.integrations.email.send({
       to: { email, name: displayName },
@@ -256,8 +267,12 @@ export class AuthService {
    */
   async verifyEmail(token: string): Promise<{ verified: boolean }> {
     return this.app.uow.transaction(async (tx) => {
-      const challenge = await this.app.repos.identity.consumeAuthChallenge(tx, token);
-      if (!challenge || challenge.purpose !== 'VERIFY_EMAIL') return { verified: false };
+      const challenge = await this.app.repos.identity.consumeAuthChallenge(
+        tx,
+        token,
+        'VERIFY_EMAIL',
+      );
+      if (!challenge) return { verified: false };
 
       const user = await this.app.repos.identity.findUserByEmail(challenge.email);
       if (!user) return { verified: false };
@@ -336,6 +351,18 @@ export class AuthService {
           'Confirm your email address before signing in. Check your inbox for the link we sent ' +
           'when you registered, or request a new one.',
       });
+    }
+
+    if (needsRehash(found.passwordHash)) {
+      const upgradedHash = await hashPassword(password);
+      await this.app.uow.transaction((tx) =>
+        this.app.repos.identity.upgradePasswordHash(
+          tx,
+          found.user.id,
+          found.passwordHash as string,
+          upgradedHash,
+        ),
+      );
     }
 
     return {

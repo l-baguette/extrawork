@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { archivo, splineMono } from '@/lib/fonts';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,7 +19,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-IN" className={`${archivo.variable} ${splineMono.variable}`}>
+    <html lang="en-IN">
       <body>
         {/*
           THESIS: An evidence console built as a reinforcement schedule — the dense

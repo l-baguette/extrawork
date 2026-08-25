@@ -7,6 +7,7 @@ import {
   assertWritableSubscription,
   authorize,
   isAllowed,
+  projectAccessFilter,
   roleAllows,
   type Action,
   type Actor,
@@ -145,6 +146,13 @@ describe('project grants', () => {
     } catch (error) {
       expect((error as AppError).code).toBe('FORBIDDEN');
     }
+  });
+
+  it('turns organization-wide access into null and scoped access into an exact filter', () => {
+    expect(projectAccessFilter(actor('OWNER', [PROJECT]))).toBeNull();
+    expect(projectAccessFilter(actor('FINANCE'))).toBeNull();
+    expect(projectAccessFilter(actor('PROJECT_MANAGER', [PROJECT]))).toEqual([PROJECT]);
+    expect(projectAccessFilter(actor('VIEWER'))).toEqual([]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Providers } from '@/lib/providers';
 import { AppShell, type ShellUser } from '@/components/app-shell';
+import { archivo, splineMono } from '@/lib/fonts';
 import { serverGet } from '@/lib/server-fetch';
 
 /**
@@ -55,8 +56,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <Providers>
-      <AppShell user={user}>{children}</AppShell>
-    </Providers>
+    <div className={`authenticated-fonts ${archivo.variable} ${splineMono.variable}`}>
+      <Providers>
+        <AppShell user={user}>{children}</AppShell>
+      </Providers>
+    </div>
   );
 }

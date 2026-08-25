@@ -73,11 +73,26 @@ export class OrganizationRepository {
   }
 
   async findById(ctx: TenantContext): Promise<OrganizationRow | null> {
-    const result = await this.db.execute<OrganizationRecord>(sql`
+    return this.findByIdIn(this.db, ctx);
+  }
+
+  private async findByIdIn(db: Database, ctx: TenantContext): Promise<OrganizationRow | null> {
+    const result = await db.execute<OrganizationRecord>(sql`
       SELECT ${ORG_COLUMNS} FROM organizations WHERE id = ${ctx.organizationId}::uuid
     `);
     const row = result.rows[0];
     return row ? mapOrganization(row) : null;
+  }
+
+  async lockById(tx: TransactionContext, ctx: TenantContext): Promise<OrganizationRow> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM organizations WHERE id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) throw new AppError('ORGANIZATION_REQUIRED');
+    const row = await this.findByIdIn(tx.db, ctx);
+    if (!row) throw new AppError('ORGANIZATION_REQUIRED');
+    return row;
   }
 
   async update(
@@ -238,8 +253,11 @@ export class OrganizationRepository {
     `);
   }
 
-  async getSubscription(ctx: TenantContext): Promise<SubscriptionRow | null> {
-    const result = await this.db.execute<{
+  async getSubscription(
+    ctx: TenantContext,
+    db: Database = this.db,
+  ): Promise<SubscriptionRow | null> {
+    const result = await db.execute<{
       id: string;
       organization_id: string;
       plan_code: PlanCode;
@@ -313,8 +331,12 @@ export class OrganizationRepository {
     return result.rows.map((r) => r.id);
   }
 
-  async getUsage(ctx: TenantContext, periodStart: Date): Promise<UsageCounters> {
-    const result = await this.db.execute<{
+  async getUsage(
+    ctx: TenantContext,
+    periodStart: Date,
+    db: Database = this.db,
+  ): Promise<UsageCounters> {
+    const result = await db.execute<{
       active_projects: string;
       team_members: string;
       completed_decisions: string;
@@ -355,19 +377,22 @@ export class OrganizationRepository {
   }
 
   /** One call resolving the entitlement picture used by the API middleware. */
-  async resolveEntitlements(ctx: TenantContext): Promise<{
+  async resolveEntitlements(
+    ctx: TenantContext,
+    db: Database = this.db,
+  ): Promise<{
     subscription: SubscriptionRow;
     entitlements: Entitlements;
     usage: UsageCounters;
     readOnly: boolean;
   }> {
-    const subscription = await this.getSubscription(ctx);
+    const subscription = await this.getSubscription(ctx, db);
     if (!subscription) {
       throw new AppError('INTERNAL_ERROR', {
         message: 'Organization has no subscription record',
       });
     }
-    const usage = await this.getUsage(ctx, subscription.currentPeriodStart);
+    const usage = await this.getUsage(ctx, subscription.currentPeriodStart, db);
     return {
       subscription,
       entitlements: entitlementsFor(subscription),

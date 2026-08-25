@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import type { ComposerValues } from './schema';
+import { StoredComposerSchema, type ComposerValues } from './schema';
 
 /**
  * Cross-route composer draft state — report §6.4 is explicit that Zustand is
@@ -36,7 +36,7 @@ interface DraftState {
   markSynced: (key: string) => void;
   clearDraft: (key: string) => void;
   setUploads: (key: string, uploads: UploadProgress[]) => void;
-  hydrate: (key: string) => void;
+  hydrate: (key: string) => ComposerValues | null;
 }
 
 function persist(key: string, payload: unknown): void {
@@ -57,12 +57,35 @@ function read(
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { v: number; payload: unknown };
-    if (parsed.v !== STORAGE_VERSION) return null;
-    return parsed.payload as {
-      values: ComposerValues;
-      savedAt: number;
-      lockVersion: number | null;
+    const parsed = JSON.parse(raw) as { v?: unknown; payload?: unknown };
+    if (parsed.v !== STORAGE_VERSION || !parsed.payload || typeof parsed.payload !== 'object') {
+      return null;
+    }
+
+    const payload = parsed.payload as {
+      values?: unknown;
+      savedAt?: unknown;
+      lockVersion?: unknown;
+    };
+    const values = StoredComposerSchema.safeParse(payload.values);
+    const validLockVersion =
+      payload.lockVersion === null ||
+      (typeof payload.lockVersion === 'number' &&
+        Number.isSafeInteger(payload.lockVersion) &&
+        payload.lockVersion >= 1);
+    if (
+      !values.success ||
+      typeof payload.savedAt !== 'number' ||
+      !Number.isFinite(payload.savedAt) ||
+      !validLockVersion
+    ) {
+      return null;
+    }
+
+    return {
+      values: values.data,
+      savedAt: payload.savedAt,
+      lockVersion: payload.lockVersion as number | null,
     };
   } catch {
     return null;
@@ -104,6 +127,7 @@ export const useDraftStore = create<DraftState>((set, get) => ({
   hydrate: (key) => {
     const stored = read(key);
     if (stored) set((state) => ({ drafts: { ...state.drafts, [key]: stored } }));
+    return stored?.values ?? null;
   },
 }));
 

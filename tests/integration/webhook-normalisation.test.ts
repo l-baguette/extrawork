@@ -149,12 +149,12 @@ async function sentMessageAwaitingReceipt(providerMessageId: string): Promise<st
   const request = messages.find((m) => m.purpose === 'REQUEST');
   if (!request) throw new Error('send did not record a request message');
 
-  await container.repos.messages.updateStatus(
-    container.uow.db,
-    request.id,
-    'ACCEPTED',
-    providerMessageId,
-    null,
+  await container.uow.pool.query(
+    `UPDATE messages
+        SET status = 'ACCEPTED', provider = 'whatsapp-cloud',
+            provider_account_id = $1, provider_message_id = $2
+      WHERE id = $3`,
+    [PHONE_NUMBER_ID, providerMessageId, request.id],
   );
   return request.id;
 }
@@ -185,7 +185,12 @@ describe('meta delivery-status webhooks', () => {
     await normalizeWebhook(job, workerContext(container, pdfStub));
 
     // The point of the whole seam: internal state moved.
-    const message = await container.repos.messages.findByProviderMessageId(container.uow.db, wamid);
+    const message = await container.repos.messages.findByProviderMessageId(
+      container.uow.db,
+      'whatsapp-cloud',
+      PHONE_NUMBER_ID,
+      wamid,
+    );
     expect(message?.id).toBe(messageId);
     expect(message?.status).toBe('DELIVERED');
 
@@ -222,7 +227,12 @@ describe('meta delivery-status webhooks', () => {
     await postReceipt(deliveryReceipt(wamid, 'sent', '1755400002'));
     await normalizeWebhook(await claimNormalizeJob(), workerContext(container, pdfStub));
 
-    const message = await container.repos.messages.findByProviderMessageId(container.uow.db, wamid);
+    const message = await container.repos.messages.findByProviderMessageId(
+      container.uow.db,
+      'whatsapp-cloud',
+      PHONE_NUMBER_ID,
+      wamid,
+    );
     expect(message?.status).toBe('READ');
 
     // Both receipts are still on the record, including the one that was ignored.
@@ -231,5 +241,45 @@ describe('meta delivery-status webhooks', () => {
       [message?.id],
     );
     expect(events.rows.map((r) => r.status)).toEqual(['READ', 'SENT']);
+  });
+
+  it('keeps a failed inbox row retryable and clears the error after success', async () => {
+    const wamid = 'wamid.RETRYABLE';
+    await sentMessageAwaitingReceipt(wamid);
+    await postReceipt(deliveryReceipt(wamid, 'delivered', '1755400020'));
+    const job = await claimNormalizeJob();
+    const webhookInboxId = job.payload.webhookInboxId as string;
+
+    const originalFind = container.repos.messages.findByProviderMessageId.bind(
+      container.repos.messages,
+    );
+    container.repos.messages.findByProviderMessageId = async () => {
+      throw new Error('temporary database read failure');
+    };
+    try {
+      await expect(normalizeWebhook(job, workerContext(container, pdfStub))).rejects.toThrow(
+        'temporary database read failure',
+      );
+    } finally {
+      container.repos.messages.findByProviderMessageId = originalFind;
+    }
+
+    const failed = await container.uow.pool.query<{
+      processed_at: Date | null;
+      process_error: string | null;
+    }>('SELECT processed_at, process_error FROM webhook_inbox WHERE id = $1', [webhookInboxId]);
+    expect(failed.rows[0]?.processed_at).toBeNull();
+    expect(failed.rows[0]?.process_error).toContain('temporary database read failure');
+
+    await normalizeWebhook(job, workerContext(container, pdfStub));
+
+    const recovered = await container.uow.pool.query<{
+      processed_at: Date | null;
+      process_error: string | null;
+    }>('SELECT processed_at, process_error FROM webhook_inbox WHERE id = $1', [webhookInboxId]);
+    expect(recovered.rows[0]?.processed_at).toBeInstanceOf(Date);
+    expect(recovered.rows[0]?.process_error).toBeNull();
+    const message = await originalFind(container.uow.db, 'whatsapp-cloud', PHONE_NUMBER_ID, wamid);
+    expect(message?.status).toBe('DELIVERED');
   });
 });

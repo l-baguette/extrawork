@@ -111,7 +111,27 @@ export class ApprovalRepository {
     return row ? mapToken(row) : null;
   }
 
-  async recordView(tx: TransactionContext, tokenId: string): Promise<{ firstView: boolean }> {
+  async findForVersion(
+    ctx: TenantContext,
+    versionId: string,
+    db: Database = this.db,
+  ): Promise<ApprovalTokenRow | null> {
+    const result = await db.execute<TokenRecord>(sql`
+      SELECT ${TOKEN_COLUMNS} FROM approval_tokens
+      WHERE organization_id = ${ctx.organizationId}::uuid
+        AND version_id = ${versionId}::uuid
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const row = result.rows[0];
+    return row ? mapToken(row) : null;
+  }
+
+  async recordView(
+    tx: TransactionContext,
+    organizationId: string,
+    tokenId: string,
+  ): Promise<{ firstView: boolean }> {
     // Report §4.5: the first valid view appends an evidence event; repeat views
     // only move the aggregate counters.
     const result = await tx.db.execute<{ first_view: boolean }>(sql`
@@ -119,7 +139,7 @@ export class ApprovalRepository {
          SET view_count = view_count + 1,
              first_viewed_at = COALESCE(first_viewed_at, now()),
              last_viewed_at = now()
-       WHERE id = ${tokenId}::uuid
+       WHERE id = ${tokenId}::uuid AND organization_id = ${organizationId}::uuid
       RETURNING (view_count = 1) AS first_view
     `);
     return { firstView: result.rows[0]?.first_view ?? false };
@@ -127,23 +147,29 @@ export class ApprovalRepository {
 
   async revoke(
     tx: TransactionContext,
+    organizationId: string,
     tokenId: string,
     reason: TokenRevocationReason,
   ): Promise<void> {
     await tx.db.execute(sql`
       UPDATE approval_tokens SET revoked_at = now(), revoked_reason = ${reason}
-      WHERE id = ${tokenId}::uuid AND revoked_at IS NULL
+      WHERE id = ${tokenId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND revoked_at IS NULL
     `);
   }
 
   async revokeForVersion(
     tx: TransactionContext,
+    organizationId: string,
     versionId: string,
     reason: TokenRevocationReason,
   ): Promise<number> {
     const result = await tx.db.execute(sql`
       UPDATE approval_tokens SET revoked_at = now(), revoked_reason = ${reason}
-      WHERE version_id = ${versionId}::uuid AND revoked_at IS NULL
+      WHERE version_id = ${versionId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND revoked_at IS NULL
     `);
     return result.rowCount ?? 0;
   }
@@ -154,6 +180,7 @@ export class ApprovalRepository {
    * the same approver on a live token for the successor version.
    */
   async findSuccessorToken(
+    organizationId: string,
     supersededVersionId: string,
     approverContactId: string,
   ): Promise<{ versionId: string } | null> {
@@ -163,6 +190,9 @@ export class ApprovalRepository {
       JOIN change_order_versions next ON next.id = old.superseded_by_version_id
       JOIN approval_tokens t ON t.version_id = next.id
       WHERE old.id = ${supersededVersionId}::uuid
+        AND old.organization_id = ${organizationId}::uuid
+        AND next.organization_id = ${organizationId}::uuid
+        AND t.organization_id = ${organizationId}::uuid
         AND t.revoked_at IS NULL
         AND t.expires_at > now()
         AND t.approver_contact_id = ${approverContactId}::uuid
@@ -215,6 +245,7 @@ export class ApprovalRepository {
 
   async raiseSessionAssurance(
     tx: TransactionContext,
+    organizationId: string,
     sessionId: string,
     level: AssuranceLevel,
     verifiedPhone: string,
@@ -224,7 +255,7 @@ export class ApprovalRepository {
          SET assurance_achieved = ${level}::assurance_level,
              verified_phone_e164 = ${verifiedPhone},
              verified_at = now()
-       WHERE id = ${sessionId}::uuid
+       WHERE id = ${sessionId}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
@@ -269,6 +300,7 @@ export class ApprovalRepository {
 
   async lockOtpChallenge(
     tx: TransactionContext,
+    organizationId: string,
     challengeId: string,
     publicSessionId: string,
   ): Promise<{
@@ -294,7 +326,9 @@ export class ApprovalRepository {
       SELECT id, code_hash, salt, expires_at, attempt_count, max_attempts,
              consumed_at, destination_e164
       FROM otp_challenges
-      WHERE id = ${challengeId}::uuid AND public_session_id = ${publicSessionId}::uuid
+      WHERE id = ${challengeId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND public_session_id = ${publicSessionId}::uuid
       FOR UPDATE
     `);
     const row = result.rows[0];
@@ -313,6 +347,7 @@ export class ApprovalRepository {
 
   async recordOtpAttempt(
     tx: TransactionContext,
+    organizationId: string,
     challengeId: string,
     succeeded: boolean,
   ): Promise<void> {
@@ -320,14 +355,15 @@ export class ApprovalRepository {
       UPDATE otp_challenges
          SET attempt_count = attempt_count + 1,
              consumed_at = ${succeeded ? sql`now()` : sql`consumed_at`}
-       WHERE id = ${challengeId}::uuid
+       WHERE id = ${challengeId}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
   async otpSendCounts(
     contactId: string,
+    db: Database = this.db,
   ): Promise<{ sentInWindow: number; sentToday: number; lastSentAt: Date | null }> {
-    const result = await this.db.execute<{
+    const result = await db.execute<{
       in_window: string;
       today: string;
       last_sent: Date | null;

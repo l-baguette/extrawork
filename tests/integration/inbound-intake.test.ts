@@ -73,10 +73,6 @@ beforeAll(async () => {
       status: 'SENT',
     };
   };
-  gateway.fetchMedia = async (mediaId: string): Promise<FetchedMedia> => {
-    fetchedMediaIds.push(mediaId);
-    return { bytes: PHOTO, mimeType: 'image/jpeg', byteSize: PHOTO.byteLength };
-  };
 
   app = await buildApp({
     env: container.env,
@@ -98,6 +94,12 @@ beforeEach(async () => {
   await truncateAll(container);
   sent = [];
   fetchedMediaIds = [];
+  container.appContext.integrations.whatsapp.fetchMedia = async (
+    mediaId: string,
+  ): Promise<FetchedMedia> => {
+    fetchedMediaIds.push(mediaId);
+    return { bytes: PHOTO, mimeType: 'image/jpeg', byteSize: PHOTO.byteLength };
+  };
   tenant = await createTenant(container, { name: 'Inbound Interiors' });
 });
 
@@ -338,6 +340,65 @@ describe('inbound WhatsApp messages reach intake', () => {
       sql`SELECT count(*)::text AS count FROM file_objects`,
     );
     expect(files.rows[0]?.count).toBe('1');
+  });
+
+  it('keeps a transient media failure retryable and resumes the attachment batch', async () => {
+    const phone = nextPhone();
+    await addEmployee(phone);
+    let attempts = 0;
+    container.appContext.integrations.whatsapp.fetchMedia = async (
+      mediaId: string,
+    ): Promise<FetchedMedia> => {
+      fetchedMediaIds.push(mediaId);
+      attempts += 1;
+      if (attempts === 1) throw new Error('temporary Meta media outage');
+      return { bytes: PHOTO, mimeType: 'image/jpeg', byteSize: PHOTO.byteLength };
+    };
+
+    await postInbound(
+      inboundPayload({
+        from: phone,
+        messageId: 'wamid.INMEDIARETRY',
+        body: GOOD_MESSAGE,
+        mediaId: 'media-retry',
+      }),
+    );
+    const jobs = await claimJobs(container.uow.db, {
+      limit: 1,
+      leaseSeconds: 60,
+      workerId: 'vitest-media-retry',
+      kinds: [JOB_KINDS.NORMALIZE_WEBHOOK],
+    });
+    const job = jobs[0];
+    if (!job) throw new Error('missing webhook job');
+    await expect(normalizeWebhook(job, workerContext(container, pdfStub))).rejects.toThrow(
+      'temporary Meta media outage',
+    );
+
+    const failed = await container.repos.webhooks.findById(
+      container.uow.db,
+      job.payload.webhookInboxId as string,
+    );
+    expect(failed?.processedAt).toBeNull();
+    expect(failed?.processError).toContain('temporary Meta media outage');
+    // The request itself committed once; only the attachment remains.
+    const ordersAfterFailure = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM change_orders',
+    );
+    expect(ordersAfterFailure.rows[0]?.count).toBe('1');
+
+    await normalizeWebhook(job, workerContext(container, pdfStub));
+    expect(fetchedMediaIds).toEqual(['media-retry', 'media-retry']);
+    const files = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM file_objects',
+    );
+    expect(files.rows[0]?.count).toBe('1');
+    const recovered = await container.repos.webhooks.findById(
+      container.uow.db,
+      job.payload.webhookInboxId as string,
+    );
+    expect(recovered?.processedAt).not.toBeNull();
+    expect(recovered?.processError).toBeNull();
   });
 
   it('does not raise a second request when the provider redelivers a message', async () => {

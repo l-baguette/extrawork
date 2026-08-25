@@ -4,7 +4,7 @@ import {
   type CreateChangeOrderInput,
   type UpdateDraftInput,
 } from '@extrawork/contracts';
-import { allocateNumber, type VersionRow } from '@extrawork/db';
+import { allocateNumber, type TransactionContext, type VersionRow } from '@extrawork/db';
 import {
   addDays,
   assertAssuranceSelectable,
@@ -21,6 +21,14 @@ import {
 import type { AppContext, RequestContext } from '../context.js';
 import { buildLineItemWrites, toCalcInputs, versionEtag } from './build-lines.js';
 
+export interface CreateChangeOrderHooks {
+  /** Runs in the same transaction as creation, for durable caller checkpoints. */
+  afterCreate?(
+    tx: TransactionContext,
+    created: { changeOrderId: string; number: string; version: VersionRow },
+  ): Promise<void>;
+}
+
 /**
  * Change-order composition — report §4.1–§4.4, §6.3, §8.1, §8.2.
  *
@@ -36,6 +44,7 @@ export class ChangeOrderService {
     ctx: RequestContext,
     projectId: string,
     input: CreateChangeOrderInput,
+    hooks: CreateChangeOrderHooks = {},
   ): Promise<{ changeOrderId: string; number: string; version: VersionRow }> {
     const project = await this.app.repos.projects.requireById(ctx.tenant, projectId);
     authorize(ctx.actor, 'change_order:create', {
@@ -110,7 +119,7 @@ export class ChangeOrderService {
           aggregateId: changeOrder.id,
           projectId,
           eventType: DOMAIN_EVENTS.CHANGE_ORDER_CREATED,
-          actorType: 'USER',
+          actorType: ctx.actor.userId ? 'USER' : 'SYSTEM',
           actorId: ctx.actor.userId,
           occurredAt: this.app.clock.now(),
           payload: {
@@ -124,7 +133,9 @@ export class ChangeOrderService {
         },
       ]);
 
-      return { changeOrderId: changeOrder.id, number: changeOrder.number, version };
+      const created = { changeOrderId: changeOrder.id, number: changeOrder.number, version };
+      await hooks.afterCreate?.(tx, created);
+      return created;
     });
   }
 
@@ -277,8 +288,8 @@ export class ChangeOrderService {
     if (!organization) throw new AppError('ORGANIZATION_REQUIRED');
 
     const [lineItems, attachments, approver] = await Promise.all([
-      this.app.repos.changeOrders.listLineItems(this.app.uow.db, version.id),
-      this.app.repos.changeOrders.listAttachments(this.app.uow.db, version.id),
+      this.app.repos.changeOrders.listLineItems(this.app.uow.db, ctx.tenant, version.id),
+      this.app.repos.changeOrders.listAttachments(this.app.uow.db, ctx.tenant, version.id),
       this.app.repos.customers.requireContact(ctx.tenant, version.approverContactId),
     ]);
 
@@ -365,22 +376,47 @@ export class ChangeOrderService {
       });
     }
 
-    const lineItems = await this.app.repos.changeOrders.listLineItems(this.app.uow.db, previous.id);
-
     return this.app.uow.transaction(async (tx) => {
-      const version = await this.app.repos.changeOrders.createRevision(tx, ctx.tenant, previous, {
-        type: previous.type,
-        title: previous.title,
-        scope: previous.scopeDescription,
-        reason: previous.reason,
-        scheduleDeltaDays: previous.scheduleDeltaDays,
-        revisedCompletionDate: previous.revisedCompletionDate,
-        approverContactId: previous.approverContactId,
-        assuranceRequired: previous.assuranceRequired,
-        currency: previous.currency,
-        subtotalDeltaMinor: previous.subtotalDeltaMinor,
-        taxDeltaMinor: previous.taxDeltaMinor,
-        totalDeltaMinor: previous.totalDeltaMinor,
+      // Serialize revision creation with send, cancel, attachment changes and
+      // public decisions. Every value copied into v(n+1) is loaded only after
+      // the lock, so a terminal decision cannot be overwritten using the
+      // optimistic `previous` object read above.
+      const locked = await this.app.repos.changeOrders.lockVersionForTenant(
+        tx,
+        ctx.tenant,
+        previous.id,
+      );
+      if (!locked) throw new AppError('CHANGE_ORDER_NOT_FOUND');
+
+      if (locked.status === 'DRAFT') return locked;
+      if (!canCreateRevision(locked.status)) {
+        throw new AppError('INVALID_STATE_TRANSITION', {
+          message:
+            locked.status === 'APPROVED'
+              ? 'An approved change cannot be revised. Create a separate deduction or reversal instead.'
+              : 'This version cannot be revised.',
+          details: { currentStatus: locked.status },
+        });
+      }
+
+      const lineItems = await this.app.repos.changeOrders.listLineItems(
+        tx.db,
+        ctx.tenant,
+        locked.id,
+      );
+      const version = await this.app.repos.changeOrders.createRevision(tx, ctx.tenant, locked, {
+        type: locked.type,
+        title: locked.title,
+        scope: locked.scopeDescription,
+        reason: locked.reason,
+        scheduleDeltaDays: locked.scheduleDeltaDays,
+        revisedCompletionDate: locked.revisedCompletionDate,
+        approverContactId: locked.approverContactId,
+        assuranceRequired: locked.assuranceRequired,
+        currency: locked.currency,
+        subtotalDeltaMinor: locked.subtotalDeltaMinor,
+        taxDeltaMinor: locked.taxDeltaMinor,
+        totalDeltaMinor: locked.totalDeltaMinor,
         expiresAt: null,
         lineItems: lineItems.map((l) => ({
           description: l.description,
@@ -393,10 +429,15 @@ export class ChangeOrderService {
           taxMinor: l.taxMinor,
           totalMinor: l.totalMinor,
         })),
-        copyAttachmentsFromVersionId: previous.id,
+        copyAttachmentsFromVersionId: locked.id,
       });
 
-      await this.app.repos.reminders.cancelForVersion(tx, previous.id, 'SUPERSEDED');
+      await this.app.repos.reminders.cancelForVersion(
+        tx,
+        ctx.tenant.organizationId,
+        locked.id,
+        'SUPERSEDED',
+      );
 
       await this.app.repos.audit.append(tx, ctx.tenant, [
         {
@@ -408,7 +449,7 @@ export class ChangeOrderService {
           actorId: ctx.actor.userId,
           occurredAt: this.app.clock.now(),
           payload: {
-            supersededVersionNumber: previous.versionNumber,
+            supersededVersionNumber: locked.versionNumber,
             newVersionNumber: version.versionNumber,
           },
         },
@@ -438,7 +479,7 @@ export class ChangeOrderService {
     }
 
     await this.app.uow.transaction(async (tx) => {
-      const locked = await this.app.repos.changeOrders.lockVersion(tx, version.id);
+      const locked = await this.app.repos.changeOrders.lockVersion(tx, ctx.tenant, version.id);
       if (!locked) throw new AppError('CHANGE_ORDER_NOT_FOUND');
       // Re-check under the lock: a decision may have landed in between.
       if (locked.status === 'APPROVED' || locked.status === 'DECLINED') {
@@ -447,12 +488,23 @@ export class ChangeOrderService {
 
       await this.app.repos.changeOrders.setStatus(
         tx,
+        ctx.tenant,
         version.id,
         'CANCELLED',
         this.app.clock.now(),
       );
-      await this.app.repos.approvals.revokeForVersion(tx, version.id, 'CANCELLED');
-      await this.app.repos.reminders.cancelForVersion(tx, version.id, 'CANCELLED');
+      await this.app.repos.approvals.revokeForVersion(
+        tx,
+        ctx.tenant.organizationId,
+        version.id,
+        'CANCELLED',
+      );
+      await this.app.repos.reminders.cancelForVersion(
+        tx,
+        ctx.tenant.organizationId,
+        version.id,
+        'CANCELLED',
+      );
 
       await this.app.repos.audit.append(tx, ctx.tenant, [
         {
@@ -492,13 +544,6 @@ export class ChangeOrderService {
     // Confirms the file belongs to this tenant before it is linked.
     await this.app.repos.files.requireById(ctx.tenant, fileObjectId);
 
-    const existing = await this.app.repos.changeOrders.listAttachments(this.app.uow.db, version.id);
-    if (existing.length >= this.app.env.MAX_ATTACHMENTS_PER_VERSION) {
-      throw new AppError('VALIDATION_FAILED', {
-        message: `A change request can carry at most ${this.app.env.MAX_ATTACHMENTS_PER_VERSION} attachments.`,
-      });
-    }
-
     await this.app.uow.transaction(async (tx) => {
       await this.app.repos.changeOrders.addAttachment(
         tx,
@@ -506,6 +551,7 @@ export class ChangeOrderService {
         version.id,
         fileObjectId,
         caption,
+        this.app.env.MAX_ATTACHMENTS_PER_VERSION,
       );
     });
   }

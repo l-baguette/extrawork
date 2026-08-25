@@ -229,7 +229,8 @@ pnpm verify               # format, lint, typecheck, all tests
    overwriting.
 4. **Preview and send** — the **send button stays unavailable until the server
    has calculated the preview**. Sending freezes the version, mints a 32-byte
-   token (only its SHA-256 is stored) and opens WhatsApp with the message ready.
+   token (its record stores only SHA-256). Automated delivery queues only
+   authenticated ciphertext and removes it once the worker finishes.
    The contractor sends from their own number; ExtraWork records
    `SHARE_INTENT_OPENED`, never "delivered".
 5. **Customer reviews** — `/r/{token}`, no account, server-rendered, no

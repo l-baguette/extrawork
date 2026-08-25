@@ -8,6 +8,7 @@ import { generateEvidence } from './jobs/evidence.js';
 import {
   notifyTeamDecision,
   sendDecisionReceipt,
+  sendMessageDelivery,
   sendReminder,
   sendRequestMessage,
 } from './jobs/messaging.js';
@@ -45,6 +46,7 @@ const handlers: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KINDS.GENERATE_EVIDENCE]: generateEvidence,
   [JOB_KINDS.SEND_DECISION_RECEIPT]: sendDecisionReceipt,
   [JOB_KINDS.NOTIFY_TEAM_DECISION]: notifyTeamDecision,
+  [JOB_KINDS.SEND_MESSAGE_DELIVERY]: sendMessageDelivery,
   [JOB_KINDS.SEND_REQUEST_MESSAGE]: sendRequestMessage,
   [JOB_KINDS.SEND_REMINDER]: sendReminder,
   [JOB_KINDS.SCAN_FILE]: scanFile,

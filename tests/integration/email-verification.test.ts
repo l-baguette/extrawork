@@ -1,5 +1,7 @@
+import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
+import { hashPassword } from '@extrawork/domain';
 import type { Container } from '@extrawork/runtime';
 import { createTestContainer, truncateAll } from '@extrawork/testkit';
 
@@ -33,6 +35,22 @@ beforeEach(async () => {
 
 const PASSWORD = 'a-long-enough-passphrase';
 
+function legacyPasswordHash(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  return new Promise((resolve, reject) => {
+    scryptCallback(
+      password.normalize('NFKC'),
+      salt,
+      64,
+      { N: 8_192, r: 8, p: 1, maxmem: 64 * 1024 * 1024 },
+      (error, derived) => {
+        if (error) reject(error);
+        else resolve(`scrypt$8192$8$1$${salt.toString('base64')}$${derived.toString('base64')}`);
+      },
+    );
+  });
+}
+
 /** The most recent verification token issued to an address. */
 async function latestToken(): Promise<string | null> {
   // The token itself is never stored — only its hash — so the test reads the
@@ -45,6 +63,65 @@ async function latestToken(): Promise<string | null> {
 }
 
 describe('email verification', () => {
+  it('lets exactly one concurrent registration claim the password', async () => {
+    const repository = container.repos.identity;
+    const findCredentials = repository.findCredentialsByEmail.bind(repository);
+    let reads = 0;
+    let releaseReads!: () => void;
+    const bothRead = new Promise<void>((resolve) => {
+      releaseReads = resolve;
+    });
+
+    repository.findCredentialsByEmail = async (...args: Parameters<typeof findCredentials>) => {
+      const found = await findCredentials(...args);
+      reads += 1;
+      if (reads === 2) releaseReads();
+      if (reads <= 2) await bothRead;
+      return found;
+    };
+
+    let results: Array<{ created: boolean }> | null = null;
+    try {
+      results = await Promise.all([
+        container.services.auth.register({
+          email: 'race@example.test',
+          password: 'first-concurrent-passphrase',
+          displayName: 'First Registrant',
+        }),
+        container.services.auth.register({
+          email: 'race@example.test',
+          password: 'second-concurrent-passphrase',
+          displayName: 'Second Registrant',
+        }),
+      ]);
+    } finally {
+      repository.findCredentialsByEmail = findCredentials;
+    }
+
+    expect(results?.map((result) => result.created).sort()).toEqual([false, true]);
+    const passwordResults = await Promise.allSettled([
+      container.services.auth.verifyPassword('race@example.test', 'first-concurrent-passphrase'),
+      container.services.auth.verifyPassword('race@example.test', 'second-concurrent-passphrase'),
+    ]);
+    // The winning password reaches the email-verification gate; the losing
+    // password is simply wrong. Both registrations must never be accepted.
+    expect(
+      passwordResults.filter(
+        (result) =>
+          result.status === 'rejected' &&
+          (result.reason as { code?: string }).code === 'EMAIL_NOT_VERIFIED',
+      ),
+    ).toHaveLength(1);
+    expect(
+      passwordResults.filter((result) => result.status === 'fulfilled' && result.value === null),
+    ).toHaveLength(1);
+
+    const users = await container.uow.db.execute<{ count: number }>(
+      sql`SELECT count(*)::int AS count FROM users WHERE email_normalized = 'race@example.test'`,
+    );
+    expect(users.rows[0]?.count).toBe(1);
+  });
+
   it('creates the account but refuses sign-in until the address is proved', async () => {
     await container.services.auth.register({
       email: 'owner@example.test',
@@ -97,6 +174,51 @@ describe('email verification', () => {
     expect(identity?.email).toBe('owner@example.test');
   });
 
+  it('upgrades a valid legacy password hash after a successful sign-in', async () => {
+    await container.services.auth.register({
+      email: 'legacy@example.test',
+      password: PASSWORD,
+      displayName: 'Legacy Owner',
+    });
+    const user = await container.repos.identity.findUserByEmail('legacy@example.test');
+    const legacyHash = await legacyPasswordHash(PASSWORD);
+    await container.uow.transaction(async (tx) => {
+      await container.repos.identity.markEmailVerified(tx, user!.id, new Date());
+      await container.repos.identity.setPassword(tx, user!.id, legacyHash);
+    });
+
+    await expect(
+      container.services.auth.verifyPassword('legacy@example.test', PASSWORD),
+    ).resolves.toMatchObject({ email: 'legacy@example.test' });
+
+    const upgraded = await container.repos.identity.findCredentialsByEmail('legacy@example.test');
+    expect(upgraded?.passwordHash).toMatch(/^scrypt\$16384\$8\$1\$/);
+    expect(upgraded?.passwordHash).not.toBe(legacyHash);
+  });
+
+  it('does not overwrite a password changed after an older hash was read', async () => {
+    await container.services.auth.register({
+      email: 'changed@example.test',
+      password: PASSWORD,
+      displayName: 'Changed Owner',
+    });
+    const user = await container.repos.identity.findUserByEmail('changed@example.test');
+    const oldHash = (await container.repos.identity.findCredentialsByEmail('changed@example.test'))!
+      .passwordHash!;
+    const resetHash = await hashPassword('a newer reset passphrase');
+    const staleUpgrade = await hashPassword(PASSWORD);
+
+    const updated = await container.uow.transaction(async (tx) => {
+      await container.repos.identity.setPassword(tx, user!.id, resetHash);
+      return container.repos.identity.upgradePasswordHash(tx, user!.id, oldHash, staleUpgrade);
+    });
+
+    expect(updated).toBe(false);
+    const credentials =
+      await container.repos.identity.findCredentialsByEmail('changed@example.test');
+    expect(credentials?.passwordHash).toBe(resetHash);
+  });
+
   it('refuses a token that is not a verification token', async () => {
     // Sign-in links and verification links are both opaque strings in the same
     // table. Redeeming a sign-in link as proof of control would accept evidence
@@ -108,6 +230,56 @@ describe('email verification', () => {
     });
     const bogus = await container.services.auth.verifyEmail('a'.repeat(43));
     expect(bogus.verified).toBe(false);
+  });
+
+  it('does not let a verification token authenticate or consume it on the wrong endpoint', async () => {
+    await container.services.auth.register({
+      email: 'purpose@example.test',
+      password: PASSWORD,
+      displayName: 'Purpose Check',
+    });
+    const challenge = await container.uow.transaction((tx) =>
+      container.repos.identity.createAuthChallenge(tx, {
+        email: 'purpose@example.test',
+        purpose: 'VERIFY_EMAIL',
+        organizationId: null,
+        ttlMinutes: 30,
+      }),
+    );
+
+    await expect(
+      container.services.auth.completeSignIn(challenge.token, {
+        ipHash: null,
+        userAgent: 'vitest',
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+
+    // The wrong endpoint did not burn the single-use link.
+    await expect(container.services.auth.verifyEmail(challenge.token)).resolves.toEqual({
+      verified: true,
+    });
+  });
+
+  it('does not let verification consume a sign-in token', async () => {
+    const challenge = await container.uow.transaction((tx) =>
+      container.repos.identity.createAuthChallenge(tx, {
+        email: 'signin-purpose@example.test',
+        purpose: 'SIGN_IN',
+        organizationId: null,
+        ttlMinutes: 30,
+      }),
+    );
+
+    await expect(container.services.auth.verifyEmail(challenge.token)).resolves.toEqual({
+      verified: false,
+    });
+    // It remains valid for the purpose for which it was issued.
+    await expect(
+      container.services.auth.completeSignIn(challenge.token, {
+        ipHash: null,
+        userAgent: 'vitest',
+      }),
+    ).resolves.toMatchObject({ userId: expect.any(String) });
   });
 
   it('records when control was proved, and keeps the first proof', async () => {

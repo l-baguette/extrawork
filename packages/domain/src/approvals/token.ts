@@ -1,11 +1,18 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 import { AppError } from '@extrawork/contracts';
 
 /**
  * Public-token security — report §3.4.
  *
  *  - 32 random bytes from a CSPRNG;
- *  - the URL-safe base64 token is returned exactly once, only the SHA-256 is stored;
+ *  - the token record stores only SHA-256; automated delivery queues an
+ *    authenticated ciphertext that is erased when its job completes;
  *  - bound to one change-order version and one intended approver;
  *  - expires with the request deadline, capped by a configured maximum lifetime;
  *  - revoked when the version is superseded, cancelled or decided;
@@ -19,12 +26,17 @@ export const TOKEN_BYTES = 32;
 /** base64url of 32 bytes, unpadded. */
 export const TOKEN_LENGTH = 43;
 
+const APPROVAL_LINK_CIPHER_VERSION = 'ewal1';
+const APPROVAL_LINK_NONCE_BYTES = 12;
+const APPROVAL_LINK_TAG_BYTES = 16;
+const APPROVAL_LINK_KEY_CONTEXT = 'extrawork:approval-link:aes-256-gcm:v1\0';
+
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export interface GeneratedToken {
   /** Show once, put in the link, then discard. */
   plaintext: string;
-  /** The only representation that is persisted. */
+  /** The only representation persisted in the approval-token record. */
   hash: Buffer;
 }
 
@@ -36,6 +48,92 @@ export function generateApprovalToken(): GeneratedToken {
 
 export function hashToken(plaintext: string): Buffer {
   return createHash('sha256').update(plaintext, 'utf8').digest();
+}
+
+export interface ApprovalLinkCipherContext {
+  organizationId: string;
+  versionId: string;
+}
+
+/**
+ * Authenticated encryption for the one durable hop that needs the approval
+ * link: API transaction -> worker job. The database stores ciphertext only,
+ * and the authentication data binds it to one tenant and version so a copied
+ * payload cannot be replayed against another request.
+ */
+export function encryptApprovalUrl(
+  approvalUrl: string,
+  secret: string,
+  context: ApprovalLinkCipherContext,
+): string {
+  assertApprovalLinkSecret(secret);
+  const nonce = randomBytes(APPROVAL_LINK_NONCE_BYTES);
+  const cipher = createCipheriv('aes-256-gcm', approvalLinkKey(secret), nonce);
+  cipher.setAAD(approvalLinkAad(context));
+  const ciphertext = Buffer.concat([cipher.update(approvalUrl, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [
+    APPROVAL_LINK_CIPHER_VERSION,
+    nonce.toString('base64url'),
+    ciphertext.toString('base64url'),
+    tag.toString('base64url'),
+  ].join('.');
+}
+
+export function decryptApprovalUrl(
+  sealed: string,
+  secret: string,
+  context: ApprovalLinkCipherContext,
+): string {
+  assertApprovalLinkSecret(secret);
+  try {
+    const [version, nonceEncoded, ciphertextEncoded, tagEncoded, extra] = sealed.split('.');
+    if (
+      version !== APPROVAL_LINK_CIPHER_VERSION ||
+      !nonceEncoded ||
+      !ciphertextEncoded ||
+      !tagEncoded ||
+      extra
+    ) {
+      throw new Error('invalid envelope');
+    }
+
+    const nonce = Buffer.from(nonceEncoded, 'base64url');
+    const ciphertext = Buffer.from(ciphertextEncoded, 'base64url');
+    const tag = Buffer.from(tagEncoded, 'base64url');
+    if (
+      nonce.byteLength !== APPROVAL_LINK_NONCE_BYTES ||
+      tag.byteLength !== APPROVAL_LINK_TAG_BYTES ||
+      ciphertext.byteLength === 0
+    ) {
+      throw new Error('invalid envelope');
+    }
+
+    const decipher = createDecipheriv('aes-256-gcm', approvalLinkKey(secret), nonce);
+    decipher.setAAD(approvalLinkAad(context));
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+  } catch {
+    // Do not include the envelope, key, or low-level crypto error in a job log.
+    throw new Error('Encrypted approval link is invalid or belongs to another request');
+  }
+}
+
+function approvalLinkKey(secret: string): Buffer {
+  return createHash('sha256').update(APPROVAL_LINK_KEY_CONTEXT).update(secret).digest();
+}
+
+function approvalLinkAad(context: ApprovalLinkCipherContext): Buffer {
+  return Buffer.from(
+    JSON.stringify([APPROVAL_LINK_CIPHER_VERSION, context.organizationId, context.versionId]),
+    'utf8',
+  );
+}
+
+function assertApprovalLinkSecret(secret: string): void {
+  if (Buffer.byteLength(secret, 'utf8') < 32) {
+    throw new Error('Approval-link encryption secret must contain at least 32 bytes');
+  }
 }
 
 /** Cheap shape check before touching the database, to blunt enumeration. */

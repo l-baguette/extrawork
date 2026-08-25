@@ -64,6 +64,8 @@ export const EnvSchema = z.object({
   PRIVACY_HASH_SECRET: z.string().min(32),
   /** Signs local object-store URLs when STORAGE_DRIVER=local. */
   STORAGE_URL_SECRET: z.string().min(32),
+  /** Encrypts approval links while they cross the durable worker queue. */
+  APPROVAL_LINK_ENCRYPTION_SECRET: z.string().min(32),
 
   SESSION_TTL_HOURS: z.coerce
     .number()
@@ -194,6 +196,7 @@ const DEVELOPMENT_PLACEHOLDERS = new Set([
   'dev-session-secret-not-for-production-use',
   'dev-privacy-secret-not-for-production-use',
   'dev-storage-secret-not-for-production-use',
+  'dev-approval-link-secret-not-for-production-use',
 ]);
 
 export class ConfigError extends Error {
@@ -207,7 +210,12 @@ function assertProductionSafe(env: Env): void {
   if (env.APP_ENV !== 'production') return;
   const problems: string[] = [];
 
-  for (const key of ['SESSION_SECRET', 'PRIVACY_HASH_SECRET', 'STORAGE_URL_SECRET'] as const) {
+  for (const key of [
+    'SESSION_SECRET',
+    'PRIVACY_HASH_SECRET',
+    'STORAGE_URL_SECRET',
+    'APPROVAL_LINK_ENCRYPTION_SECRET',
+  ] as const) {
     if (DEVELOPMENT_PLACEHOLDERS.has(env[key])) {
       problems.push(`${key} still holds a development placeholder`);
     }
@@ -222,6 +230,11 @@ function assertProductionSafe(env: Env): void {
     problems.push(
       'AUTH_DRIVER=local is a self-host/dev driver; use a managed provider in production',
     );
+  }
+  if (env.AUTH_DRIVER === 'supabase' || env.AUTH_DRIVER === 'clerk') {
+    for (const key of ['AUTH_JWKS_URL', 'AUTH_JWT_ISSUER', 'AUTH_JWT_AUDIENCE'] as const) {
+      if (!env[key]) problems.push(`${key} is required when AUTH_DRIVER=${env.AUTH_DRIVER}`);
+    }
   }
   if (!env.DATABASE_SSL) {
     problems.push('DATABASE_SSL must be enabled in production (report §11.3)');

@@ -118,28 +118,28 @@ Legend: **Code** = implementing module, **Test** = the test that proves it.
 
 ### 4.5 Reliability & ops
 
-| Req (report §)                                                     | Code                                                          | Test                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------- |
-| Transactional outbox schema + lease/publish (§13.2)                | `packages/db/src/outbox.ts`                                   | `integration/outbox-atomicity.test.ts` |
-| Webhook inbox, dedupe key, 200 on duplicate (§13.2)                | `apps/api/src/modules/webhooks/`                              | `security/webhook.test.ts`             |
-| Projection integrity job → `INTEGRITY_REVIEW`, block sends (§13.3) | `apps/worker/src/jobs/integrity.ts`                           | `integration/integrity.test.ts`        |
-| Job at-least-once + lease + dead-letter + priorities (§13.4)       | `packages/db/src/jobs.ts`                                     | `integration/jobs.test.ts`             |
-| Structured logs, no PII/token (§11.5)                              | `packages/observability`                                      | `security/token-leakage.test.ts`       |
-| Health checks (§11.x)                                              | `apps/api/src/routes/health.ts`                               | `api/health.test.ts`                   |
-| Backup/restore + runbooks (§11.6, §13.6)                           | `infra/runbooks/*`, `scripts/backup.sh`, `scripts/restore.sh` | manual drill documented in runbook     |
+| Req (report §)                                                     | Code                                                          | Test                                          |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------- |
+| Transactional outbox schema + lease/publish (§13.2)                | `packages/db/src/outbox.ts`                                   | `integration/outbox-lease-ownership.test.ts`  |
+| Webhook inbox, dedupe key, 200 on duplicate (§13.2)                | `apps/api/src/routes/webhooks.ts`                             | `integration/webhook-atomicity.test.ts`       |
+| Projection integrity job → `INTEGRITY_REVIEW`, block sends (§13.3) | `apps/worker/src/jobs/maintenance.ts`                         | `integration/versioning-and-evidence.test.ts` |
+| Job at-least-once + lease + dead-letter + priorities (§13.4)       | `packages/db/src/jobs.ts`                                     | `integration/job-lease-ownership.test.ts`     |
+| Structured logs, no PII/token (§11.5)                              | `packages/observability`                                      | `security/token-and-files.test.ts`            |
+| Health checks (§11.x)                                              | `apps/api/src/routes/health.ts`                               | manual deployment probe                       |
+| Backup/restore + runbooks (§11.6, §13.6)                           | `infra/runbooks/*`, `scripts/backup.sh`, `scripts/restore.sh` | manual drill documented in runbook            |
 
 ### 4.6 Frontend
 
-| Req (report §)                                                         | Code                                           |
-| ---------------------------------------------------------------------- | ---------------------------------------------- |
-| Two route groups `/app/*`, `/r/*` (§6.1)                               | `apps/web/src/app/(app)`, `apps/web/src/app/r` |
-| Full route inventory (§6.2)                                            | `apps/web/src/app/**`                          |
-| 4-step composer, autosave, server-calculated preview gates send (§6.3) | `apps/web/src/features/composer/`              |
-| RHF + shared Zod, paise serialization, decimal-string qty (§6.3)       | `composer/schema.ts`                           |
-| TanStack Query keys as listed (§6.4)                                   | `apps/web/src/lib/query-keys.ts`               |
-| Public UX: neutral, no dark patterns, visible decline, receipt (§6.7)  | `apps/web/src/app/r/[token]/`                  |
-| Offline banner, queue drafts only, never offline send/approve (§6.8)   | `apps/web/src/lib/offline.ts`                  |
-| WCAG 2.2 AA, status not colour-only, ICU formatting (§6.9)             | `packages/ui`, `apps/web/src/lib/i18n.ts`      |
+| Req (report §)                                                         | Code                                                                                                    |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Two route groups `/app/*`, `/r/*` (§6.1)                               | `apps/web/src/app/(app)`, `apps/web/src/app/r`                                                          |
+| Full route inventory (§6.2)                                            | `apps/web/src/app/**`                                                                                   |
+| 4-step composer, autosave, server-calculated preview gates send (§6.3) | `apps/web/src/features/composer/`                                                                       |
+| RHF + shared Zod, paise serialization, decimal-string qty (§6.3)       | `composer/schema.ts`                                                                                    |
+| TanStack Query keys as listed (§6.4)                                   | `apps/web/src/lib/query-keys.ts`                                                                        |
+| Public UX: neutral, no dark patterns, visible decline, receipt (§6.7)  | `apps/web/src/app/r/[token]/`                                                                           |
+| Offline banner, queue drafts only, never offline send/approve (§6.8)   | `apps/web/src/components/offline-banner.tsx`, `apps/web/src/features/composer/draft-store.ts`           |
+| WCAG 2.2 AA, status not colour-only, locale formatting (§6.9)          | `apps/web/src/app/globals.css`, `apps/web/src/components/status-chip.tsx`, `apps/web/src/lib/format.ts` |
 
 ## 5. Launch gates (report §16.3) — tracked in README
 

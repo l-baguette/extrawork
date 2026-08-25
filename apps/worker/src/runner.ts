@@ -35,6 +35,79 @@ export class PermanentJobError extends Error {
   }
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function payloadObject(job: JobRow): Record<string, unknown> {
+  const payload = job.payload as unknown;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} payload must be a JSON object`,
+    );
+  }
+  return payload as Record<string, unknown>;
+}
+
+export function requirePayloadString(job: JobRow, key: string): string {
+  const value = payloadObject(job)[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} payload requires a non-empty ${key}`,
+    );
+  }
+  return value;
+}
+
+export function optionalPayloadString(job: JobRow, key: string): string | undefined {
+  const value = payloadObject(job)[key];
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} payload ${key} must be a non-empty string when present`,
+    );
+  }
+  return value;
+}
+
+export function requirePayloadUuid(job: JobRow, key: string): string {
+  const value = requirePayloadString(job, key);
+  if (!UUID_PATTERN.test(value)) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} payload ${key} must be a UUID`,
+    );
+  }
+  return value;
+}
+
+export function requirePayloadInteger(job: JobRow, key: string, minimum = 0): number {
+  const value = payloadObject(job)[key];
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} payload ${key} must be an integer of at least ${minimum}`,
+    );
+  }
+  return value;
+}
+
+export function requirePayloadOneOf<const T extends readonly string[]>(
+  job: JobRow,
+  key: string,
+  allowed: T,
+): T[number] {
+  const value = requirePayloadString(job, key);
+  if (!allowed.includes(value)) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} payload ${key} is not an allowed value`,
+    );
+  }
+  return value as T[number];
+}
+
 export interface RunnerOptions {
   concurrency: number;
   pollIntervalMs: number;
@@ -111,7 +184,9 @@ export class JobRunner {
 
     if (!handler) {
       // An unknown kind is a deployment mismatch, not a transient fault.
-      await failJob(this.ctx.db, job, `No handler registered for ${job.kind}`, { permanent: true });
+      await failJob(this.ctx.db, job, `No handler registered for ${job.kind}`, this.workerId, {
+        permanent: true,
+      });
       log.error('no handler registered for job kind');
       return;
     }
@@ -119,18 +194,28 @@ export class JobRunner {
     // Long jobs keep their lease alive rather than being reclaimed mid-run.
     const heartbeat = setInterval(
       () => {
-        void heartbeatJob(this.ctx.db, job.id, this.options.leaseSeconds).catch(
-          (error: unknown) => {
+        void heartbeatJob(this.ctx.db, job.id, this.options.leaseSeconds, this.workerId)
+          .then((extended) => {
+            if (!extended) log.warn('job lease was lost before heartbeat');
+          })
+          .catch((error: unknown) => {
             log.warn({ err: error }, 'job heartbeat failed');
-          },
-        );
+          });
       },
       Math.max(this.options.leaseSeconds * 1000 * 0.4, 5_000),
     );
 
     try {
       await handler(job, this.ctx);
-      await completeJob(this.ctx.db, job.id);
+      const completed = await completeJob(this.ctx.db, job.id, this.workerId);
+      if (!completed) {
+        metrics.counter(METRIC.JOB_RUNS, 'Job executions', {
+          kind: job.kind,
+          result: 'lease_lost',
+        });
+        log.warn({ durationMs: Date.now() - started }, 'job finished after its lease was lost');
+        return;
+      }
       metrics.counter(METRIC.JOB_RUNS, 'Job executions', { kind: job.kind, result: 'success' });
       log.info({ durationMs: Date.now() - started }, 'job completed');
     } catch (error) {
@@ -143,8 +228,17 @@ export class JobRunner {
         this.ctx.db,
         job,
         `${code}: ${truncate((error as Error).message ?? 'unknown error')}`,
+        this.workerId,
         { permanent },
       );
+      if (outcome === 'LEASE_LOST') {
+        metrics.counter(METRIC.JOB_RUNS, 'Job executions', {
+          kind: job.kind,
+          result: 'lease_lost',
+        });
+        log.warn({ err: error, code }, 'job failed after its lease was lost');
+        return;
+      }
       const willRetry = outcome === 'RETRY';
 
       metrics.counter(METRIC.JOB_RUNS, 'Job executions', {
@@ -197,6 +291,12 @@ export function requireTenant(job: JobRow, fallback?: string | null): string {
   const organizationId = job.organizationId ?? fallback ?? null;
   if (!organizationId) {
     throw new PermanentJobError('NO_TENANT', `Job ${job.kind} carries no organization scope`);
+  }
+  if (!UUID_PATTERN.test(organizationId)) {
+    throw new PermanentJobError(
+      'INVALID_JOB_PAYLOAD',
+      `Job ${job.kind} carries an invalid organization scope`,
+    );
   }
   return organizationId;
 }

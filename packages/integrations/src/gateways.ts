@@ -10,6 +10,8 @@ import { AppError } from '@extrawork/contracts';
 
 export interface ProviderMessageRef {
   provider: string;
+  /** Concrete sender account/phone-number id when the provider has one. */
+  providerAccountId?: string | null;
   providerMessageId: string | null;
   /** What the system can honestly claim happened. */
   status: 'SHARE_INTENT_PREPARED' | 'ACCEPTED' | 'SENT' | 'FAILED';
@@ -104,10 +106,10 @@ export interface OutboundMessage {
   template?: OutboundTemplate;
   /**
    * `INTAKE_REPLY` is the answer to an employee who just messaged in. It is
-   * deliberately absent from the `messages` table's purpose check: that table
-   * records what was sent to a *customer*, and the employee's reply already has
-   * a home in `inbound_messages.reply_text`, next to the message it answers.
-   * Recording it twice would put the same fact in two places that can disagree.
+   * deliberately absent from the `messages` table's purpose check: direct
+   * intake replies already have a home in `inbound_messages.reply_text`, next
+   * to the message they answer. Recording them twice would put the same fact in
+   * two places that can disagree.
    */
   purpose: 'REQUEST' | 'REMINDER' | 'DECISION_RECEIPT' | 'OTP' | 'INTAKE_REPLY';
   /** Provider idempotency key; the outbox event id (report §13.2). */
@@ -128,7 +130,7 @@ export interface MessageGateway {
    * Callers must treat its absence as "no media pipeline on this driver" rather
    * than as an error.
    */
-  fetchMedia?(mediaId: string): Promise<FetchedMedia>;
+  fetchMedia?(mediaId: string, options?: { maxBytes?: number }): Promise<FetchedMedia>;
 }
 
 // --- OTP --------------------------------------------------------------------

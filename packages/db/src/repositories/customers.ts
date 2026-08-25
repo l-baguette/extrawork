@@ -68,7 +68,15 @@ export class CustomerRepository {
   }
 
   async findById(ctx: TenantContext, id: string): Promise<CustomerRow | null> {
-    const result = await this.db.execute<CustomerRecord>(sql`
+    return this.findByIdIn(this.db, ctx, id);
+  }
+
+  private async findByIdIn(
+    db: Database,
+    ctx: TenantContext,
+    id: string,
+  ): Promise<CustomerRow | null> {
+    const result = await db.execute<CustomerRecord>(sql`
       SELECT ${CUSTOMER_COLUMNS} FROM customers
       WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
     `);
@@ -78,6 +86,18 @@ export class CustomerRepository {
 
   async requireById(ctx: TenantContext, id: string): Promise<CustomerRow> {
     const row = await this.findById(ctx, id);
+    if (!row) throw new AppError('CUSTOMER_NOT_FOUND');
+    return row;
+  }
+
+  async lockById(tx: TransactionContext, ctx: TenantContext, id: string): Promise<CustomerRow> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM customers
+      WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) throw new AppError('CUSTOMER_NOT_FOUND');
+    const row = await this.findByIdIn(tx.db, ctx, id);
     if (!row) throw new AppError('CUSTOMER_NOT_FOUND');
     return row;
   }
@@ -240,7 +260,15 @@ export class CustomerRepository {
   }
 
   async findContact(ctx: TenantContext, contactId: string): Promise<ContactRow | null> {
-    const result = await this.db.execute<ContactRecord>(sql`
+    return this.findContactIn(this.db, ctx, contactId);
+  }
+
+  private async findContactIn(
+    db: Database,
+    ctx: TenantContext,
+    contactId: string,
+  ): Promise<ContactRow | null> {
+    const result = await db.execute<ContactRecord>(sql`
       SELECT ${CONTACT_COLUMNS} FROM contacts
       WHERE id = ${contactId}::uuid AND organization_id = ${ctx.organizationId}::uuid
     `);
@@ -250,6 +278,22 @@ export class CustomerRepository {
 
   async requireContact(ctx: TenantContext, contactId: string): Promise<ContactRow> {
     const row = await this.findContact(ctx, contactId);
+    if (!row) throw new AppError('CONTACT_NOT_FOUND');
+    return row;
+  }
+
+  async lockContact(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    contactId: string,
+  ): Promise<ContactRow> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM contacts
+      WHERE id = ${contactId}::uuid AND organization_id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) throw new AppError('CONTACT_NOT_FOUND');
+    const row = await this.findContactIn(tx.db, ctx, contactId);
     if (!row) throw new AppError('CONTACT_NOT_FOUND');
     return row;
   }

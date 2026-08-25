@@ -81,13 +81,33 @@ export class OutboxPump {
       for (const job of jobsFor(event)) {
         await enqueueJob({ db: this.ctx.db }, job);
       }
-      await markOutboxPublished(this.ctx.db, event.id);
+      const published = await markOutboxPublished(this.ctx.db, event.id, event.attemptCount);
+      if (!published) {
+        this.log.warn(
+          { topic: event.topic, eventId: event.id },
+          'outbox event finished after its lease was lost',
+        );
+        return;
+      }
       metrics.counter(METRIC.OUTBOX_PUBLISHED, 'Outbox events published', { topic: event.topic });
     } catch (error) {
       // Dispatch is purely local work, so a failure is a bug or a database
       // problem. Back off on the §7.6 schedule, then dead-letter.
       const retryDelay = nextRetryDelaySeconds(event.attemptCount);
-      await markOutboxFailed(this.ctx.db, event.id, 'DISPATCH_FAILED', retryDelay);
+      const outcome = await markOutboxFailed(
+        this.ctx.db,
+        event.id,
+        event.attemptCount,
+        'DISPATCH_FAILED',
+        retryDelay,
+      );
+      if (outcome === 'LEASE_LOST') {
+        this.log.warn(
+          { err: error, topic: event.topic, eventId: event.id },
+          'outbox dispatch failed after its lease was lost',
+        );
+        return;
+      }
       this.log.error(
         { err: error, topic: event.topic, eventId: event.id },
         'outbox dispatch failed',
@@ -140,6 +160,7 @@ export function jobsFor(event: OutboxRow): EnqueueInput[] {
             versionId: payload.versionId,
             organizationId,
             channel: payload.channel ?? 'WHATSAPP_NATIVE_SHARE',
+            approvalUrlCiphertext: payload.approvalUrlCiphertext,
           },
           dedupeKey: `request-message:${event.id}`,
         },
@@ -195,11 +216,10 @@ export function jobsFor(event: OutboxRow): EnqueueInput[] {
       return [];
 
     default:
-      // An unknown topic is preserved rather than dropped: the row stays
-      // unpublished only if this throws, so instead it is acknowledged and
-      // logged, matching the report's "preserve the raw unknown event while
-      // alerting rather than discarding it" (§14.6).
-      return [];
+      // Throwing keeps the raw row unpublished, routes it through the normal
+      // retry/dead-letter path, and produces an error log. A successful empty
+      // mapping would silently acknowledge a topic this worker cannot handle.
+      throw new Error(`Unsupported outbox topic: ${event.topic}`);
   }
 }
 

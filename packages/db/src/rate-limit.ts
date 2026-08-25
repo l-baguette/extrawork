@@ -32,6 +32,13 @@ export const RATE_LIMITS = {
    */
   AUTH_MAGIC_LINK: { limit: 5, windowSeconds: 900 },
   /**
+   * Non-sending authentication steps: OAuth start/callback and consuming a
+   * high-entropy sign-in or verification token. Keeping these separate means
+   * the action that proves an emailed link cannot be blocked by the bucket
+   * spent sending that same link.
+   */
+  AUTH_FLOW: { limit: 30, windowSeconds: 900 },
+  /**
    * Password attempts, which send nothing.
    *
    * Separated because sharing the mail bucket meant a person who mistyped their

@@ -179,6 +179,7 @@ export class WhatsAppCloudGateway implements MessageGateway {
     const body = (await response.json()) as { messages?: Array<{ id?: string }> };
     return {
       provider: 'whatsapp-cloud',
+      providerAccountId: this.options.phoneNumberId,
       providerMessageId: body.messages?.[0]?.id ?? null,
       status: 'ACCEPTED',
     };
@@ -263,7 +264,7 @@ export class WhatsAppCloudGateway implements MessageGateway {
    * but is not public, and omitting the header returns a 401 that reads like a
    * bad media id.
    */
-  async fetchMedia(mediaId: string): Promise<FetchedMedia> {
+  async fetchMedia(mediaId: string, limits: { maxBytes?: number } = {}): Promise<FetchedMedia> {
     const auth = { Authorization: `Bearer ${this.options.accessToken}` };
 
     const lookup = await this.fetchImpl(
@@ -282,6 +283,11 @@ export class WhatsAppCloudGateway implements MessageGateway {
         message: 'WhatsApp media lookup returned no download URL',
       });
     }
+    if (limits.maxBytes !== undefined && (meta.file_size ?? 0) > limits.maxBytes) {
+      throw new AppError('FILE_TOO_LARGE', {
+        details: { maxBytes: limits.maxBytes, actualBytes: meta.file_size },
+      });
+    }
 
     const download = await this.fetchImpl(meta.url, {
       headers: auth,
@@ -294,7 +300,14 @@ export class WhatsAppCloudGateway implements MessageGateway {
       });
     }
 
-    const bytes = Buffer.from(await download.arrayBuffer());
+    const declaredLength = Number(download.headers.get('content-length') ?? 0);
+    if (limits.maxBytes !== undefined && declaredLength > limits.maxBytes) {
+      await download.body?.cancel();
+      throw new AppError('FILE_TOO_LARGE', {
+        details: { maxBytes: limits.maxBytes, actualBytes: declaredLength },
+      });
+    }
+    const bytes = await readResponseBody(download, limits.maxBytes);
     return {
       bytes,
       // The provider's declared type is a hint only. The quarantine scanner
@@ -304,6 +317,30 @@ export class WhatsAppCloudGateway implements MessageGateway {
       byteSize: bytes.byteLength,
     };
   }
+}
+
+async function readResponseBody(response: Response, maxBytes?: number): Promise<Buffer> {
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (maxBytes !== undefined && total > maxBytes) {
+        await reader.cancel();
+        throw new AppError('FILE_TOO_LARGE', {
+          details: { maxBytes, actualBytes: total },
+        });
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, total);
 }
 
 /**

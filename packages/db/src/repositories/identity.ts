@@ -125,6 +125,49 @@ export class IdentityRepository {
     `);
   }
 
+  /**
+   * Upgrades an old credential only if it is still the credential that was
+   * verified. A concurrent password reset or another login's upgrade wins
+   * without being overwritten.
+   */
+  async upgradePasswordHash(
+    tx: TransactionContext,
+    userId: string,
+    verifiedHash: string,
+    upgradedHash: string,
+  ): Promise<boolean> {
+    const result = await tx.db.execute(sql`
+      UPDATE users
+         SET password_hash = ${upgradedHash}, password_set_at = now(), updated_at = now()
+       WHERE id = ${userId}::uuid AND password_hash = ${verifiedHash}
+    `);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Claims a first-party email and installs its initial password atomically.
+   * A concurrent registration gets `null`; it must never update the winner's
+   * profile or credential.
+   */
+  async createLocalAccount(
+    tx: TransactionContext,
+    input: { subject: string; email: string; displayName: string; passwordHash: string },
+  ): Promise<UserRow | null> {
+    const result = await tx.db.execute<UserRecord>(sql`
+      INSERT INTO users (
+        id, auth_provider, auth_provider_subject, email_normalized, display_name,
+        password_hash, password_set_at
+      ) VALUES (
+        ${newId()}::uuid, 'local', ${input.subject}, ${input.email}, ${input.displayName},
+        ${input.passwordHash}, now()
+      )
+      ON CONFLICT DO NOTHING
+      RETURNING id, auth_provider, auth_provider_subject, email_normalized,
+                display_name, status, last_authenticated_at
+    `);
+    return mapUser(result.rows[0]);
+  }
+
   /** Links a third-party identity, or refreshes it if already linked. */
   async linkIdentity(
     tx: TransactionContext,
@@ -554,6 +597,7 @@ export class IdentityRepository {
   async consumeAuthChallenge(
     tx: TransactionContext,
     token: string,
+    expectedPurpose: 'SIGN_IN' | 'INVITATION' | 'VERIFY_EMAIL',
   ): Promise<{ email: string; purpose: string; organizationId: string | null } | null> {
     const result = await tx.db.execute<{
       email_normalized: string;
@@ -563,6 +607,7 @@ export class IdentityRepository {
       UPDATE auth_challenges
          SET consumed_at = now()
        WHERE token_hash = ${hashOpaqueToken(token)}
+         AND purpose = ${expectedPurpose}
          AND consumed_at IS NULL
          AND expires_at > now()
       RETURNING email_normalized, purpose, organization_id

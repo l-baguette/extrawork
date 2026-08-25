@@ -15,7 +15,12 @@ import {
 import type { AppContext } from '@extrawork/application';
 import { versionEtag } from '@extrawork/application';
 import { readChain, verifyAggregateChain } from '@extrawork/db';
-import { STATUS_LABEL, authorize, maskedContactLabel } from '@extrawork/domain';
+import {
+  STATUS_LABEL,
+  authorize,
+  maskedContactLabel,
+  projectAccessFilter,
+} from '@extrawork/domain';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 import { parseLockVersion } from './customers.js';
 import { summaryDto } from './projects.js';
@@ -39,9 +44,6 @@ export async function registerChangeOrderRoutes(
     authorize(auth.actor, 'change_order:read', { organizationId: auth.actor.organizationId });
 
     const query = ListChangeOrdersQuerySchema.parse(request.query);
-    const orgWide =
-      auth.actor.role === 'OWNER' || auth.actor.role === 'ADMIN' || auth.actor.role === 'FINANCE';
-
     const result = await app.repos.changeOrders.listSummaries(auth.tenant, {
       ...(query.projectId ? { projectId: query.projectId } : {}),
       ...(query.customerId ? { customerId: query.customerId } : {}),
@@ -50,7 +52,7 @@ export async function registerChangeOrderRoutes(
       ...(query.query ? { query: query.query } : {}),
       ...(query.cursor ? { cursor: query.cursor } : {}),
       limit: query.limit,
-      projectGrants: orgWide ? null : [...auth.actor.projectGrants],
+      projectGrants: projectAccessFilter(auth.actor),
     });
 
     return reply.send({
@@ -107,8 +109,8 @@ export async function registerChangeOrderRoutes(
     if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
 
     const [lineItems, attachments, approver, versions, decision, project] = await Promise.all([
-      app.repos.changeOrders.listLineItems(appContext.uow.db, version.id),
-      app.repos.changeOrders.listAttachments(appContext.uow.db, version.id),
+      app.repos.changeOrders.listLineItems(appContext.uow.db, auth.tenant, version.id),
+      app.repos.changeOrders.listAttachments(appContext.uow.db, auth.tenant, version.id),
       app.repos.customers.requireContact(auth.tenant, version.approverContactId),
       app.repos.changeOrders.listVersions(auth.tenant, id),
       app.repos.approvals.findDecisionByVersion(appContext.uow.db, auth.tenant, version.id),
@@ -261,6 +263,7 @@ export async function registerChangeOrderRoutes(
     );
     const lineItems = await app.repos.changeOrders.listLineItems(
       appContext.uow.db,
+      auth.tenant,
       preview.version.id,
     );
 

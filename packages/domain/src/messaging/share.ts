@@ -163,6 +163,19 @@ export function buildReminderMessage(input: ShareMessageInput): string {
   ].join('\n');
 }
 
+/** Ordered substitutions for the approved `extra_work_reminder_v1` template. */
+export function buildReminderTemplateParameters(input: ShareMessageInput): string[] {
+  const amount = formatMoney(input.totalDeltaMinor, input.currency);
+  return [
+    templateParameter(input.customerFirstName, 'there'),
+    templateParameter(input.organizationName, 'Your contractor'),
+    templateParameter(input.changeNumber, 'your change request'),
+    templateParameter(input.projectTitle, 'your project'),
+    templateParameter(input.totalDeltaMinor < 0n ? amount.replace('-', '') : amount, '—'),
+    templateParameter(formatLocalDate(input.expiresAt, input.timezone), '—'),
+  ];
+}
+
 export interface DecisionReceiptMessageInput {
   organizationName: string;
   customerFirstName: string;

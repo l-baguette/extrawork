@@ -168,6 +168,144 @@ describe('simultaneous decisions', () => {
   });
 });
 
+describe('decision and revision races', () => {
+  it('never supersedes an approval that committed first', async () => {
+    const { token, changeOrder } = await createSentChangeOrder(container, tenant);
+    const opened = await openLink(token);
+    const repository = container.repos.changeOrders;
+    const lockVersion = repository.lockVersion.bind(repository);
+    let announceLock!: () => void;
+    let releaseLock!: () => void;
+    const lockAcquired = new Promise<void>((resolve) => {
+      announceLock = resolve;
+    });
+    const lockGate = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    let gateReleased = false;
+
+    // Hold the decision transaction immediately after it owns the version
+    // lock. This deterministically exercises the dangerous ordering where the
+    // old revision path used to insert v2 from stale SENT data, then overwrite
+    // the newly committed APPROVED status as SUPERSEDED.
+    repository.lockVersion = async (...args: Parameters<typeof lockVersion>) => {
+      const value = await lockVersion(...args);
+      announceLock();
+      await lockGate;
+      return value;
+    };
+
+    let pendingDecision: Promise<unknown> | null = null;
+    let pendingRevision: Promise<unknown> | null = null;
+    try {
+      pendingDecision = container.services.decisions.decide(
+        {
+          plainToken: token,
+          publicSessionToken: opened.session.token,
+          input: {
+            type: 'APPROVE',
+            signerName: tenant.approverName,
+            signedDate: today(),
+            declarationAccepted: true,
+          },
+          idempotencyKey: randomUUID(),
+          ifMatch: opened.dto.etag,
+        },
+        opened.ctx,
+      );
+      await lockAcquired;
+
+      pendingRevision = container.services.changeOrders.createRevision(
+        tenant.owner,
+        changeOrder.changeOrderId,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      releaseLock();
+      gateReleased = true;
+
+      await expect(pendingDecision).resolves.toEqual(expect.objectContaining({ type: 'APPROVE' }));
+      await expect(pendingRevision).rejects.toThrowError(
+        expect.objectContaining({ code: 'INVALID_STATE_TRANSITION' }),
+      );
+    } finally {
+      repository.lockVersion = lockVersion;
+      if (!gateReleased) releaseLock();
+      await Promise.allSettled([pendingDecision, pendingRevision].filter(Boolean));
+    }
+
+    const versions = await container.repos.changeOrders.listVersions(
+      tenant.owner.tenant,
+      changeOrder.changeOrderId,
+    );
+    expect(versions).toHaveLength(1);
+    expect(versions[0]?.status).toBe('APPROVED');
+  });
+});
+
+describe('OTP request races', () => {
+  it('serializes concurrent sends so the cooldown cannot be bypassed', async () => {
+    await container.uow.pool.query(
+      `UPDATE subscriptions SET plan_code = 'PRO_MONTHLY', status = 'ACTIVE'
+       WHERE organization_id = $1`,
+      [tenant.organizationId],
+    );
+    const { token, changeOrder } = await createSentChangeOrder(container, tenant, {
+      assuranceRequired: 'A1',
+    });
+    const opened = await openLink(token);
+
+    const results = await Promise.allSettled(
+      Array.from({ length: 4 }, () =>
+        container.services.otp.requestCode(token, opened.session.token, opened.ctx),
+      ),
+    );
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(3);
+
+    const challenges = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM otp_challenges',
+    );
+    expect(Number(challenges.rows[0]?.count)).toBe(1);
+    const otpEvent = await container.uow.pool.query<{
+      aggregate_id: string;
+      project_id: string | null;
+    }>(
+      `SELECT aggregate_id, project_id FROM audit_events
+       WHERE event_type = 'approval.otp_sent.v1'`,
+    );
+    expect(otpEvent.rows[0]).toMatchObject({
+      aggregate_id: changeOrder.changeOrderId,
+      project_id: tenant.projectId,
+    });
+  });
+
+  it('does not send a code after the approval link is revoked', async () => {
+    await container.uow.pool.query(
+      `UPDATE subscriptions SET plan_code = 'PRO_MONTHLY', status = 'ACTIVE'
+       WHERE organization_id = $1`,
+      [tenant.organizationId],
+    );
+    const { token, changeOrder } = await createSentChangeOrder(container, tenant, {
+      assuranceRequired: 'A1',
+    });
+    const opened = await openLink(token);
+    await container.services.changeOrders.cancel(
+      tenant.owner,
+      changeOrder.changeOrderId,
+      'Customer withdrew the request.',
+    );
+
+    await expect(
+      container.services.otp.requestCode(token, opened.session.token, opened.ctx),
+    ).rejects.toMatchObject({ code: 'TOKEN_REVOKED' });
+    const challenges = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM otp_challenges',
+    );
+    expect(Number(challenges.rows[0]?.count)).toBe(0);
+  });
+});
+
 describe('idempotency', () => {
   it('replays the same response for a repeated key and payload', async () => {
     // Report §7.6 and §14.5: "Repeating idempotent command produces one

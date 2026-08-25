@@ -189,6 +189,14 @@ export function hasProjectAccess(actor: Actor, projectId: string | null | undefi
   return actor.projectGrants.has(projectId);
 }
 
+/**
+ * Repository filter for collection/read-model queries. `null` means the actor
+ * is organization-wide; an empty array deliberately means "no projects".
+ */
+export function projectAccessFilter(actor: Actor): readonly string[] | null {
+  return ORG_WIDE_ROLES.has(actor.role) ? null : [...actor.projectGrants];
+}
+
 export function isAllowed(actor: Actor, action: Action, resource: ResourceRef): boolean {
   if (actor.organizationId !== resource.organizationId) return false;
   if (!roleAllows(actor.role, action)) return false;

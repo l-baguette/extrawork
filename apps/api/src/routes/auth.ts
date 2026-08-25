@@ -148,7 +148,7 @@ export async function registerAuthRoutes(
 
   app.get(
     '/v1/auth/google/start',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (_request, reply) => {
       const google = app.services.google;
       if (!google) {
@@ -169,7 +169,7 @@ export async function registerAuthRoutes(
 
   app.get(
     '/v1/auth/google/callback',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (request, reply) => {
       const google = app.services.google;
       if (!google) throw new AppError('NOT_IMPLEMENTED');
@@ -211,7 +211,7 @@ export async function registerAuthRoutes(
 
   app.post(
     '/v1/auth/verify',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (request, reply) => {
       const { token } = VerifySignInSchema.parse(request.body);
       const session = await app.services.auth.completeSignIn(token, {
@@ -233,7 +233,7 @@ export async function registerAuthRoutes(
    */
   app.post(
     '/v1/auth/verify-email',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (request, reply) => {
       const { token } = VerifyEmailSchema.parse(request.body);
       const { verified } = await app.services.auth.verifyEmail(token);

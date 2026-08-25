@@ -5,7 +5,12 @@ import { StorageKeys } from '@extrawork/files';
 import { systemTenantContext } from '@extrawork/domain';
 import type { JobRow } from '@extrawork/db';
 import type { WorkerContext } from '../context.js';
-import { PermanentJobError } from '../runner.js';
+import {
+  optionalPayloadString,
+  PermanentJobError,
+  requirePayloadUuid,
+  requireTenant,
+} from '../runner.js';
 import { renderEvidenceHtml } from '../pdf/template.js';
 
 /**
@@ -26,25 +31,26 @@ import { renderEvidenceHtml } from '../pdf/template.js';
 
 export const EVIDENCE_GENERATOR_VERSION = 'evidence-generator-v1';
 
-interface EvidencePayload {
-  documentId: string;
-  versionId: string;
-  organizationId: string;
-}
-
 export async function generateEvidence(job: JobRow, ctx: WorkerContext): Promise<void> {
-  const payload = job.payload as unknown as EvidencePayload;
+  const payload = {
+    documentId: requirePayloadUuid(job, 'documentId'),
+    versionId: requirePayloadUuid(job, 'versionId'),
+  };
   // The tenant comes from the job row: `enqueueJob` records it inside the same
   // transaction as the decision, so it is authoritative and always present.
   // Reading it from the payload would depend on every producer remembering to
   // include it.
-  const organizationId = job.organizationId ?? payload.organizationId;
-  if (!organizationId) {
-    throw new PermanentJobError('NO_TENANT', 'Evidence job has no organization scope');
-  }
+  const organizationId = requireTenant(job, optionalPayloadString(job, 'organizationId'));
   const log = ctx.logger.child({ documentId: payload.documentId, versionId: payload.versionId });
+  const leaseToken = `${job.id}:${job.attemptCount}`;
 
-  const claimed = await ctx.repos.documents.claimForGeneration(ctx.db, payload.documentId);
+  const claimed = await ctx.repos.documents.claimForGeneration(
+    ctx.db,
+    organizationId,
+    payload.documentId,
+    leaseToken,
+    ctx.env.WORKER_LEASE_SECONDS,
+  );
   if (!claimed) {
     log.info('evidence document already generated or in flight; nothing to do');
     return;
@@ -74,6 +80,7 @@ export async function generateEvidence(job: JobRow, ctx: WorkerContext): Promise
       version.projectId,
       payload.versionId,
       payload.documentId,
+      leaseToken,
     );
     const stored = await ctx.app.objectStore.put(key, pdf, 'application/pdf');
 
@@ -82,16 +89,27 @@ export async function generateEvidence(job: JobRow, ctx: WorkerContext): Promise
     // manifest JSON can recompute and verify it (report §8.5).
     const manifestSha256 = Buffer.from(model.manifestSha256, 'hex');
 
-    await ctx.repos.documents.markReady(ctx.db, payload.documentId, {
-      storageKey: key,
-      fileSha256: createHash('sha256').update(pdf).digest(),
-      byteSize: BigInt(pdf.byteLength),
-      rendererVersion,
-      generatorVersion: EVIDENCE_GENERATOR_VERSION,
-      storageObjectVersion: stored.versionId,
-      manifest: model.manifest,
-      manifestSha256,
-    });
+    const recorded = await ctx.repos.documents.markReady(
+      ctx.db,
+      organizationId,
+      payload.documentId,
+      leaseToken,
+      {
+        storageKey: key,
+        fileSha256: createHash('sha256').update(pdf).digest(),
+        byteSize: BigInt(pdf.byteLength),
+        rendererVersion,
+        generatorVersion: EVIDENCE_GENERATOR_VERSION,
+        storageObjectVersion: stored.versionId,
+        manifest: model.manifest,
+        manifestSha256,
+      },
+    );
+    if (!recorded) {
+      await ctx.app.objectStore.delete(key).catch(() => undefined);
+      log.warn('generated evidence discarded because this worker lost the document lease');
+      return;
+    }
 
     log.info(
       {
@@ -103,7 +121,13 @@ export async function generateEvidence(job: JobRow, ctx: WorkerContext): Promise
     );
   } catch (error) {
     await ctx.repos.documents
-      .markFailed(ctx.db, payload.documentId, truncate((error as Error).message))
+      .markFailed(
+        ctx.db,
+        organizationId,
+        payload.documentId,
+        leaseToken,
+        truncate((error as Error).message),
+      )
       .catch(() => undefined);
 
     // An integrity failure or a version that cannot legitimately have evidence

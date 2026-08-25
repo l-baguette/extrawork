@@ -56,6 +56,7 @@ function recordMessage(
   input: {
     status: string;
     provider?: string | null;
+    providerAccountId?: string | null;
     providerMessageId?: string | null;
     dedupeKey?: string | null;
   },
@@ -79,12 +80,18 @@ describe('provider message id persistence', () => {
     const messageId = await recordMessage(alpha, {
       status: 'SENT',
       provider: 'whatsapp-cloud',
+      providerAccountId: 'phone-alpha',
       providerMessageId: wamid,
       dedupeKey: `request:${wamid}`,
     });
     expect(messageId).not.toBeNull();
 
-    const found = await container.repos.messages.findByProviderMessageId(container.uow.db, wamid);
+    const found = await container.repos.messages.findByProviderMessageId(
+      container.uow.db,
+      'whatsapp-cloud',
+      'phone-alpha',
+      wamid,
+    );
 
     expect(found).not.toBeNull();
     expect(found?.id).toBe(messageId);
@@ -113,16 +120,57 @@ describe('provider message id persistence', () => {
     await recordMessage(beta, {
       status: 'SENT',
       provider: 'whatsapp-cloud',
+      providerAccountId: 'phone-beta',
       providerMessageId: wamid,
       dedupeKey: `request:${wamid}`,
     });
 
-    const found = await container.repos.messages.findByProviderMessageId(container.uow.db, wamid);
+    const found = await container.repos.messages.findByProviderMessageId(
+      container.uow.db,
+      'whatsapp-cloud',
+      'phone-beta',
+      wamid,
+    );
 
     // The lookup is deliberately un-scoped — a webhook arrives with no tenant —
     // so the row it finds must carry the owning organization for the caller to
     // scope everything downstream. Beta's message must never read as Alpha's.
     expect(found?.organizationId).toBe(beta.organizationId);
     expect(found?.organizationId).not.toBe(alpha.organizationId);
+  });
+
+  it('resolves identical provider ids independently for two provider accounts', async () => {
+    const shared = 'wamid.ACCOUNTSCOPED000000000000000000000';
+    const alphaId = await recordMessage(alpha, {
+      status: 'SENT',
+      provider: 'whatsapp-cloud',
+      providerAccountId: 'phone-alpha',
+      providerMessageId: shared,
+      dedupeKey: 'request:alpha-shared',
+    });
+    const betaId = await recordMessage(beta, {
+      status: 'SENT',
+      provider: 'whatsapp-cloud',
+      providerAccountId: 'phone-beta',
+      providerMessageId: shared,
+      dedupeKey: 'request:beta-shared',
+    });
+
+    const alphaFound = await container.repos.messages.findByProviderMessageId(
+      container.uow.db,
+      'whatsapp-cloud',
+      'phone-alpha',
+      shared,
+    );
+    const betaFound = await container.repos.messages.findByProviderMessageId(
+      container.uow.db,
+      'whatsapp-cloud',
+      'phone-beta',
+      shared,
+    );
+    expect(alphaFound?.id).toBe(alphaId);
+    expect(betaFound?.id).toBe(betaId);
+    expect(alphaFound?.organizationId).toBe(alpha.organizationId);
+    expect(betaFound?.organizationId).toBe(beta.organizationId);
   });
 });

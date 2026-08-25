@@ -50,8 +50,8 @@ const uow = createUnitOfWork({
   statementTimeoutMs: 120_000,
 });
 
-function digest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function digest(value: unknown): Buffer {
+  return createHash('sha256').update(JSON.stringify(value)).digest();
 }
 
 try {
@@ -103,18 +103,19 @@ try {
     // what changed. It is written in the same transaction as the change.
     await tx.db.execute(sql`
       INSERT INTO repair_events
-        (id, organization_id, actor, reason, details, before_digest, after_digest)
+        (id, organization_id, target_table, target_id, command, reason,
+         before_digest, after_digest, before_value, after_value, performed_by)
       VALUES (
-        ${newId()}::uuid, ${current.organization_id}::uuid, ${operator}, ${reason},
+        ${newId()}::uuid, ${current.organization_id}::uuid, 'projects', ${projectId}::uuid,
+        'repair-project-totals', ${reason}, ${digest(current)}, ${digest(recomputed)},
+        ${JSON.stringify(current)}::jsonb,
         ${JSON.stringify({
-          command: 'repair-project-totals',
+          ...recomputed,
           projectId,
           projectNumber: current.project_number,
-          storedApprovedDeltaMinor: current.approved_delta_minor,
-          recomputedApprovedDeltaMinor: recomputed.approved_delta_minor,
           driftMinor: drift.toString(),
         })}::jsonb,
-        ${digest(current)}, ${digest(recomputed)}
+        ${operator}
       )
     `);
 

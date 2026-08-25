@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppError } from '@extrawork/contracts';
 import type { Container } from '@extrawork/runtime';
 import {
   createTenant,
@@ -136,6 +137,32 @@ describe('a registered employee raises a request', () => {
     expect(rows[0]?.created_by_user_id).toBeNull();
   });
 
+  it('includes an approved WhatsApp change in reports without an employee account', async () => {
+    const employee = await addEmployee(alpha);
+    const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
+
+    // The public decision service owns this transition in production. This
+    // test pins the reporting seam directly: once that version is approved,
+    // its accountless WhatsApp origin must not make it disappear from reports.
+    await container.uow.pool.query(
+      `UPDATE change_order_versions
+          SET status = 'APPROVED', decided_at = now()
+        WHERE change_order_id = $1`,
+      [outcome.changeOrderId],
+    );
+
+    const report = await container.repos.reporting.extraWorkReport(alpha.owner.tenant, {
+      status: 'APPROVED',
+    });
+
+    expect(report).toHaveLength(1);
+    expect(report[0]).toMatchObject({
+      changeOrderId: outcome.changeOrderId,
+      status: 'APPROVED',
+      createdBy: employee.name,
+    });
+  });
+
   it('logs the message, the parse and the reply', async () => {
     const employee = await addEmployee(alpha);
     const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
@@ -261,6 +288,83 @@ describe('redelivery', () => {
     expect(first.status).toBe('ACCEPTED');
     expect(second.duplicate).toBe(true);
     expect(second.changeOrderId).toBe(first.changeOrderId);
+
+    const { rows } = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM change_orders WHERE organization_id = $1',
+      [alpha.organizationId],
+    );
+    expect(rows[0]?.count).toBe('1');
+  });
+
+  it('resumes after a transient send failure without creating a second request', async () => {
+    const employee = await addEmployee(alpha);
+    const id = nextMessageId();
+    vi.spyOn(container.services.send, 'send').mockRejectedValueOnce(
+      new AppError('PROVIDER_UNAVAILABLE'),
+    );
+
+    await expect(send(employee.phoneE164, GOOD_MESSAGE, id)).rejects.toMatchObject({
+      code: 'PROVIDER_UNAVAILABLE',
+    });
+
+    const checkpoint = await container.uow.pool.query<{
+      id: string;
+      status: string;
+      change_order_id: string | null;
+      processed_at: Date | null;
+    }>(
+      `SELECT id, status, change_order_id, processed_at
+         FROM inbound_messages
+        WHERE provider = 'whatsapp' AND provider_message_id = $1`,
+      [id],
+    );
+    expect(checkpoint.rows[0]).toMatchObject({
+      status: 'RECEIVED',
+      processed_at: null,
+    });
+    expect(checkpoint.rows[0]?.change_order_id).not.toBeNull();
+
+    const resumed = await send(employee.phoneE164, GOOD_MESSAGE, id);
+    expect(resumed.status).toBe('ACCEPTED');
+    expect(resumed.changeOrderId).toBe(checkpoint.rows[0]?.change_order_id);
+
+    const { rows } = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM change_orders WHERE organization_id = $1',
+      [alpha.organizationId],
+    );
+    expect(rows[0]?.count).toBe('1');
+  });
+
+  it('allows only one concurrent processor for a redelivered message', async () => {
+    const employee = await addEmployee(alpha);
+    const id = nextMessageId();
+    let releaseCreate!: () => void;
+    let creationCheckpointed!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseCreate = resolve;
+    });
+    const checkpointed = new Promise<void>((resolve) => {
+      creationCheckpointed = resolve;
+    });
+    const originalCreate = container.services.changeOrders.create.bind(
+      container.services.changeOrders,
+    );
+    vi.spyOn(container.services.changeOrders, 'create').mockImplementationOnce(
+      async (ctx, projectId, input, hooks) => {
+        const created = await originalCreate(ctx, projectId, input, hooks);
+        creationCheckpointed();
+        await held;
+        return created;
+      },
+    );
+
+    const first = send(employee.phoneE164, GOOD_MESSAGE, id);
+    await checkpointed;
+    await expect(send(employee.phoneE164, GOOD_MESSAGE, id)).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_IN_PROGRESS',
+    });
+    releaseCreate();
+    await expect(first).resolves.toMatchObject({ status: 'ACCEPTED' });
 
     const { rows } = await container.uow.pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM change_orders WHERE organization_id = $1',
