@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_URL, ApiError, api } from '@/lib/api';
+import { BOT_CHALLENGE_ENABLED, BotChallenge } from '@/components/bot-challenge';
 
 /**
  * Business sign-in — report §6.5: managed authentication with an email magic
@@ -25,6 +26,7 @@ function SignInForm() {
   const [notice, setNotice] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [botToken, setBotToken] = useState<string | null>(null);
 
   useEffect(() => {
     // The page asks what this deployment supports rather than assuming, so a
@@ -49,7 +51,7 @@ function SignInForm() {
     try {
       await api('/v1/auth/password', {
         method: 'POST',
-        body: { email: email.trim(), password },
+        body: { email: email.trim(), password, botToken: botToken ?? undefined },
       });
       router.push('/app/dashboard');
       router.refresh();
@@ -73,7 +75,10 @@ function SignInForm() {
     setBusy(true);
     setError(null);
     try {
-      await api('/v1/auth/sign-in', { method: 'POST', body: { email: email.trim() } });
+      await api('/v1/auth/sign-in', {
+        method: 'POST',
+        body: { email: email.trim(), botToken: botToken ?? undefined },
+      });
       setNotice(
         'If that address belongs to an ExtraWork account, a sign-in link is on its way. ' +
           'Paste the code from the email below.',
@@ -166,10 +171,16 @@ function SignInForm() {
                   onChange={(event) => setPassword(event.target.value)}
                 />
               </div>
+              <BotChallenge onToken={setBotToken} />
               <button
                 type="submit"
                 className="btn btn-primary btn-block btn-lg"
-                disabled={busy || email.trim() === '' || password === ''}
+                disabled={
+                  busy ||
+                  email.trim() === '' ||
+                  password === '' ||
+                  (BOT_CHALLENGE_ENABLED && !botToken)
+                }
                 aria-busy={busy}
               >
                 {busy ? 'Signing in…' : 'Sign in'}

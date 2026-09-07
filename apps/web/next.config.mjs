@@ -16,11 +16,23 @@ const developmentApiOrigins = isDev
   : [];
 const connectOrigins = [...new Set([configuredApiOrigin, ...developmentApiOrigins])].join(' ');
 
+/**
+ * Turnstile is the single third-party origin this app will ever load, and only
+ * when a site key is configured. It needs a script and an iframe; keeping both
+ * behind the same condition means a deployment without bot protection still
+ * ships the original "no third-party origins at all" policy.
+ */
+const turnstileOrigin = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  ? 'https://challenges.cloudflare.com'
+  : '';
+const turnstileScript = turnstileOrigin ? ` ${turnstileOrigin}` : '';
+const turnstileFrame = turnstileOrigin ? `frame-src ${turnstileOrigin}` : "frame-src 'none'";
+
 const csp = [
   "default-src 'self'",
   // Next injects inline bootstrap scripts; 'unsafe-inline' is scoped to scripts
   // we author and no third-party origin is allowed to load at all.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${turnstileScript}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
@@ -29,6 +41,7 @@ const csp = [
   // cookies remain first-party; permit those loopback variants in development
   // while production remains limited to its one configured API origin.
   `connect-src 'self' ${connectOrigins}`,
+  turnstileFrame,
   "frame-ancestors 'none'",
   "form-action 'self'",
   "base-uri 'self'",

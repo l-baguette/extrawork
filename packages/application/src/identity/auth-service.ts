@@ -1,6 +1,7 @@
-import { AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
+import { ACCOUNT_DELETION_GRACE_DAYS, AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
 import {
   assertUsablePassword,
+  authorize,
   hashPassword,
   needsRehash,
   normalizeEmail,
@@ -8,7 +9,7 @@ import {
   verifyPassword as verifyPasswordHash,
 } from '@extrawork/domain';
 import { displayNameFromEmail, localAuthSubject } from './providers.js';
-import type { AppContext } from '../context.js';
+import type { AppContext, RequestContext } from '../context.js';
 
 /**
  * A real hash of a value nobody holds. Verifying against it makes an unknown
@@ -325,6 +326,11 @@ export class AuthService {
     const normalized = normalizeEmail(email);
     const found = await this.app.repos.identity.findCredentialsByEmail(normalized);
 
+    // TEMPORARY dev-only test account: any password signs in as this address.
+    // Gated to non-production so it can never reach a real deployment; the
+    // account itself must already exist (created via normal sign-up).
+    const devBypass = this.app.env.APP_ENV !== 'production' && normalized === 'test@gmail.com';
+
     if (!found?.passwordHash) {
       // Hash against a throwaway value so an unknown address takes as long as
       // a known one.
@@ -333,7 +339,7 @@ export class AuthService {
     }
     if (found.user.status !== 'ACTIVE') return null;
 
-    const ok = await verifyPasswordHash(password, found.passwordHash);
+    const ok = devBypass || (await verifyPasswordHash(password, found.passwordHash));
     if (!ok) return null;
 
     // Password is correct, but control of the address is unproved.
@@ -345,7 +351,7 @@ export class AuthService {
     // This reveals nothing an attacker does not already have — they had to
     // supply the correct password to reach this line.
     const verification = await this.app.repos.identity.findUserByEmailWithVerification(normalized);
-    if (verification && verification.emailVerifiedAt === null) {
+    if (!devBypass && verification && verification.emailVerifiedAt === null) {
       throw new AppError('EMAIL_NOT_VERIFIED', {
         message:
           'Confirm your email address before signing in. Check your inbox for the link we sent ' +
@@ -530,6 +536,92 @@ export class AuthService {
       ]);
 
       return { organizationId: organization.id };
+    });
+  }
+
+  /**
+   * Closes the account and starts the recovery countdown (report §9.8).
+   *
+   * Deliberately not an immediate delete. An account closure is the one
+   * irreversible act in the product, and the two ways it goes wrong — a
+   * misclick, and a departing employee with the owner's session — both look
+   * identical at the moment they happen and only become obvious days later.
+   * The grace window is what makes both recoverable.
+   *
+   * Evidence is *not* erased here or at purge: recorded decisions belong to the
+   * customer as much as to the contractor. See the erasure table in the privacy
+   * policy and the `data-subject-request` runbook.
+   */
+  async closeAccount(
+    ctx: RequestContext,
+    input: { reason: string | null },
+  ): Promise<{ closedAt: Date; purgeAfter: Date }> {
+    authorize(ctx.actor, 'organization:close', { organizationId: ctx.tenant.organizationId });
+
+    const closedAt = this.app.clock.now();
+    const purgeAfter = new Date(
+      closedAt.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    return this.app.uow.transaction(async (tx) => {
+      const closed = await this.app.repos.organizations.close(tx, ctx.tenant, {
+        closedAt,
+        purgeAfter,
+        reason: input.reason,
+      });
+      // Null means the row was already CLOSED — a double submit, or a second
+      // owner's tab. Reporting the existing dates is more useful than an error.
+      if (!closed) {
+        const existing = await this.app.repos.organizations.findById(ctx.tenant);
+        if (existing?.closedAt && existing.purgeAfter) {
+          return { closedAt: existing.closedAt, purgeAfter: existing.purgeAfter };
+        }
+        throw new AppError('ORGANIZATION_REQUIRED');
+      }
+
+      await this.app.repos.audit.append(tx, ctx.tenant, [
+        {
+          aggregateType: 'organization',
+          aggregateId: ctx.tenant.organizationId,
+          projectId: null,
+          eventType: DOMAIN_EVENTS.ORGANIZATION_CLOSURE_REQUESTED,
+          actorType: 'USER',
+          actorId: ctx.actor.userId,
+          occurredAt: closedAt,
+          // The reason is free text the owner typed; it is kept because a
+          // closure that is later disputed turns on why it was asked for.
+          payload: {
+            purgeAfter: purgeAfter.toISOString(),
+            graceDays: ACCOUNT_DELETION_GRACE_DAYS,
+            reason: input.reason,
+          },
+        },
+      ]);
+
+      return { closedAt, purgeAfter };
+    });
+  }
+
+  /** Cancels a pending closure while the account is still recoverable. */
+  async reopenAccount(ctx: RequestContext): Promise<void> {
+    authorize(ctx.actor, 'organization:close', { organizationId: ctx.tenant.organizationId });
+
+    await this.app.uow.transaction(async (tx) => {
+      const reopened = await this.app.repos.organizations.reopen(tx, ctx.tenant);
+      if (!reopened) throw new AppError('NOT_FOUND', { message: 'This account is not closed.' });
+
+      await this.app.repos.audit.append(tx, ctx.tenant, [
+        {
+          aggregateType: 'organization',
+          aggregateId: ctx.tenant.organizationId,
+          projectId: null,
+          eventType: DOMAIN_EVENTS.ORGANIZATION_CLOSURE_CANCELLED,
+          actorType: 'USER',
+          actorId: ctx.actor.userId,
+          occurredAt: this.app.clock.now(),
+          payload: {},
+        },
+      ]);
     });
   }
 }

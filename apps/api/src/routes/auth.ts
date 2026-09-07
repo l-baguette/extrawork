@@ -1,9 +1,9 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AppError, CreateOrganizationSchema, EmailSchema } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
 import { RATE_LIMITS } from '@extrawork/db';
-import { CSRF_COOKIE, SESSION_COOKIE } from '../plugins/context.js';
+import { CSRF_COOKIE, SESSION_COOKIE, clientIp } from '../plugins/context.js';
 import { ipSubject, rateLimit } from '../plugins/rate-limit.js';
 
 /**
@@ -14,12 +14,17 @@ import { ipSubject, rateLimit } from '../plugins/rate-limit.js';
  * readable cookie whose value must be echoed in `X-CSRF-Token` on mutations.
  */
 
-const RequestSignInSchema = z.object({ email: EmailSchema });
+const RequestSignInSchema = z.object({
+  email: EmailSchema,
+  botToken: z.string().max(4096).optional(),
+});
 const VerifySignInSchema = z.object({ token: z.string().min(16).max(512) });
 const SwitchOrganizationSchema = z.object({ organizationId: z.string().uuid() });
 const VerifyEmailSchema = z.object({ token: z.string().min(16).max(512) });
 const RegisterSchema = z.object({
   email: EmailSchema,
+  /** Challenge token; only checked when a bot-protection driver is configured. */
+  botToken: z.string().max(4096).optional(),
   // Length is checked properly in the domain, which owns the policy; this is
   // only the wire-shape bound.
   password: z.string().min(1).max(200),
@@ -28,6 +33,7 @@ const RegisterSchema = z.object({
 const PasswordSignInSchema = z.object({
   email: EmailSchema,
   password: z.string().min(1).max(200),
+  botToken: z.string().max(4096).optional(),
 });
 /** Email is intentionally not here; see the PATCH handler for why. */
 const UpdateProfileSchema = z.object({
@@ -71,11 +77,44 @@ export async function registerAuthRoutes(
   const secure = app.env.APP_ENV !== 'local';
   const limiter = app.repos.rateLimiter;
 
+  /**
+   * Fails the request unless the challenge token is good.
+   *
+   * Rate limiting caps one source's speed; this caps the value of an attempt
+   * from anywhere, which is the part a distributed attack routes around. It
+   * runs before the credential is looked at, so a bot never reaches the
+   * password comparison and cannot use its timing as an oracle.
+   *
+   * A provider outage fails closed on these three routes only. That is a
+   * deliberate trade: a few minutes of blocked sign-ups is recoverable, an open
+   * door during someone else's outage is not.
+   */
+  async function requireHuman(
+    request: FastifyRequest,
+    token: string | undefined,
+    purpose: string,
+  ): Promise<void> {
+    const gateway = appContext.integrations.botProtection;
+    if (!gateway.enforced) return;
+
+    const verdict = await gateway.verify(token, clientIp(request, app.env.TRUST_PROXY));
+    if (verdict.ok) return;
+
+    appContext.logger.warn(
+      { purpose, provider: gateway.name, errorCodes: verdict.errorCodes },
+      'bot protection rejected a request',
+    );
+    throw new AppError('VALIDATION_FAILED', {
+      message: 'Could not confirm you are a person. Reload the page and try again.',
+    });
+  }
+
   app.post(
     '/v1/auth/sign-in',
     { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
     async (request, reply) => {
-      const { email } = RequestSignInSchema.parse(request.body);
+      const { email, botToken } = RequestSignInSchema.parse(request.body);
+      await requireHuman(request, botToken, 'sign-in-link');
       await app.services.auth.requestSignIn(email);
       // Always the same answer: revealing whether an address exists would be an
       // account-enumeration oracle (report §12.2).
@@ -103,6 +142,7 @@ export async function registerAuthRoutes(
     { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
     async (request, reply) => {
       const input = RegisterSchema.parse(request.body);
+      await requireHuman(request, input.botToken, 'register');
       await app.services.auth.register(input);
 
       // Deliberately identical whether the account was created or the address
@@ -119,7 +159,8 @@ export async function registerAuthRoutes(
     '/v1/auth/password',
     { preHandler: rateLimit(limiter, { name: 'AUTH_SIGN_IN_ATTEMPT', subject: ipSubject }) },
     async (request, reply) => {
-      const { email, password } = PasswordSignInSchema.parse(request.body);
+      const { email, password, botToken } = PasswordSignInSchema.parse(request.body);
+      await requireHuman(request, botToken, 'password-sign-in');
       const identity = await app.services.auth.verifyPassword(email, password);
       if (!identity) {
         // One message for a wrong address and a wrong password alike.

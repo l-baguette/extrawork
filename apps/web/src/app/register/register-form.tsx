@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { API_URL, ApiError, api } from '@/lib/api';
+import { BOT_CHALLENGE_ENABLED, BotChallenge } from '@/components/bot-challenge';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -24,6 +25,7 @@ export function RegisterForm() {
   const [googleAvailable, setGoogleAvailable] = useState(false);
   const [sent, setSent] = useState(false);
   const [exists, setExists] = useState(false);
+  const [botToken, setBotToken] = useState<string | null>(null);
 
   useEffect(() => {
     void fetch(`${API_URL}/v1/auth/methods`)
@@ -46,7 +48,12 @@ export function RegisterForm() {
     try {
       await api('/v1/auth/register', {
         method: 'POST',
-        body: { email: email.trim(), password, displayName: name.trim() },
+        body: {
+          email: email.trim(),
+          password,
+          displayName: name.trim(),
+          botToken: botToken ?? undefined,
+        },
       });
       // No automatic sign-in any more. The account exists but the address is
       // unproved, and password sign-in is refused until it is confirmed —
@@ -151,8 +158,14 @@ export function RegisterForm() {
           </p>
         ) : null}
 
+        <BotChallenge onToken={setBotToken} />
+
         <div className="actions">
-          <button type="submit" className="button" disabled={busy}>
+          <button
+            type="submit"
+            className="button"
+            disabled={busy || (BOT_CHALLENGE_ENABLED && !botToken)}
+          >
             {busy ? 'Creating…' : 'Create account'}
           </button>
         </div>

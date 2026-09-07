@@ -1,5 +1,10 @@
 import type { Env } from '@extrawork/config';
 import {
+  DisabledBotProtection,
+  TurnstileBotProtection,
+  type BotProtectionGateway,
+} from './bot-protection.js';
+import {
   DisabledPaymentGateway,
   UnavailableESignGateway,
   type ESignGateway,
@@ -31,6 +36,7 @@ export * from './messaging/whatsapp-simulator.js';
 export * from './messaging/email.js';
 export * from './otp.js';
 export * from './payments/razorpay.js';
+export * from './bot-protection.js';
 
 /**
  * The provider set for one process. Report §10.1: providers are replaceable
@@ -42,6 +48,7 @@ export interface Integrations {
   otp: OtpGateway;
   payments: PaymentGateway;
   esign: ESignGateway;
+  botProtection: BotProtectionGateway;
 }
 
 export function createEmailDriver(env: Env): EmailDriver {
@@ -169,5 +176,17 @@ export function createIntegrations(
         })
       : new DisabledPaymentGateway();
 
-  return { whatsapp, email, otp, payments, esign: new UnavailableESignGateway() };
+  const botProtection =
+    env.BOT_PROTECTION_DRIVER === 'turnstile' && env.TURNSTILE_SECRET_KEY
+      ? new TurnstileBotProtection(env.TURNSTILE_SECRET_KEY)
+      : new DisabledBotProtection();
+
+  return {
+    whatsapp,
+    email,
+    otp,
+    payments,
+    esign: new UnavailableESignGateway(),
+    botProtection,
+  };
 }
