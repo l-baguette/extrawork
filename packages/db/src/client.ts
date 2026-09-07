@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { AppError } from '@extrawork/contracts';
 import { metrics, METRIC } from '@extrawork/observability';
 import * as schema from './schema/index.js';
+import { applyScope } from './tenant-scope.js';
 
 const { Pool, types } = pg;
 
@@ -94,6 +95,29 @@ export function createPool(options: CreateDatabaseOptions): pg.Pool {
   });
 }
 
+/**
+ * Wraps the pooled handle so a read taken outside an explicit transaction still
+ * declares its tenant.
+ *
+ * `set_config(..., true)` is transaction-local and a statement sent outside a
+ * transaction is its own transaction, so the setting would be discarded before
+ * the query it was meant for. Opening a real transaction around the pair is the
+ * only way to make the two statements share one — it costs a round trip, which
+ * is the price of the database enforcing isolation rather than trusting us to.
+ */
+function scopedReadDatabase(raw: Database): Database {
+  return new Proxy(raw, {
+    get(target, property, receiver) {
+      if (property !== 'execute') return Reflect.get(target, property, receiver);
+      return async (query: Parameters<Database['execute']>[0]) =>
+        target.transaction(async (txDb) => {
+          await applyScope(txDb as unknown as Database);
+          return (txDb as unknown as Database).execute(query);
+        });
+    },
+  }) as Database;
+}
+
 export class PostgresUnitOfWork implements UnitOfWork {
   readonly db: Database;
   /**
@@ -103,9 +127,13 @@ export class PostgresUnitOfWork implements UnitOfWork {
    */
   readonly pool: pg.Pool;
 
+  /** The unwrapped handle, used for the scoped-read wrapper below. */
+  private readonly raw: Database;
+
   constructor(pool: pg.Pool) {
     this.pool = pool;
-    this.db = drizzle(pool, { schema });
+    this.raw = drizzle(pool, { schema });
+    this.db = scopedReadDatabase(this.raw);
   }
 
   /** Opens the configured minimum in parallel so the first user request is not the warm-up. */
@@ -118,7 +146,10 @@ export class PostgresUnitOfWork implements UnitOfWork {
   async transaction<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
     const afterCommitHooks: Array<() => void | Promise<void>> = [];
 
-    const result = await this.db.transaction(async (txDb) => {
+    const result = await this.raw.transaction(async (txDb) => {
+      // First statement inside the transaction, so every later one — including
+      // the ones RLS filters — runs with the tenant already declared.
+      await applyScope(txDb as unknown as Database);
       const ctx: TransactionContext = {
         db: txDb as unknown as Database,
         afterCommit(hook) {
@@ -141,7 +172,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
   async healthCheck(): Promise<{ ok: boolean; latencyMs: number }> {
     const started = Date.now();
     try {
-      await this.db.execute(sql`SELECT 1`);
+      await this.raw.execute(sql`SELECT 1`);
       metrics.gauge(
         METRIC.DB_POOL_IN_USE,
         'Database connections in use',

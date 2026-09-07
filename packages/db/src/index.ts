@@ -1,4 +1,6 @@
 export * from './client.js';
+export * from './tenant-scope.js';
+export * from './rls-check.js';
 export * from './ids.js';
 export * from './row-types.js';
 export * from './migrate.js';

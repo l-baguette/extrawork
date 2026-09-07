@@ -35,7 +35,11 @@ beforeEach(async () => {
   beta = await createTenant(container, { name: 'Critical Beta' });
 });
 
-async function asUnprivilegedWriter(query: string, values: unknown[]): Promise<unknown> {
+async function asUnprivilegedWriter(
+  query: string,
+  values: unknown[],
+  organizationId: string,
+): Promise<unknown> {
   const client = await container.uow.pool.connect();
   try {
     await client.query('BEGIN');
@@ -43,6 +47,15 @@ async function asUnprivilegedWriter(query: string, values: unknown[]): Promise<u
     // credential without inheriting the test database owner's superuser bit.
     await client.query(`SET LOCAL ROLE "${runtimeRole}"`);
     await client.query("SET LOCAL extrawork.allow_repair = 'on'");
+    // Row-level security applies to this role, so an unscoped statement would
+    // match zero rows and "succeed" without the freeze trigger ever running —
+    // the guard would look broken while actually being doubly enforced. Declare
+    // the tenant, as the application does, so these tests keep asserting what
+    // they were written to assert: that the trigger refuses even a correctly
+    // scoped write.
+    await client.query("SELECT set_config('extrawork.organization_id', $1, true)", [
+      organizationId,
+    ]);
     return await client.query(query, values);
   } finally {
     await client.query('ROLLBACK');
@@ -60,6 +73,7 @@ describe('critical database integrity guards', () => {
             SET canonical_sha256 = decode(repeat('00', 32), 'hex')
           WHERE id = $1`,
         [changeOrder.version.id],
+        alpha.organizationId,
       ),
     ).rejects.toMatchObject({ code: '23001' });
   });
@@ -68,9 +82,11 @@ describe('critical database integrity guards', () => {
     const { changeOrder } = await createSentChangeOrder(container, alpha);
 
     await expect(
-      asUnprivilegedWriter(`UPDATE change_order_versions SET status = 'DRAFT' WHERE id = $1`, [
-        changeOrder.version.id,
-      ]),
+      asUnprivilegedWriter(
+        `UPDATE change_order_versions SET status = 'DRAFT' WHERE id = $1`,
+        [changeOrder.version.id],
+        alpha.organizationId,
+      ),
     ).rejects.toMatchObject({ code: '23001' });
   });
 

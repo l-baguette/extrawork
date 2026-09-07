@@ -6,6 +6,8 @@ import {
   failJob,
   heartbeatJob,
   reclaimExpiredLeases,
+  runInScope,
+  tenantScope,
   type JobRow,
 } from '@extrawork/db';
 import { METRIC, metrics, type Logger } from '@extrawork/observability';
@@ -206,7 +208,12 @@ export class JobRunner {
     );
 
     try {
-      await handler(job, this.ctx);
+      // A job that names an organization runs scoped to it, so a handler bug
+      // cannot reach across tenants even though the worker process defaults to
+      // system. Sweeps (`organizationId: null`) legitimately stay system-wide.
+      await (job.organizationId
+        ? runInScope(tenantScope(job.organizationId), () => handler(job, this.ctx))
+        : handler(job, this.ctx));
       const completed = await completeJob(this.ctx.db, job.id, this.workerId);
       if (!completed) {
         metrics.counter(METRIC.JOB_RUNS, 'Job executions', {

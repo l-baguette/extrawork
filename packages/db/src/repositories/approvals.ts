@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { SYSTEM_SCOPE, runInScope } from '../tenant-scope.js';
 import { AppError, type AssuranceLevel, type DecisionType } from '@extrawork/contracts';
 import { hashToken, type TenantContext, type TokenRevocationReason } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
@@ -92,10 +93,21 @@ export class ApprovalRepository {
    * timing difference cannot reveal whether a token exists beyond the single
    * indexed equality that any lookup requires.
    */
+  /**
+   * Resolves a customer's approval link.
+   *
+   * Runs system-scoped on purpose: the caller cannot name a tenant here because
+   * finding out which tenant the link belongs to is the entire point of the
+   * lookup. Possession of the token is the authorization — it is high-entropy,
+   * stored only as a hash, and single-purpose — and the organization it resolves
+   * to becomes the scope for everything the request does afterwards.
+   */
   async findByToken(plaintext: string): Promise<ApprovalTokenRow | null> {
-    const result = await this.db.execute<TokenRecord>(sql`
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<TokenRecord>(sql`
       SELECT ${TOKEN_COLUMNS} FROM approval_tokens WHERE token_hash = ${hashToken(plaintext)}
-    `);
+    `),
+    );
     const row = result.rows[0];
     return row ? mapToken(row) : null;
   }
@@ -234,11 +246,15 @@ export class ApprovalRepository {
     return { sessionToken: session.token, csrfToken: csrf.token, sessionId: id, expiresAt };
   }
 
+  /** System-scoped for the same reason as `findByToken`: the session cookie is
+   * what identifies the tenant, so it cannot be scoped by one. */
   async findPublicSession(sessionToken: string): Promise<PublicSessionRow | null> {
-    const result = await this.db.execute<PublicSessionRecord>(sql`
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<PublicSessionRecord>(sql`
       SELECT ${PUBLIC_SESSION_COLUMNS} FROM public_sessions
       WHERE session_token_hash = ${hashOpaqueToken(sessionToken)} AND expires_at > now()
-    `);
+    `),
+    );
     const row = result.rows[0];
     return row ? mapPublicSession(row) : null;
   }

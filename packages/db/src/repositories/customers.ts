@@ -544,8 +544,18 @@ function mapContact(row: ContactRecord): ContactRow {
   };
 }
 
-export function encodeCursor(updatedAt: Date, id: string): string {
-  return Buffer.from(`${updatedAt.toISOString()}|${id}`).toString('base64url');
+/**
+ * Accepts what the driver actually hands back, not what the row type claims.
+ *
+ * `timestamptz` arrives as a string on this path, and both callers pass the raw
+ * column rather than the mapped row — so the previous `Date`-only signature
+ * threw `updatedAt.toISOString is not a function` the moment a list was long
+ * enough to need a second page. TypeScript could not see it because the record
+ * types declare these columns as `Date`.
+ */
+export function encodeCursor(updatedAt: Date | string, id: string): string {
+  const at = updatedAt instanceof Date ? updatedAt : new Date(updatedAt);
+  return Buffer.from(`${at.toISOString()}|${id}`).toString('base64url');
 }
 
 export function decodeCursor(cursor: string | undefined): { updatedAt: string; id: string } | null {

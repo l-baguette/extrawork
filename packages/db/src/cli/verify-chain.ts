@@ -16,11 +16,15 @@ import { formatCliError } from './describe-error.js';
 import { createUnitOfWork } from '../client.js';
 import { listAggregatesForOrganization, verifyAggregateChain } from '../repositories/audit.js';
 import { systemTenantContext } from '@extrawork/domain';
+import { SYSTEM_SCOPE, setProcessDefaultScope } from '../tenant-scope.js';
 
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
+
+// Operator tooling acts across tenants by definition.
+setProcessDefaultScope(SYSTEM_SCOPE);
 
 const config = loadConfig();
 const uow = createUnitOfWork({

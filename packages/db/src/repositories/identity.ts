@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
+import { SYSTEM_SCOPE, runInScope } from '../tenant-scope.js';
 import { AppError, type MembershipRole } from '@extrawork/contracts';
 import {
   isReadOnly,
@@ -429,11 +430,22 @@ export class IdentityRepository {
     };
   }
 
+  /**
+   * The bootstrap query: session cookie in, actor and organization out.
+   *
+   * System-scoped because it is what *establishes* the scope. It joins
+   * `memberships` and `subscriptions` to answer "which organization, and is it
+   * writable", and a request cannot declare the tenant it is about to be told.
+   * The session token is the authorization, exactly as the approval token is in
+   * `ApprovalRepository.findByToken`; the caller sets the tenant scope from the
+   * result before touching anything else.
+   */
   async resolveAuthenticatedSession(
     sessionToken: string,
     organizationOverride: string | null,
   ): Promise<AuthenticatedSessionContext | null> {
-    const result = await this.db.execute<AuthenticatedSessionRecord>(sql`
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<AuthenticatedSessionRecord>(sql`
       WITH valid_session AS (
         SELECT id, user_id, active_organization_id, authenticated_at, expires_at,
                csrf_token_hash,
@@ -464,7 +476,8 @@ export class IdentityRepository {
         ON m.organization_id = s.resolved_organization_id AND m.user_id = s.user_id
       LEFT JOIN organizations o ON o.id = s.resolved_organization_id
       LEFT JOIN subscriptions sub ON sub.organization_id = s.resolved_organization_id
-    `);
+    `),
+    );
 
     const row = result.rows[0];
     if (!row) return null;

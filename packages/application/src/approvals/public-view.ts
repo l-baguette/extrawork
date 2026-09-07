@@ -19,6 +19,7 @@ import {
 } from '@extrawork/domain';
 import type { AppContext, PublicRequestContext } from '../context.js';
 import { publicDecisionEtag } from '../change-orders/build-lines.js';
+import { setScope, tenantScope } from '@extrawork/db';
 
 /**
  * Public approval read — report §4.5 and §6.7.
@@ -48,6 +49,11 @@ export class PublicApprovalService {
 
     const token = await this.app.repos.approvals.findByToken(plainToken);
     if (!token) throw new AppError('TOKEN_INVALID');
+
+    // The token named the tenant; everything from here is scoped to it, so the
+    // rest of this request is subject to the same row-level security as a
+    // signed-in one rather than continuing system-wide.
+    setScope(tenantScope(token.organizationId));
 
     const tenant = systemTenantContext(token.organizationId, ctx.requestId);
     const version = await this.app.repos.changeOrders.requireVersion(

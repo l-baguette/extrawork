@@ -1,6 +1,7 @@
 import { JOB_KINDS, type JobKind } from '@extrawork/contracts';
 import { createContainer } from '@extrawork/runtime';
 import { workerContext } from './context.js';
+import { SYSTEM_SCOPE, assertRlsEnforceable, setProcessDefaultScope } from '@extrawork/db';
 import { JobRunner, startLeaseReaper, type JobHandler } from './runner.js';
 import { OutboxPump } from './outbox-pump.js';
 import { ChromiumPdfRenderer, UnavailablePdfRenderer, type PdfRenderer } from './pdf/renderer.js';
@@ -56,6 +57,13 @@ const handlers: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KINDS.CHECK_PROJECT_INTEGRITY]: checkProjectIntegrity,
   [JOB_KINDS.APPLY_RETENTION]: applyRetention,
 };
+
+// The worker is system-level end to end: it drains a queue and an outbox that
+// are not per-tenant, and sweeps every organization on a schedule. Individual
+// jobs still narrow to their own tenant in the runner below.
+setProcessDefaultScope(SYSTEM_SCOPE);
+
+await assertRlsEnforceable(ctx.app.uow, ctx.app.env.APP_ENV);
 
 const runner = new JobRunner(ctx, handlers, {
   concurrency: env.WORKER_CONCURRENCY,
