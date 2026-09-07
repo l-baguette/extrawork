@@ -140,6 +140,9 @@ export const organizations = pgTable('organizations', {
   defaultCurrency: char('default_currency', { length: 3 }).notNull().default('INR'),
   retentionMonths: integer('retention_months').notNull().default(36),
   status: text('status').notNull().default('ACTIVE'),
+  closedAt: ts('closed_at'),
+  purgeAfter: ts('purge_after'),
+  closureReason: text('closure_reason'),
   brandPrimaryColor: text('brand_primary_color'),
   contactPhone: text('contact_phone'),
   contactEmail: text('contact_email'),
@@ -241,6 +244,8 @@ export const contacts = pgTable(
     whatsappOptInStatus: text('whatsapp_opt_in_status').notNull().default('UNKNOWN'),
     whatsappOptInAt: ts('whatsapp_opt_in_at'),
     whatsappOptInSource: text('whatsapp_opt_in_source'),
+    /** Set by the erasure command; see migration 0017. */
+    erasedAt: ts('erased_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

@@ -170,6 +170,19 @@ export async function applyRetention(_job: JobRow, ctx: WorkerContext): Promise<
     });
   }
 
+  // Closed accounts whose recovery window has elapsed. Surfaced, never deleted
+  // here: purging an organization destroys evidence tables this process has no
+  // privilege to write, and the same reasoning as project retention applies —
+  // the destructive step stays a deliberate operator act:
+  // `pnpm db:purge-organization`, per §4 of the data-subject-request runbook.
+  const purgeable = await ctx.repos.organizations.findPurgeable(now, 100);
+  if (purgeable.length > 0) {
+    ctx.logger.warn(
+      { count: purgeable.length, organizationIds: purgeable.map((o) => o.id) },
+      'closed organizations are past their recovery window and awaiting operator purge',
+    );
+  }
+
   ctx.logger.info(
     {
       abandonedDrafts,
@@ -177,6 +190,7 @@ export async function applyRetention(_job: JobRow, ctx: WorkerContext): Promise<
       expiredSessions,
       expiredIdempotency,
       retentionDue: dueForReview.length,
+      awaitingPurge: purgeable.length,
     },
     'retention pass complete',
   );

@@ -39,7 +39,10 @@
     "db:replay": "pnpm --filter @extrawork/db replay",
     "dev:lan": "bash scripts/dev-lan.sh",
     "preflight:hosted": "node --conditions=development --import tsx scripts/preflight-hosted.mts",
-    "db:test-account": "node --conditions=development --import tsx scripts/seed-test-account.mts"
+    "db:test-account": "node --conditions=development --import tsx scripts/seed-test-account.mts",
+    "db:purge-organization": "pnpm --filter @extrawork/db purge-organization",
+    "db:erase-contact": "pnpm --filter @extrawork/db erase-contact",
+    "db:export-subject": "pnpm --filter @extrawork/db export-subject"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

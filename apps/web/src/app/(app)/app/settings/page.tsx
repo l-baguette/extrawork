@@ -1,19 +1,21 @@
 import Link from 'next/link';
-import type { MembershipDto, OrganizationDto } from '@extrawork/contracts';
+import type { CurrentUserDto, MembershipDto, OrganizationDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
 import { formatDate } from '@/lib/format';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { Block, Figure, SheetTop } from '@/components/sheet';
 import { BusinessForm } from './business-form';
+import { CloseAccount } from './close-account';
 
 /** Organization policy, team and plan — report §6.2 `/app/settings/*`. */
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const [orgResult, membersResult] = await Promise.all([
+  const [orgResult, membersResult, meResult] = await Promise.all([
     serverGet<OrganizationDto>('/v1/organizations/current'),
     serverGet<{ items: MembershipDto[] }>('/v1/memberships'),
+    serverGet<CurrentUserDto>('/v1/auth/me'),
   ]);
 
   if (!orgResult.ok && orgResult.status === 401) return <SignInPrompt />;
@@ -22,6 +24,13 @@ export default async function SettingsPage() {
   const organization = orgResult.data;
   const subscription = organization.subscription;
   const members = membersResult.ok ? membersResult.data.items : [];
+  // Closing the account is owner-only; the API enforces that independently, so
+  // hiding it here is about not offering a control that would be refused.
+  const isOwner = meResult.ok
+    ? meResult.data.memberships.some(
+        (m) => m.organizationId === organization.id && m.role === 'OWNER',
+      )
+    : false;
 
   return (
     <>
@@ -158,6 +167,12 @@ export default async function SettingsPage() {
             </div>
           </div>
         </Block>
+
+        {isOwner ? (
+          <Block title="Close this account">
+            <CloseAccount organization={organization} />
+          </Block>
+        ) : null}
       </main>
     </>
   );

@@ -31,6 +31,11 @@ export interface OrganizationRow {
   defaultCurrency: string;
   retentionMonths: number;
   status: string;
+  /** Set only while `status` is CLOSED; see migration 0016. */
+  closedAt: Date | null;
+  /** The moment after which a closed account may be purged. */
+  purgeAfter: Date | null;
+  closureReason: string | null;
   brandPrimaryColor: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
@@ -131,6 +136,73 @@ export class OrganizationRepository {
       RETURNING ${ORG_COLUMNS}
     `);
     return mapOrganization(requireRow(result.rows[0], 'organization'));
+  }
+
+  // --- Closure -------------------------------------------------------------
+
+  /**
+   * Marks the account closed and arms the purge.
+   *
+   * Guarded on the current status inside the UPDATE rather than checked first
+   * and written after: two owners clicking Close at the same moment would
+   * otherwise both pass the check and the second would silently push the purge
+   * date 30 days further out.
+   */
+  async close(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    input: { closedAt: Date; purgeAfter: Date; reason: string | null },
+  ): Promise<OrganizationRow | null> {
+    const result = await tx.db.execute<OrganizationRecord>(sql`
+      UPDATE organizations SET
+        status = 'CLOSED',
+        closed_at = ${input.closedAt.toISOString()}::timestamptz,
+        purge_after = ${input.purgeAfter.toISOString()}::timestamptz,
+        closure_reason = ${input.reason},
+        lock_version = lock_version + 1
+      WHERE id = ${ctx.organizationId}::uuid AND status <> 'CLOSED'
+      RETURNING ${ORG_COLUMNS}
+    `);
+    const row = result.rows[0];
+    return row ? mapOrganization(row) : null;
+  }
+
+  /** Cancels a pending closure. Only meaningful before the purge has run. */
+  async reopen(tx: TransactionContext, ctx: TenantContext): Promise<OrganizationRow | null> {
+    const result = await tx.db.execute<OrganizationRecord>(sql`
+      UPDATE organizations SET
+        status = 'ACTIVE',
+        closed_at = NULL,
+        purge_after = NULL,
+        closure_reason = NULL,
+        lock_version = lock_version + 1
+      WHERE id = ${ctx.organizationId}::uuid AND status = 'CLOSED'
+      RETURNING ${ORG_COLUMNS}
+    `);
+    const row = result.rows[0];
+    return row ? mapOrganization(row) : null;
+  }
+
+  /**
+   * Closed accounts whose recovery window has elapsed and that no legal hold
+   * covers. Not tenant-scoped: the retention job sweeps every tenant, which is
+   * why it takes no `TenantContext` and returns ids for the caller to act on
+   * one at a time.
+   */
+  async findPurgeable(now: Date, limit: number): Promise<Array<{ id: string; closedAt: Date }>> {
+    const result = await this.db.execute<{ id: string; closed_at: Date }>(sql`
+      SELECT o.id, o.closed_at
+      FROM organizations o
+      WHERE o.status = 'CLOSED'
+        AND o.purge_after <= ${now.toISOString()}::timestamptz
+        AND NOT EXISTS (
+          SELECT 1 FROM legal_holds h
+          WHERE h.organization_id = o.id AND h.released_at IS NULL
+        )
+      ORDER BY o.purge_after
+      LIMIT ${limit}
+    `);
+    return result.rows.map((row) => ({ id: row.id, closedAt: toDate(row.closed_at) }));
   }
 
   // --- Memberships ---------------------------------------------------------
@@ -404,7 +476,8 @@ export class OrganizationRepository {
 
 const ORG_COLUMNS = sql`
   id, display_name, legal_name, gstin, timezone, default_currency, retention_months,
-  status, brand_primary_color, contact_phone, contact_email, reminder_policy_hours,
+  status, closed_at, purge_after, closure_reason,
+  brand_primary_color, contact_phone, contact_email, reminder_policy_hours,
   created_at, lock_version
 `;
 
@@ -417,6 +490,9 @@ type OrganizationRecord = {
   default_currency: string;
   retention_months: number;
   status: string;
+  closed_at: Date | null;
+  purge_after: Date | null;
+  closure_reason: string | null;
   brand_primary_color: string | null;
   contact_phone: string | null;
   contact_email: string | null;
@@ -445,6 +521,9 @@ function mapOrganization(row: OrganizationRecord): OrganizationRow {
           .split(',')
           .filter(Boolean)
           .map((v) => Number.parseInt(v, 10)),
+    closedAt: row.closed_at ? toDate(row.closed_at) : null,
+    purgeAfter: row.purge_after ? toDate(row.purge_after) : null,
+    closureReason: row.closure_reason,
     createdAt: toDate(row.created_at),
     lockVersion: row.lock_version,
   };

@@ -231,6 +231,18 @@
               "CLOSED"
             ]
           },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 instant in UTC",
+            "nullable": true
+          },
+          "purgeAfter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 instant in UTC",
+            "nullable": true
+          },
           "brandPrimaryColor": {
             "type": "string",
             "nullable": true
@@ -374,6 +386,8 @@
           "defaultCurrency",
           "retentionMonths",
           "status",
+          "closedAt",
+          "purgeAfter",
           "brandPrimaryColor",
           "contactPhone",
           "contactEmail",

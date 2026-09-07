@@ -25,7 +25,10 @@
     "harden": "node --conditions=development --import tsx src/cli/harden.ts",
     "verify-chain": "node --conditions=development --import tsx src/cli/verify-chain.ts",
     "repair-project-totals": "node --conditions=development --import tsx src/cli/repair-project-totals.ts",
-    "replay": "node --conditions=development --import tsx src/cli/replay.ts"
+    "replay": "node --conditions=development --import tsx src/cli/replay.ts",
+    "purge-organization": "node --conditions=development --import tsx src/cli/purge-organization.ts",
+    "erase-contact": "node --conditions=development --import tsx src/cli/erase-contact.ts",
+    "export-subject": "node --conditions=development --import tsx src/cli/export-subject.ts"
   },
   "dependencies": {
     "@extrawork/config": "workspace:*",

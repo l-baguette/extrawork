@@ -42,6 +42,26 @@ export const UpdateOrganizationSchema = z
   .partial();
 export type UpdateOrganizationInput = z.infer<typeof UpdateOrganizationSchema>;
 
+/**
+ * Closing the account. `confirmName` must equal the organisation's display
+ * name — a typed confirmation, not a checkbox, because this is the one action
+ * in the product that cannot be undone once the grace period elapses.
+ */
+export const CloseAccountSchema = z.object({
+  confirmName: z.string().min(1).max(200),
+  /** Free text, kept in the audit trail; useful when a closure is disputed. */
+  reason: z.string().trim().max(1000).optional(),
+});
+export type CloseAccountInput = z.infer<typeof CloseAccountSchema>;
+
+export const AccountClosureSchema = z.object({
+  status: z.literal('CLOSED'),
+  closedAt: z.string(),
+  purgeAfter: z.string(),
+  graceDays: z.number().int(),
+});
+export type AccountClosureDto = z.infer<typeof AccountClosureSchema>;
+
 export const EntitlementsSchema = z.object({
   activeProjects: z.number().int(),
   completedDecisionsPerPeriod: z.number().int(),
@@ -79,6 +99,9 @@ export const OrganizationSchema = z.object({
   defaultCurrency: CurrencySchema,
   retentionMonths: z.number().int(),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'CLOSED']),
+  /** Both set only while CLOSED, so the dashboard can show the countdown. */
+  closedAt: InstantSchema.nullable(),
+  purgeAfter: InstantSchema.nullable(),
   brandPrimaryColor: z.string().nullable(),
   contactPhone: z.string().nullable(),
   contactEmail: z.string().nullable(),
