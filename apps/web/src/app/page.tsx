@@ -21,8 +21,8 @@ export default async function HomePage() {
   return (
     <main className="page">
       <section className="card" style={{ textAlign: 'center' }}>
-        <h1 style={{ marginBottom: 'var(--space-2)' }}>ExtraWork</h1>
-        <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>
+        <h1 style={{ marginBottom: 'var(--s2)' }}>ExtraWork</h1>
+        <p className="muted" style={{ marginBottom: 'var(--s5)' }}>
           Extra work, agreed in writing. Your site team sends one WhatsApp message; your client
           approves it on their phone; you get a signed record you can invoice against.
         </p>

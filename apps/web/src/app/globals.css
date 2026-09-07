@@ -1602,3 +1602,36 @@ select[aria-invalid='true'] {
   white-space: nowrap;
   border: 0;
 }
+
+/* ===========================================================================
+ * Published policies — quiet, present on every page including /r
+ * ======================================================================== */
+.site-footer {
+  border-top: 1px solid var(--rule);
+  margin-top: var(--s7);
+  padding: var(--s5) var(--s5) var(--s6);
+}
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3) var(--s5);
+  justify-content: center;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+.site-footer a {
+  color: var(--ink-3);
+  font-size: var(--t-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.site-footer a:hover {
+  color: var(--ink);
+}
+
+/* Print the policies cleanly: a customer's lawyer will save these to PDF. */
+@media print {
+  .site-footer {
+    display: none;
+  }
+}

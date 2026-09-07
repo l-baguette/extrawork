@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { SiteFooter } from '@/components/site-footer';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
