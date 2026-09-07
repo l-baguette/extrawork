@@ -186,6 +186,25 @@ export const EnvSchema = z.object({
   LOG_PRETTY: booleanish.default(false),
   SERVICE_NAME: z.string().default('extrawork'),
   RATE_LIMIT_ENABLED: booleanish.default(true),
+
+  // Human verification on account creation and sign-in. Off by default so
+  // development and the test suite are not gated on a live challenge; the
+  // production guard below requires it, because rate limiting alone does not
+  // stop a distributed credential-stuffing run.
+  BOT_PROTECTION_DRIVER: z.enum(['none', 'turnstile']).default('none'),
+  TURNSTILE_SECRET_KEY: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().trim().min(1).optional(),
+
+  // Published legal identity. Rendered by apps/web on /legal/*, declared here so
+  // production cannot start without it — a service that takes money and holds
+  // personal data must name who is doing so and who to escalate to.
+  NEXT_PUBLIC_LEGAL_ENTITY_NAME: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_ADDRESS: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_CONTACT_EMAIL: z.string().trim().email().optional(),
+  NEXT_PUBLIC_LEGAL_CONTACT_PHONE: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_NAME: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_EMAIL: z.string().trim().email().optional(),
+  NEXT_PUBLIC_LEGAL_GSTIN: z.string().trim().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -273,6 +292,32 @@ function assertProductionSafe(env: Env): void {
   }
   if (env.PAYMENTS_DRIVER === 'razorpay' && !env.RAZORPAY_WEBHOOK_SECRET) {
     problems.push('RAZORPAY_WEBHOOK_SECRET is required to verify payment webhooks');
+  }
+
+  if (env.BOT_PROTECTION_DRIVER === 'none') {
+    problems.push(
+      'BOT_PROTECTION_DRIVER=none leaves registration and sign-in open to automated abuse',
+    );
+  }
+  if (env.BOT_PROTECTION_DRIVER === 'turnstile') {
+    for (const key of ['TURNSTILE_SECRET_KEY', 'NEXT_PUBLIC_TURNSTILE_SITE_KEY'] as const) {
+      if (!env[key]) problems.push(`${key} is required when BOT_PROTECTION_DRIVER=turnstile`);
+    }
+  }
+
+  // The policy pages render placeholders when these are missing, which reads as
+  // a finished policy that names nobody. A grievance officer who cannot be
+  // contacted is a DPDP Act s.13 failure, and a missing address or phone number
+  // fails payment-aggregator onboarding, so refuse the boot instead.
+  for (const key of [
+    'NEXT_PUBLIC_LEGAL_ENTITY_NAME',
+    'NEXT_PUBLIC_LEGAL_ADDRESS',
+    'NEXT_PUBLIC_LEGAL_CONTACT_EMAIL',
+    'NEXT_PUBLIC_LEGAL_CONTACT_PHONE',
+    'NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_NAME',
+    'NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_EMAIL',
+  ] as const) {
+    if (!env[key]) problems.push(`${key} is required to publish the legal pages`);
   }
 
   if (problems.length > 0) {
