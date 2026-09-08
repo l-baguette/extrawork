@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { POLICY_VERSION } from '@extrawork/contracts';
 import { legalIdentity } from '@/lib/legal';
+import { DocHeader } from '../doc-header';
 
 export const metadata: Metadata = {
   title: 'Terms of Service — ExtraWork',
@@ -14,18 +14,20 @@ export default function TermsPage() {
 
   return (
     <>
-      <section className="card">
-        <p className="overline">Effective {POLICY_VERSION}</p>
-        <h1>Terms of Service</h1>
-        <p className="muted">
-          These terms are the agreement between you and <strong>{identity.entityName}</strong>{' '}
-          (&ldquo;ExtraWork&rdquo;, &ldquo;we&rdquo;) for use of the ExtraWork service. By creating
-          an account or using the service you accept them. If you are accepting on behalf of a
-          business, you confirm you are authorised to bind that business.
-        </p>
-      </section>
+      <DocHeader
+        code="TERMS"
+        title="Terms of Service"
+        standfirst={
+          <>
+            These terms are the agreement between you and <strong>{identity.entityName}</strong>{' '}
+            (&ldquo;ExtraWork&rdquo;, &ldquo;we&rdquo;) for use of the ExtraWork service. By
+            creating an account or using the service you accept them. If you are accepting on behalf
+            of a business, you confirm you are authorised to bind that business.
+          </>
+        }
+      />
 
-      <section className="card">
+      <section>
         <h2>1. What ExtraWork is — and what it is not</h2>
         <p>
           ExtraWork is a <strong>record-keeping tool</strong>. It lets a contractor describe work
@@ -60,7 +62,7 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>2. Assurance levels: what an approval actually proves</h2>
         <p>
           Every approval is labelled with the strength of the evidence behind it, and we use those
@@ -89,7 +91,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>3. Your account</h2>
         <ul className="stack">
           <li>You must be at least 18 and using ExtraWork for a business purpose.</li>
@@ -106,7 +108,7 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>4. Your data and your customers&rsquo; data</h2>
         <ul className="stack">
           <li>
@@ -133,7 +135,7 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>5. Acceptable use</h2>
         <p>You must not:</p>
         <ul className="stack">
@@ -162,7 +164,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>6. Plans, fees and taxes</h2>
         <ul className="stack">
           <li>
@@ -186,7 +188,7 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>7. Availability</h2>
         <p>
           We work to keep ExtraWork available and will give notice of planned maintenance where we
@@ -196,7 +198,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>8. Warranties and disclaimers</h2>
         <p>
           We provide ExtraWork with reasonable skill and care. Beyond that, and to the fullest
@@ -211,7 +213,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>9. Limitation of liability</h2>
         <p>To the fullest extent permitted by law:</p>
         <ul className="stack">
@@ -235,7 +237,7 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>10. Indemnity</h2>
         <p>
           You will indemnify us against claims, losses and reasonable legal costs arising from your
@@ -244,7 +246,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>11. Suspension, termination and what survives</h2>
         <ul className="stack">
           <li>You may close your account at any time from Settings, or by writing to us.</li>
@@ -262,7 +264,7 @@ export default function TermsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>12. Governing law and disputes</h2>
         <p>
           These terms are governed by the laws of India. Before starting formal proceedings, both of
@@ -278,7 +280,7 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>13. Changes to these terms</h2>
         <p>
           We may update these terms. If a change materially affects your rights we will email

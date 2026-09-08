@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { POLICY_VERSION, REFUND_SETTLEMENT_BUSINESS_DAYS } from '@extrawork/contracts';
+import { REFUND_SETTLEMENT_BUSINESS_DAYS } from '@extrawork/contracts';
 import { legalIdentity } from '@/lib/legal';
+import { DocHeader } from '../doc-header';
 
 export const metadata: Metadata = {
   title: 'Refunds & Cancellation Policy — ExtraWork',
@@ -14,16 +15,18 @@ export default function RefundsPage() {
 
   return (
     <>
-      <section className="card">
-        <p className="overline">Effective {POLICY_VERSION}</p>
-        <h1>Refunds &amp; Cancellation Policy</h1>
-        <p className="muted">
-          ExtraWork is a software subscription. There is nothing to ship and nothing to return, so
-          this policy covers cancelling a plan and getting money back.
-        </p>
-      </section>
+      <DocHeader
+        code="REFUNDS"
+        title="Refunds & Cancellation Policy"
+        standfirst={
+          <>
+            ExtraWork is a software subscription. There is nothing to ship and nothing to return, so
+            this policy covers cancelling a plan and getting money back.
+          </>
+        }
+      />
 
-      <section className="card">
+      <section>
         <h2>1. Cancelling</h2>
         <ul className="stack">
           <li>
@@ -46,7 +49,7 @@ export default function RefundsPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>2. When we refund</h2>
         <p>We will refund you in full in each of these cases:</p>
         <ul className="stack">
@@ -74,7 +77,7 @@ export default function RefundsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>3. How to ask, and how long it takes</h2>
         <ol className="stack">
           <li>
@@ -97,7 +100,7 @@ export default function RefundsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>4. Chargebacks</h2>
         <p>
           If something looks wrong, please write to us before raising a chargeback with your bank —
@@ -107,7 +110,7 @@ export default function RefundsPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>5. Contact</h2>
         <p className="stack">
           <strong>{identity.entityName}</strong>

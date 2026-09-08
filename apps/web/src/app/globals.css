@@ -1140,6 +1140,7 @@ select[aria-invalid='true'] {
   white-space: nowrap;
 }
 .account-role {
+  display: block;
   font-size: var(--t-micro);
   color: var(--ink-3);
   letter-spacing: 0.06em;
@@ -1606,6 +1607,13 @@ select[aria-invalid='true'] {
 /* ===========================================================================
  * Published policies — quiet, present on every page including /r
  * ======================================================================== */
+/* The console has its own navigation and its own footer rail; the published
+ * policies belong on the public surfaces, not appended under a signed-in
+ * dashboard where they read as stray links. */
+body:has(.shell) .site-footer {
+  display: none;
+}
+
 .site-footer {
   border-top: 1px solid var(--rule);
   margin-top: var(--s7);
@@ -1634,4 +1642,231 @@ select[aria-invalid='true'] {
   .site-footer {
     display: none;
   }
+}
+
+/* ===========================================================================
+ * Published documents — /legal/*
+ *
+ * A policy is a controlled document, which is the same family of object as the
+ * bar bending schedule this system is drawn from: a title block that says what
+ * the sheet is and which revision you are holding, then ruled body copy. So it
+ * is set as one, rather than as marketing pages that happen to contain law.
+ *
+ * These pages were previously using `.page`, which is 560px because it is sized
+ * for the sign-in form. A 2,000-word policy in a 560px column with a table that
+ * declares `min-width: 680px` produced exactly what it sounds like: the table
+ * punched straight through the right edge of its own card.
+ * ======================================================================== */
+.doc {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 0 var(--s5) var(--s8);
+}
+
+/* The document itself is a sheet of paper on the drafting-paper ground, the
+ * same relationship every panel in the app has to its background. Without it
+ * the policy floated as grey-on-grey and the ruled table lost its edges. */
+.doc-body {
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  padding: 0 clamp(var(--s5), 4vw, var(--s7)) var(--s5);
+}
+
+/* --- Title block ------------------------------------------------------- */
+.doc-head {
+  border-bottom: 2px solid var(--rule-3);
+  padding: var(--s7) 0 var(--s5);
+  margin-bottom: 0;
+}
+.doc-head h1 {
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--s3);
+}
+.doc-standfirst {
+  font-size: var(--t-lead);
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 62ch;
+  margin: 0;
+}
+
+/* The metadata strip, set like the title block on a drawing: labelled cells,
+ * mono values, ruled off. It is what makes a policy read as issued rather than
+ * as web copy. */
+.doc-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin-top: var(--s5);
+}
+.doc-meta > div {
+  background: var(--sheet-2);
+  padding: var(--s3) var(--s4);
+}
+.doc-meta dt {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 2px;
+}
+.doc-meta dd {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  line-height: 1.45;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* --- Policy switcher --------------------------------------------------- */
+.doc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--rule-2);
+  margin-bottom: var(--s2);
+}
+.doc-nav a {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-decoration: none;
+  padding: var(--s3) var(--s4);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color var(--ease),
+    border-color var(--ease);
+}
+.doc-nav a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--rule-2);
+}
+.doc-nav a[aria-current='page'] {
+  color: var(--ink);
+  border-bottom-color: var(--revision);
+}
+
+/* --- Body -------------------------------------------------------------- */
+.doc-body > section {
+  padding: var(--s6) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.doc-body > .doc-head + section {
+  padding-top: var(--s5);
+}
+.doc-body > section:last-child {
+  border-bottom: none;
+}
+.doc-body h2 {
+  font-size: var(--t-head);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--s4);
+}
+.doc-body h3 {
+  font-size: var(--t-lead);
+  margin: var(--s5) 0 var(--s3);
+}
+/* Prose gets a measure. Tables and the metadata strip deliberately do not —
+ * they are reference material and want the full width. */
+.doc-body p,
+.doc-body li {
+  max-width: 68ch;
+  line-height: 1.65;
+}
+.doc-body p {
+  margin: 0 0 var(--s4);
+}
+.doc-body ul,
+.doc-body ol {
+  margin: 0 0 var(--s4);
+  padding-left: var(--s5);
+}
+.doc-body li + li {
+  margin-top: var(--s3);
+}
+.doc-body a {
+  color: var(--focus);
+  text-underline-offset: 2px;
+}
+
+/* The fix for the overflow: a policy table is two or three columns of prose,
+ * not a seven-column schedule, so it has no business claiming 680px. It fits
+ * its container, and only scrolls when a phone genuinely cannot show it. */
+.doc-body .table-scroll {
+  margin: 0 0 var(--s4);
+  border: 1px solid var(--rule-2);
+}
+.doc-body .data-table {
+  min-width: 0;
+  font-size: var(--t-small);
+}
+.doc-body .data-table th {
+  white-space: nowrap;
+}
+.doc-body .data-table td {
+  vertical-align: top;
+  line-height: 1.55;
+}
+.doc-body .data-table td:first-child {
+  font-weight: 600;
+  color: var(--ink);
+}
+@media (max-width: 640px) {
+  .doc-body .data-table {
+    min-width: 520px;
+  }
+}
+
+/* A callout for the one or two statements on each page that carry the weight. */
+.doc-body .banner {
+  max-width: none;
+}
+
+/* --- Print -------------------------------------------------------------
+ * These get saved to PDF by people who need to cite them. */
+@media print {
+  .doc {
+    max-width: none;
+    padding: 0;
+  }
+  .doc-nav {
+    display: none;
+  }
+  .doc-body > section {
+    break-inside: avoid;
+    border-bottom: none;
+    padding: var(--s4) 0;
+  }
+  .doc-body h2 {
+    break-after: avoid;
+  }
+  .doc-body .table-scroll {
+    overflow: visible;
+  }
+}
+
+.doc-foot {
+  border-top: 1px solid var(--rule-2);
+  padding-top: var(--s4);
+  margin-top: var(--s6);
+}
+.doc-foot a {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+.doc-foot a:hover {
+  color: var(--ink);
 }

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ACCOUNT_DELETION_GRACE_DAYS, POLICY_VERSION } from '@extrawork/contracts';
+import { ACCOUNT_DELETION_GRACE_DAYS } from '@extrawork/contracts';
 import { legalIdentity } from '@/lib/legal';
+import { DocHeader } from '../doc-header';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — ExtraWork',
@@ -14,17 +15,19 @@ export default function PrivacyPolicyPage() {
 
   return (
     <>
-      <section className="card">
-        <p className="overline">Effective {POLICY_VERSION}</p>
-        <h1>Privacy Policy</h1>
-        <p className="muted">
-          This policy explains what personal data ExtraWork handles, why, for how long, and what you
-          can ask us to do about it. It is written to the Digital Personal Data Protection Act, 2023
-          (&ldquo;DPDP Act&rdquo;) and the Information Technology Act, 2000.
-        </p>
-      </section>
+      <DocHeader
+        code="PRIVACY"
+        title="Privacy Policy"
+        standfirst={
+          <>
+            This policy explains what personal data ExtraWork handles, why, for how long, and what
+            you can ask us to do about it. It is written to the Digital Personal Data Protection
+            Act, 2023 (&ldquo;DPDP Act&rdquo;) and the Information Technology Act, 2000.
+          </>
+        }
+      />
 
-      <section className="card">
+      <section>
         <h2>1. Who is responsible for your data</h2>
         <p>
           ExtraWork is operated by <strong>{identity.entityName}</strong>, registered at{' '}
@@ -56,71 +59,77 @@ export default function PrivacyPolicyPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>2. What we collect</h2>
         <p>We collect only what the service cannot work without.</p>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th scope="col">Data</th>
-              <th scope="col">Why we hold it</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Your name and email address</td>
-              <td>To create your account, sign you in, and send service email.</td>
-            </tr>
-            <tr>
-              <td>A cryptographic hash of your password</td>
-              <td>
-                To verify sign-in. We never store the password itself and cannot recover or read it.
-              </td>
-            </tr>
-            <tr>
-              <td>Your business details — trading name, registered name, GSTIN, address, phone</td>
-              <td>To identify your business on the change requests and evidence you issue.</td>
-            </tr>
-            <tr>
-              <td>Your customers and their contacts — name, phone number, email</td>
-              <td>
-                To address a change request to the right person and prove who approved it. Entered
-                by you, on your instruction.
-              </td>
-            </tr>
-            <tr>
-              <td>Your site staff — name and WhatsApp number</td>
-              <td>
-                To recognise an inbound WhatsApp message as coming from someone you authorised to
-                raise a request.
-              </td>
-            </tr>
-            <tr>
-              <td>Change requests, prices, schedule impacts and attachments</td>
-              <td>To produce the record you send and the evidence you rely on.</td>
-            </tr>
-            <tr>
-              <td>
-                Approval decisions — the signer&rsquo;s typed name, the date, any comment, and the
-                exact version shown
-              </td>
-              <td>
-                This <em>is</em> the contractual record. It is what makes a decision provable later.
-              </td>
-            </tr>
-            <tr>
-              <td>
-                Technical records — timestamps, browser user-agent, and a keyed{' '}
-                <strong>hash</strong> of the IP address
-              </td>
-              <td>
-                To show an approval was a genuine, distinct act, and to detect abuse. We
-                deliberately store a hash rather than the IP address itself, so the record proves
-                consistency without retaining a location trail.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Why we hold it</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Your name and email address</td>
+                <td>To create your account, sign you in, and send service email.</td>
+              </tr>
+              <tr>
+                <td>A cryptographic hash of your password</td>
+                <td>
+                  To verify sign-in. We never store the password itself and cannot recover or read
+                  it.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Your business details — trading name, registered name, GSTIN, address, phone
+                </td>
+                <td>To identify your business on the change requests and evidence you issue.</td>
+              </tr>
+              <tr>
+                <td>Your customers and their contacts — name, phone number, email</td>
+                <td>
+                  To address a change request to the right person and prove who approved it. Entered
+                  by you, on your instruction.
+                </td>
+              </tr>
+              <tr>
+                <td>Your site staff — name and WhatsApp number</td>
+                <td>
+                  To recognise an inbound WhatsApp message as coming from someone you authorised to
+                  raise a request.
+                </td>
+              </tr>
+              <tr>
+                <td>Change requests, prices, schedule impacts and attachments</td>
+                <td>To produce the record you send and the evidence you rely on.</td>
+              </tr>
+              <tr>
+                <td>
+                  Approval decisions — the signer&rsquo;s typed name, the date, any comment, and the
+                  exact version shown
+                </td>
+                <td>
+                  This <em>is</em> the contractual record. It is what makes a decision provable
+                  later.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Technical records — timestamps, browser user-agent, and a keyed{' '}
+                  <strong>hash</strong> of the IP address
+                </td>
+                <td>
+                  To show an approval was a genuine, distinct act, and to detect abuse. We
+                  deliberately store a hash rather than the IP address itself, so the record proves
+                  consistency without retaining a location trail.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p className="small muted">
           We do not run advertising or analytics trackers, we do not build profiles, we do not sell
           or rent personal data to anyone, and we do not use your data to train machine-learning
@@ -128,7 +137,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>3. Why we are allowed to hold it</h2>
         <ul className="stack">
           <li>
@@ -150,7 +159,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>4. Who else sees it</h2>
         <p>
           We share personal data only with processors who are needed to run the service, under
@@ -185,7 +194,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>5. How long we keep it</h2>
         <ul className="stack">
           <li>
@@ -210,7 +219,7 @@ export default function PrivacyPolicyPage() {
         </ul>
       </section>
 
-      <section className="card">
+      <section>
         <h2>6. Your rights, and the one honest limit on them</h2>
         <p>Under the DPDP Act you may ask us to:</p>
         <ul className="stack">
@@ -243,54 +252,56 @@ export default function PrivacyPolicyPage() {
           would destroy the other party&rsquo;s evidence. Section 12(3) of the DPDP Act allows
           retention where it is necessary for compliance with law. So:
         </p>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th scope="col">Data</th>
-              <th scope="col">On an erasure request</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Contact name, phone number, email address</td>
-              <td>
-                <span className="code code-approved">Erased</span> — replaced with a tombstone.
-              </td>
-            </tr>
-            <tr>
-              <td>Draft change requests never sent</td>
-              <td>
-                <span className="code code-approved">Erased</span>
-              </td>
-            </tr>
-            <tr>
-              <td>Your account profile, once the grace period ends</td>
-              <td>
-                <span className="code code-approved">Erased</span>
-              </td>
-            </tr>
-            <tr>
-              <td>A recorded approval, decline or revision request</td>
-              <td>
-                <span className="code code-declined">Retained</span> — it is the contractual record,
-                and it is append-only by design.
-              </td>
-            </tr>
-            <tr>
-              <td>The frozen version of a request that was sent</td>
-              <td>
-                <span className="code code-declined">Retained</span> — for the same reason.
-              </td>
-            </tr>
-            <tr>
-              <td>The signer&rsquo;s name on a decision</td>
-              <td>
-                <span className="code code-declined">Retained</span> — it is the assent itself; it
-                cannot be removed without destroying the record.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">On an erasure request</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Contact name, phone number, email address</td>
+                <td>
+                  <span className="code code-approved">Erased</span> — replaced with a tombstone.
+                </td>
+              </tr>
+              <tr>
+                <td>Draft change requests never sent</td>
+                <td>
+                  <span className="code code-approved">Erased</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Your account profile, once the grace period ends</td>
+                <td>
+                  <span className="code code-approved">Erased</span>
+                </td>
+              </tr>
+              <tr>
+                <td>A recorded approval, decline or revision request</td>
+                <td>
+                  <span className="code code-declined">Retained</span> — it is the contractual
+                  record, and it is append-only by design.
+                </td>
+              </tr>
+              <tr>
+                <td>The frozen version of a request that was sent</td>
+                <td>
+                  <span className="code code-declined">Retained</span> — for the same reason.
+                </td>
+              </tr>
+              <tr>
+                <td>The signer&rsquo;s name on a decision</td>
+                <td>
+                  <span className="code code-declined">Retained</span> — it is the assent itself; it
+                  cannot be removed without destroying the record.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p>
           When we act on an erasure request we tell you plainly what was removed, what was kept, and
           why. A vague answer here would be worse than a clear refusal.
@@ -302,7 +313,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>7. How we protect it</h2>
         <ul className="stack">
           <li>All traffic is encrypted in transit with TLS, and HTTPS is enforced.</li>
@@ -335,7 +346,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>8. Contact and grievances</h2>
         <p>
           Our <strong>Grievance Officer</strong> under section 13 of the DPDP Act and the IT Rules
@@ -366,7 +377,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>9. Children</h2>
         <p>
           ExtraWork is a business tool and is not directed at children. We do not knowingly create
@@ -375,7 +386,7 @@ export default function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>10. Changes to this policy</h2>
         <p>
           If we change this policy in a way that affects your rights we will notify account holders

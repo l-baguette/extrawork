@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { POLICY_VERSION } from '@extrawork/contracts';
+import { DocHeader } from '../doc-header';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy — ExtraWork',
@@ -11,17 +11,19 @@ export const metadata: Metadata = {
 export default function CookiePolicyPage() {
   return (
     <>
-      <section className="card">
-        <p className="overline">Effective {POLICY_VERSION}</p>
-        <h1>Cookie Policy</h1>
-        <p className="muted">
-          ExtraWork sets a small number of cookies, all of them strictly necessary to sign you in
-          and to stop other websites acting on your behalf. There are no advertising, analytics or
-          tracking cookies, and no third party sets a cookie through us.
-        </p>
-      </section>
+      <DocHeader
+        code="COOKIES"
+        title="Cookie Policy"
+        standfirst={
+          <>
+            ExtraWork sets a small number of cookies, all of them strictly necessary to sign you in
+            and to stop other websites acting on your behalf. There are no advertising, analytics or
+            tracking cookies, and no third party sets a cookie through us.
+          </>
+        }
+      />
 
-      <section className="card">
+      <section>
         <h2>Why there is no cookie banner</h2>
         <p>
           Consent is required for cookies that are <em>not</em> essential — the ones used to profile
@@ -32,71 +34,73 @@ export default function CookiePolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>The cookies we set</h2>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Purpose</th>
-              <th scope="col">Lifetime</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="mono">ew_session</td>
-              <td>
-                Keeps you signed in. Readable only by the server, never by JavaScript, so a script
-                injected into the page cannot steal it.
-              </td>
-              <td>Until the session expires or you sign out</td>
-            </tr>
-            <tr>
-              <td className="mono">ew_csrf</td>
-              <td>
-                Proves a request came from our own page rather than another site acting as you. The
-                page reads this value and echoes it back; a cross-site form cannot.
-              </td>
-              <td>Same as the session</td>
-            </tr>
-            <tr>
-              <td className="mono">ew_public</td>
-              <td>
-                Set only when a customer opens an approval link, so that viewing and then deciding
-                are recognised as the same visit.
-              </td>
-              <td>Short-lived, tied to that approval link</td>
-            </tr>
-            <tr>
-              <td className="mono">ew_public_csrf</td>
-              <td>The cross-site protection for the approval page, matching ew_csrf above.</td>
-              <td>Same as ew_public</td>
-            </tr>
-            <tr>
-              <td className="mono">ew_oauth_state</td>
-              <td>
-                Set only while you are signing in with Google. It ties the response from Google to
-                the request your browser started, which is what stops a forged sign-in.
-              </td>
-              <td>Minutes — deleted as soon as sign-in completes</td>
-            </tr>
-            <tr>
-              <td className="mono">ew_oauth_verifier</td>
-              <td>
-                The matching PKCE secret for that same Google sign-in, so an intercepted code cannot
-                be redeemed by anyone else.
-              </td>
-              <td>Minutes — deleted as soon as sign-in completes</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Purpose</th>
+                <th scope="col">Lifetime</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="mono">ew_session</td>
+                <td>
+                  Keeps you signed in. Readable only by the server, never by JavaScript, so a script
+                  injected into the page cannot steal it.
+                </td>
+                <td>Until the session expires or you sign out</td>
+              </tr>
+              <tr>
+                <td className="mono">ew_csrf</td>
+                <td>
+                  Proves a request came from our own page rather than another site acting as you.
+                  The page reads this value and echoes it back; a cross-site form cannot.
+                </td>
+                <td>Same as the session</td>
+              </tr>
+              <tr>
+                <td className="mono">ew_public</td>
+                <td>
+                  Set only when a customer opens an approval link, so that viewing and then deciding
+                  are recognised as the same visit.
+                </td>
+                <td>Short-lived, tied to that approval link</td>
+              </tr>
+              <tr>
+                <td className="mono">ew_public_csrf</td>
+                <td>The cross-site protection for the approval page, matching ew_csrf above.</td>
+                <td>Same as ew_public</td>
+              </tr>
+              <tr>
+                <td className="mono">ew_oauth_state</td>
+                <td>
+                  Set only while you are signing in with Google. It ties the response from Google to
+                  the request your browser started, which is what stops a forged sign-in.
+                </td>
+                <td>Minutes — deleted as soon as sign-in completes</td>
+              </tr>
+              <tr>
+                <td className="mono">ew_oauth_verifier</td>
+                <td>
+                  The matching PKCE secret for that same Google sign-in, so an intercepted code
+                  cannot be redeemed by anyone else.
+                </td>
+                <td>Minutes — deleted as soon as sign-in completes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p className="small muted">
           All of these are first-party cookies, marked <span className="mono">SameSite=Lax</span>,
           and marked <span className="mono">Secure</span> everywhere except local development.
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>Other storage</h2>
         <p>
           The dashboard may keep small preferences in your browser&rsquo;s local storage — for
@@ -105,7 +109,7 @@ export default function CookiePolicyPage() {
         </p>
       </section>
 
-      <section className="card">
+      <section>
         <h2>Controlling cookies</h2>
         <p>
           You can clear or block cookies in your browser settings. Because every cookie we set is
