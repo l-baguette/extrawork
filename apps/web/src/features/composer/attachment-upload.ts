@@ -131,7 +131,7 @@ export async function pollScanStatus(
   options: PollOptions = {},
 ): Promise<ScanSnapshot | null> {
   const attempts = options.attempts ?? 20;
-  // 1s, 2s, 3s, capped at 5s: roughly a minute of patience in total.
+  // 1s, 2s, 3s, 4s, 5s, then 5s capped (15 more times): roughly 85 seconds total.
   const delayMs = options.delayMs ?? ((attempt: number) => Math.min(attempt * 1000, 5000));
   const sleep = options.sleep ?? defaultSleep;
 
