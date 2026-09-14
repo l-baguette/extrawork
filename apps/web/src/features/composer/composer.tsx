@@ -291,7 +291,8 @@ export function Composer({
     previewInputRef.current === serialized &&
     preview.blockers.length === 0 &&
     !previewing &&
-    !conflict;
+    !conflict &&
+    pendingAttachments === 0;
 
   async function send(): Promise<void> {
     if (!changeOrderId || !canSend || sending) return;
@@ -602,6 +603,16 @@ export function Composer({
         {step === 4 ? (
           <section className="card">
             <h2>What the customer will see</h2>
+
+            {form.watch('attachmentIds').length === 0 ? (
+              <div className="banner banner-warn" role="status">
+                <p style={{ marginBottom: 0 }}>
+                  No photograph attached. A change with a site photograph is far harder to dispute
+                  later. You can still send this.
+                </p>
+              </div>
+            ) : null}
+
             {previewing ? (
               <p className="muted" aria-live="polite">
                 <span className="spinner" aria-hidden="true" /> Calculating the totals…
@@ -699,9 +710,11 @@ export function Composer({
           <p id="send-help" className="small muted" style={{ marginTop: 'var(--space-3)' }}>
             {!online
               ? 'Sending needs a connection: the record has to be timestamped by the server.'
-              : previewing
-                ? 'Waiting for the server to confirm the totals.'
-                : 'The server must confirm the totals before this can be sent.'}
+              : pendingAttachments > 0
+                ? 'One or more photographs are still being checked. Send becomes available when they finish.'
+                : previewing
+                  ? 'Waiting for the server to confirm the totals.'
+                  : 'The server must confirm the totals before this can be sent.'}
           </p>
         ) : null}
       </form>
