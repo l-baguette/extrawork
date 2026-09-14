@@ -18,6 +18,7 @@ import {
 } from './schema';
 import { useDraftStore } from './draft-store';
 import { SharePanel } from './share-panel';
+import { AttachmentPicker } from './attachment-picker';
 
 /**
  * The four-step mobile change composer — report §6.3.
@@ -77,6 +78,7 @@ export function Composer({
   const [conflict, setConflict] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<SendResultDto | null>(null);
   const [sending, setSending] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState(0);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const sendKey = useRef<string>(newIdempotencyKey());
@@ -209,6 +211,20 @@ export function Composer({
     },
     [draftKey, markDraftSynced, online, projectCurrency, projectId, setDraft],
   );
+
+  /**
+   * Forces the draft to exist on the server and resolves its id.
+   *
+   * The composer creates the change order lazily on first autosave, so a
+   * photograph chosen in the first few seconds has nothing to attach to yet.
+   * Returns null when offline, which is the one case where no id can exist:
+   * report §6.8 allows an offline draft edit and forbids anything needing the
+   * network.
+   */
+  const ensureChangeOrderId = useCallback(async (): Promise<string | null> => {
+    if (changeOrderIdRef.current) return changeOrderIdRef.current;
+    return save(form.getValues());
+  }, [form, save]);
 
   // Debounced so typing does not produce a request per keystroke.
   const serialized = JSON.stringify(values);
@@ -392,6 +408,17 @@ export function Composer({
                 placeholder="Requested by the customer on site on 12 August"
               />
             </div>
+
+            <AttachmentPicker
+              projectId={projectId}
+              changeOrderId={changeOrderId}
+              ensureChangeOrderId={ensureChangeOrderId}
+              value={form.watch('attachmentIds')}
+              onChange={(ids) => form.setValue('attachmentIds', ids, { shouldDirty: true })}
+              onPendingChange={setPendingAttachments}
+              disabled={!online}
+              disabledReason="Photographs need a connection. You can keep typing — the draft is saved on this device."
+            />
           </section>
         ) : null}
 
