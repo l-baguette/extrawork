@@ -18,9 +18,12 @@ const ALLOWED = new Set<string>(ALLOWED_UPLOAD_MIME_TYPES);
  * Extension fallback.
  *
  * Android and older iOS Safari hand over an empty `File.type` for HEIC and
- * occasionally for JPEG. Trusting the browser alone would make the camera
- * button appear broken on exactly the handsets this product targets. The
- * server still decides from the magic bytes, so a wrong guess here is caught
+ * occasionally for JPEG, or send `application/octet-stream` (uninformative).
+ * Trusting only the browser's claim when it is uninformative would make the
+ * camera button appear broken on exactly the handsets this product targets.
+ * When the browser reports an informative but disallowed type (e.g., video/mp4),
+ * we reject it immediately — that is a deliberate user action, not a platform gap.
+ * The server still decides from the magic bytes, so a wrong guess here is caught
  * one step later and never reaches storage.
  */
 const BY_EXTENSION: Record<string, AllowedMimeType> = {
@@ -32,6 +35,11 @@ const BY_EXTENSION: Record<string, AllowedMimeType> = {
   heif: 'image/heic',
   pdf: 'application/pdf',
 };
+
+/** A type is uninformative if the browser provided no meaningful classification. */
+function isUninformativeType(type: string): boolean {
+  return type === '' || type === 'application/octet-stream';
+}
 
 /** Path separators and control characters never reach the storage key. */
 export function sanitizeFilename(raw: string): string {
@@ -51,6 +59,7 @@ export function sanitizeFilename(raw: string): string {
 
 export function resolveContentType(file: { name: string; type: string }): AllowedMimeType | null {
   if (ALLOWED.has(file.type)) return file.type as AllowedMimeType;
+  if (!isUninformativeType(file.type)) return null;
   const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
   return BY_EXTENSION[extension] ?? null;
 }

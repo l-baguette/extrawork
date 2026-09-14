@@ -38,6 +38,16 @@ describe('resolveContentType', () => {
     expect(resolveContentType({ name: 'clip.mp4', type: 'video/mp4' })).toBeNull();
     expect(resolveContentType({ name: 'notes.txt', type: '' })).toBeNull();
   });
+
+  it('rejects informative but disallowed type, even if extension is allowlisted', () => {
+    expect(resolveContentType({ name: 'video.jpg', type: 'video/mp4' })).toBeNull();
+  });
+
+  it('falls back to extension when browser sends uninformative type like application/octet-stream', () => {
+    expect(resolveContentType({ name: 'IMG_0421.HEIC', type: 'application/octet-stream' })).toBe(
+      'image/heic',
+    );
+  });
 });
 
 describe('preflightUpload', () => {
@@ -48,6 +58,12 @@ describe('preflightUpload', () => {
 
   it('rejects a type outside the allowlist', () => {
     const result = preflightUpload({ name: 'clip.mp4', type: 'video/mp4', size: 10 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('Photographs and PDFs');
+  });
+
+  it('rejects informative but disallowed type even if filename extension suggests otherwise', () => {
+    const result = preflightUpload({ name: 'video.jpg', type: 'video/mp4', size: 1000 });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain('Photographs and PDFs');
   });
