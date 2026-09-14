@@ -72,11 +72,17 @@ export function AttachmentPicker({
     itemsRef.current = items;
   }, [items]);
 
-  // Keys removed while their upload/scan was still in flight. An item can be
-  // removed from `items` before it has a `fileObjectId` to send a DELETE
-  // for, so `remove()` alone cannot stop a scan that later comes back CLEAN
-  // from attaching itself anyway — the async branch below checks this set
-  // before it POSTs the attachment or calls `onChange`.
+  // Keys removed while their upload/scan/attach was still in flight. An item
+  // can be removed from `items` before it has a `fileObjectId` to send a
+  // DELETE for, so `remove()` alone cannot stop the async branch below from
+  // attaching it anyway once the in-flight request resolves — that branch
+  // checks this set at each point a removal could have interleaved.
+  // `remove()` also adds a key for an item that already has a
+  // `fileObjectId` (the ordinary removal path, which sends its own DELETE
+  // immediately); those entries are never deleted, but that's not a leak
+  // worth chasing — keys are `crypto.randomUUID()`, never reused, and the
+  // set only ever holds as many entries as photographs picked in this
+  // component's lifetime.
   const removedKeysRef = useRef<Set<string>>(new Set());
 
   // Object URLs created for instant previews are only revoked in `remove()`.
@@ -173,6 +179,23 @@ export function AttachmentPicker({
               method: 'POST',
               body: { fileObjectId },
             });
+
+            if (removedKeysRef.current.has(key)) {
+              // Removed while the attach POST itself was in flight: the
+              // server now holds an attachment for a photograph the
+              // contractor already asked to take back, and there is no
+              // `items` row left to remove it through. Retract it
+              // best-effort and never let it reach `onChange` — a stray
+              // server-side attachment the form doesn't reference is
+              // recoverable; a form referencing something the contractor
+              // retracted is not.
+              removedKeysRef.current.delete(key);
+              await api(`/v1/change-orders/${id}/attachments/${fileObjectId}`, {
+                method: 'DELETE',
+              }).catch(() => undefined);
+              continue;
+            }
+
             update(key, { state: 'READY', fileObjectId, detail: null });
             added.push(fileObjectId);
             onChange([...value, ...added]);
