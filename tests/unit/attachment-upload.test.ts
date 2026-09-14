@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  pollScanStatus,
   preflightUpload,
   resolveContentType,
   sanitizeFilename,
+  type ScanSnapshot,
 } from '../../apps/web/src/features/composer/attachment-upload.js';
 
 describe('sanitizeFilename', () => {
@@ -81,5 +83,58 @@ describe('preflightUpload', () => {
   it('rejects an empty file', () => {
     const result = preflightUpload({ name: 'empty.jpg', type: 'image/jpeg', size: 0 });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('pollScanStatus', () => {
+  const noSleep = async (): Promise<void> => undefined;
+
+  it('returns as soon as the scan settles', async () => {
+    const snapshots: ScanSnapshot[] = [
+      { scanStatus: 'PENDING', scanDetail: null },
+      { scanStatus: 'SCANNING', scanDetail: null },
+      { scanStatus: 'CLEAN', scanDetail: null },
+    ];
+    let calls = 0;
+    const result = await pollScanStatus(
+      async () => snapshots[calls++] ?? snapshots[snapshots.length - 1]!,
+      { sleep: noSleep },
+    );
+    expect(result).toEqual({ scanStatus: 'CLEAN', scanDetail: null });
+    expect(calls).toBe(3);
+  });
+
+  it('returns a rejection verdict rather than treating it as unfinished', async () => {
+    const result = await pollScanStatus(
+      async () => ({ scanStatus: 'REJECTED', scanDetail: 'Not a decodable image' }),
+      { sleep: noSleep },
+    );
+    expect(result).toEqual({ scanStatus: 'REJECTED', scanDetail: 'Not a decodable image' });
+  });
+
+  // A worker that is not running must not hang the composer forever.
+  it('gives up after the attempt budget and reports no verdict', async () => {
+    let calls = 0;
+    const result = await pollScanStatus(
+      async () => {
+        calls++;
+        return { scanStatus: 'PENDING', scanDetail: null };
+      },
+      { attempts: 4, sleep: noSleep },
+    );
+    expect(result).toBeNull();
+    expect(calls).toBe(4);
+  });
+
+  it('backs off instead of polling at a fixed fast interval', async () => {
+    const waits: number[] = [];
+    await pollScanStatus(async () => ({ scanStatus: 'PENDING', scanDetail: null }), {
+      attempts: 4,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    expect(waits).toEqual([...waits].sort((a, b) => a - b));
+    expect(waits.at(-1)!).toBeGreaterThan(waits[0]!);
   });
 });

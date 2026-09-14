@@ -98,3 +98,47 @@ export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 }
+
+export type ScanState = 'PENDING' | 'SCANNING' | 'CLEAN' | 'REJECTED' | 'FAILED';
+
+export interface ScanSnapshot {
+  scanStatus: ScanState;
+  scanDetail: string | null;
+}
+
+export interface PollOptions {
+  attempts?: number;
+  delayMs?: (attempt: number) => number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const SETTLED: ReadonlySet<ScanState> = new Set<ScanState>(['CLEAN', 'REJECTED', 'FAILED']);
+
+const defaultSleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+/**
+ * Waits for the quarantine scan to reach a verdict.
+ *
+ * Returns `null` rather than throwing when the budget runs out, because "no
+ * verdict yet" is not an error — it is usually a worker that is not running in
+ * development, and the composer should say so instead of failing the upload.
+ */
+export async function pollScanStatus(
+  read: () => Promise<ScanSnapshot>,
+  options: PollOptions = {},
+): Promise<ScanSnapshot | null> {
+  const attempts = options.attempts ?? 20;
+  // 1s, 2s, 3s, capped at 5s: roughly a minute of patience in total.
+  const delayMs = options.delayMs ?? ((attempt: number) => Math.min(attempt * 1000, 5000));
+  const sleep = options.sleep ?? defaultSleep;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const snapshot = await read();
+    if (SETTLED.has(snapshot.scanStatus)) return snapshot;
+    if (attempt < attempts) await sleep(delayMs(attempt));
+  }
+  return null;
+}
