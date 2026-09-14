@@ -72,6 +72,13 @@ export function AttachmentPicker({
     itemsRef.current = items;
   }, [items]);
 
+  // Keys removed while their upload/scan was still in flight. An item can be
+  // removed from `items` before it has a `fileObjectId` to send a DELETE
+  // for, so `remove()` alone cannot stop a scan that later comes back CLEAN
+  // from attaching itself anyway — the async branch below checks this set
+  // before it POSTs the attachment or calls `onChange`.
+  const removedKeysRef = useRef<Set<string>>(new Set());
+
   // Object URLs created for instant previews are only revoked in `remove()`.
   // Two paths never call it: the component unmounting with items still
   // pending or ready, and an item that lands in FAILED via the
@@ -138,13 +145,28 @@ export function AttachmentPicker({
           if (!id) {
             update(key, {
               state: 'FAILED',
-              detail: 'Save the draft first, then add the photograph.',
+              // ensureChangeOrderId returns null whenever the draft save it
+              // depends on failed — offline, a lock/etag conflict, or any
+              // other API error. The composer already shows the specific
+              // reason in its own banner above, so this stays generic rather
+              // than guessing at a cause (e.g. "save the draft first") that
+              // may not be the real one.
+              detail:
+                'Could not save the draft, so this cannot be attached yet. See the message above.',
             });
             continue;
           }
 
           update(key, { state: 'CHECKING' });
           const { fileObjectId, scan } = await uploadAttachment(file, projectId);
+
+          if (removedKeysRef.current.has(key)) {
+            // The contractor removed this item while the upload/scan was
+            // still running. Whatever the scan verdict, never attach a
+            // photograph they already asked to take back.
+            removedKeysRef.current.delete(key);
+            continue;
+          }
 
           if (scan?.scanStatus === 'CLEAN') {
             await api(`/v1/change-orders/${id}/attachments`, {
@@ -178,6 +200,10 @@ export function AttachmentPicker({
 
   const remove = useCallback(
     async (item: PickedAttachment): Promise<void> => {
+      // Mark this before anything else: an upload/scan still in flight for
+      // this key (no fileObjectId yet, so no DELETE to send) must not
+      // attach itself once it resolves.
+      removedKeysRef.current.add(item.key);
       if (item.fileObjectId && changeOrderId) {
         await api(`/v1/change-orders/${changeOrderId}/attachments/${item.fileObjectId}`, {
           method: 'DELETE',

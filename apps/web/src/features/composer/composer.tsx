@@ -217,9 +217,11 @@ export function Composer({
    *
    * The composer creates the change order lazily on first autosave, so a
    * photograph chosen in the first few seconds has nothing to attach to yet.
-   * Returns null when offline, which is the one case where no id can exist:
-   * report §6.8 allows an offline draft edit and forbids anything needing the
-   * network.
+   * Delegates to `save`, so it returns null in every case `save` does: not
+   * just offline (report §6.8 allows an offline draft edit but forbids
+   * anything needing the network) but also a lock/etag conflict or any other
+   * API error — each of which `save` has already surfaced via `setConflict`
+   * or `setError` above this component's own banners.
    */
   const ensureChangeOrderId = useCallback(async (): Promise<string | null> => {
     if (changeOrderIdRef.current) return changeOrderIdRef.current;
@@ -409,19 +411,32 @@ export function Composer({
                 placeholder="Requested by the customer on site on 12 August"
               />
             </div>
-
-            <AttachmentPicker
-              projectId={projectId}
-              changeOrderId={changeOrderId}
-              ensureChangeOrderId={ensureChangeOrderId}
-              value={form.watch('attachmentIds')}
-              onChange={(ids) => form.setValue('attachmentIds', ids, { shouldDirty: true })}
-              onPendingChange={setPendingAttachments}
-              disabled={!online}
-              disabledReason="Photographs need a connection. You can keep typing — the draft is saved on this device."
-            />
           </section>
         ) : null}
+
+        {/*
+         * Deliberately mounted for the composer's whole lifetime, not just
+         * while step === 1: an upload/scan started here has to keep running
+         * while the contractor moves on to cost and schedule, and unmounting
+         * this component would freeze `pendingAttachments` at whatever count
+         * it last reported (its `onPendingChange` effect can never fire
+         * again), locking the send button forever with no way out except an
+         * undiscoverable trip back to step 1. `hidden` removes it from
+         * layout, the accessibility tree, and tab order without tearing down
+         * its state or in-flight requests.
+         */}
+        <div className="card stack" hidden={step !== 1}>
+          <AttachmentPicker
+            projectId={projectId}
+            changeOrderId={changeOrderId}
+            ensureChangeOrderId={ensureChangeOrderId}
+            value={form.watch('attachmentIds')}
+            onChange={(ids) => form.setValue('attachmentIds', ids, { shouldDirty: true })}
+            onPendingChange={setPendingAttachments}
+            disabled={!online}
+            disabledReason="Photographs need a connection. You can keep typing — the draft is saved on this device."
+          />
+        </div>
 
         {step === 2 ? (
           <section className="card">
