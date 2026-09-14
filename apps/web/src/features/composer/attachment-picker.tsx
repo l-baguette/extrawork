@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ALLOWED_UPLOAD_MIME_TYPES } from '@extrawork/contracts';
 import { api, ApiError } from '@/lib/api';
 import { preflightUpload } from './attachment-upload';
@@ -65,12 +65,41 @@ export function AttachmentPicker({
     );
   }, [items, onPendingChange]);
 
+  // Kept in sync so the unmount cleanup below can read whatever is current
+  // at unmount time rather than closing over a stale render's `items`.
+  const itemsRef = useRef<PickedAttachment[]>(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  // Object URLs created for instant previews are only revoked in `remove()`.
+  // Two paths never call it: the component unmounting with items still
+  // pending or ready, and an item that lands in FAILED via the
+  // pollScanStatus timeout branch and is never removed by hand. This catches
+  // both by revoking whatever previews are still held when the component
+  // goes away.
+  useEffect(() => {
+    return () => {
+      for (const item of itemsRef.current) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      }
+    };
+  }, []);
+
   const update = useCallback((key: string, patch: Partial<PickedAttachment>): void => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   }, []);
 
   const handleFiles = useCallback(
     async (files: FileList): Promise<void> => {
+      // `value` is captured once for this whole call. The loop below awaits
+      // a network round trip per file, so a later iteration cannot see a
+      // `value` the parent has not yet re-rendered with — reading it fresh
+      // each time would make iteration 2's onChange overwrite whatever
+      // iteration 1 already reported. Accumulate newly-ready ids locally
+      // instead, and always send the original `value` plus everything
+      // accumulated so far.
+      const added: string[] = [];
       for (const file of Array.from(files)) {
         const key = globalThis.crypto?.randomUUID?.() ?? `f-${Date.now()}-${Math.random()}`;
         const checked = preflightUpload(file);
@@ -123,7 +152,8 @@ export function AttachmentPicker({
               body: { fileObjectId },
             });
             update(key, { state: 'READY', fileObjectId, detail: null });
-            onChange([...value, fileObjectId]);
+            added.push(fileObjectId);
+            onChange([...value, ...added]);
           } else if (scan?.scanStatus === 'REJECTED') {
             update(key, {
               state: 'REJECTED',
