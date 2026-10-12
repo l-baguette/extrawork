@@ -37,6 +37,7 @@ import {
 import { metrics, METRIC } from '@extrawork/observability';
 import type { AuditEventInput } from '@extrawork/domain';
 import type { AppContext, PublicRequestContext } from '../context.js';
+import { NotificationService } from '../notifications/service.js';
 import { etagMatches, publicDecisionEtag } from '../change-orders/build-lines.js';
 
 /**
@@ -92,6 +93,13 @@ const DECLARATIONS: Record<DecisionType, string> = {
   APPROVE: APPROVAL_DECLARATION,
   DECLINE: DECLINE_DECLARATION,
   REQUEST_REVISION: REVISION_DECLARATION,
+};
+
+/** How the decision reads in a notification title. */
+const DECISION_HEADLINE: Record<DecisionType, string> = {
+  APPROVE: 'Approved',
+  DECLINE: 'Declined',
+  REQUEST_REVISION: 'Change requested',
 };
 
 export class DecisionService {
@@ -376,6 +384,19 @@ export class DecisionService {
         this.repos.organizations.findById(tenant),
         this.repos.changeOrders.requireChangeOrder(tx.db, tenant, version.changeOrderId),
       ]);
+
+      // Spec 2026-10-12: everyone on the project hears about the homeowner's
+      // decision, inside the decision transaction so the two commit together.
+      await new NotificationService(this.app).notifyProject(tx, tenant, {
+        projectId: version.projectId,
+        audience: 'EVERYONE',
+        kind: 'DECISION_RECORDED',
+        title: `${DECISION_HEADLINE[command.input.type]}: ${changeOrder.number}`,
+        body: `${version.title} · ${project.title}`,
+        linkPath: `/app/changes/${version.changeOrderId}`,
+        actorLabel: `${decision.signerName} (homeowner)`,
+        dedupeKey: `decision:${decision.id}`,
+      });
 
       const copy = assuranceCopy(session.assuranceAchieved);
       const receipt: DecisionReceipt = {

@@ -6,7 +6,7 @@ import {
   TERMS_VERSION,
   type SendChangeOrderInput,
 } from '@extrawork/contracts';
-import { enqueueJob, publishOutbox } from '@extrawork/db';
+import { enqueueJob, isAwaitingReview, publishOutbox } from '@extrawork/db';
 import {
   assertQuota,
   assertTransition,
@@ -31,6 +31,7 @@ import {
   DEFAULT_REMINDER_POLICY,
 } from '@extrawork/domain';
 import type { AppContext, RequestContext } from '../context.js';
+import { NotificationService } from '../notifications/service.js';
 
 /**
  * Send — report §4.2, §4.4, §8.3, §10.3.
@@ -222,6 +223,9 @@ export class SendService {
           title: version.title,
           description: version.scopeDescription,
           reason: version.reason,
+          // Spec D9: terms, frozen only when present so older digests hold.
+          room: version.room,
+          workCategory: version.workCategory,
         },
         commercial: {
           currency: version.currency,
@@ -279,6 +283,16 @@ export class SendService {
         timezone: project.timezone,
         note: input.messageNote ?? null,
       });
+
+      // Spec D4: sending a proposal is the designer's review of it. Stamped
+      // while the row is still a draft, in the same transaction as the send.
+      const reviewedProposal = isAwaitingReview(version);
+      if (reviewedProposal) {
+        await this.app.repos.changeOrders.markReviewed(tx, ctx.tenant, version.id, {
+          reviewedByUserId: ctx.actor.userId,
+          at: now,
+        });
+      }
 
       const frozenVersion = await this.app.repos.changeOrders.freezeAndSend(
         tx,
@@ -384,6 +398,26 @@ export class SendService {
           },
         },
       ]);
+
+      if (
+        reviewedProposal &&
+        version.submittedByUserId &&
+        version.submittedByUserId !== ctx.actor.userId
+      ) {
+        await new NotificationService(this.app).notifyUsers(
+          tx,
+          ctx.tenant,
+          [version.submittedByUserId],
+          {
+            kind: 'REQUEST_SENT',
+            title: `Sent to the homeowner: ${changeOrder.number}`,
+            body: `${version.title} · ${project.title}`,
+            linkPath: `/app/changes/${changeOrder.id}`,
+            projectId: project.id,
+            dedupeKey: `request-sent:${frozenVersion.id}`,
+          },
+        );
+      }
 
       // Committed with the domain change; the worker acts on it afterwards
       // (report §13.2). The payload carries no token.

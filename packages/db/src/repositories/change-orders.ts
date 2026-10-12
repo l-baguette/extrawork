@@ -3,7 +3,9 @@ import {
   AppError,
   type AssuranceLevel,
   type ChangeType,
+  type RequestOrigin,
   type VersionStatus,
+  type WorkCategory,
 } from '@extrawork/contracts';
 import type { TenantContext } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
@@ -61,6 +63,9 @@ export interface VersionRow {
   title: string;
   scopeDescription: string;
   reason: string | null;
+  /** Terms since migration 0021 (spec D9): frozen with the rest of the scope. */
+  room: string | null;
+  workCategory: WorkCategory | null;
   scheduleDeltaDays: number;
   revisedCompletionDate: string | null;
   approverContactId: string;
@@ -84,6 +89,48 @@ export interface VersionRow {
   createdAt: Date;
   updatedAt: Date;
   lockVersion: number;
+  /**
+   * Provenance and bookkeeping (migration 0021). Outside the snapshot and the
+   * freeze guard: who raised it and whether the designer reviewed it, and the
+   * Tier 1 B invoiced mark, never change what the homeowner agreed to.
+   */
+  origin: RequestOrigin;
+  raisedByEmployeeId: string | null;
+  submittedForReviewAt: Date | null;
+  submittedByUserId: string | null;
+  submittedByContactId: string | null;
+  submissionNote: string | null;
+  reviewedAt: Date | null;
+  reviewedByUserId: string | null;
+  invoicedAt: Date | null;
+  invoiceReference: string | null;
+  invoicedByUserId: string | null;
+}
+
+/** Spec D4: a DRAFT handed to the designer and not yet reviewed. */
+export function isAwaitingReview(
+  version: Pick<VersionRow, 'status' | 'submittedForReviewAt' | 'reviewedAt'>,
+): boolean {
+  return (
+    version.status === 'DRAFT' &&
+    version.submittedForReviewAt !== null &&
+    version.reviewedAt === null
+  );
+}
+
+/**
+ * Provenance written with a version (spec D4). A proposal sets `submittedAt`,
+ * which is what puts it in front of the designer; a revision carries the
+ * original raiser forward with `submittedAt` null, so the record keeps saying
+ * who asked for the change without the revision re-entering the review queue.
+ */
+export interface ProposalProvenanceWrite {
+  origin: RequestOrigin;
+  raisedByEmployeeId: string | null;
+  submittedByUserId: string | null;
+  submittedByContactId: string | null;
+  submissionNote: string | null;
+  submittedAt: Date | null;
 }
 
 export interface ChangeOrderRow {
@@ -125,6 +172,8 @@ export class ChangeOrderRepository {
       title: string;
       scope: string;
       reason: string | null;
+      room?: string | null;
+      workCategory?: WorkCategory | null;
       scheduleDeltaDays: number;
       revisedCompletionDate: string | null;
       approverContactId: string;
@@ -135,6 +184,8 @@ export class ChangeOrderRepository {
       totalDeltaMinor: bigint;
       expiresAt: Date | null;
       lineItems: LineItemWrite[];
+      /** A proposal raised for review (spec D4); absent for the designer's own drafts. */
+      proposal?: ProposalProvenanceWrite | null;
     },
   ): Promise<{ changeOrder: ChangeOrderRow; version: VersionRow }> {
     const changeOrderId = newId();
@@ -179,6 +230,8 @@ export class ChangeOrderRepository {
       title: string;
       scope: string;
       reason: string | null;
+      room?: string | null;
+      workCategory?: WorkCategory | null;
       scheduleDeltaDays: number;
       revisedCompletionDate: string | null;
       approverContactId: string;
@@ -200,6 +253,14 @@ export class ChangeOrderRepository {
       projectId: previous.projectId,
       versionNumber: previous.versionNumber + 1,
       ...input,
+      proposal: {
+        origin: previous.origin,
+        raisedByEmployeeId: previous.raisedByEmployeeId,
+        submittedByUserId: previous.submittedByUserId,
+        submittedByContactId: previous.submittedByContactId,
+        submissionNote: null,
+        submittedAt: null,
+      },
     });
 
     await this.replaceLineItems(tx, ctx, versionId, input.lineItems);
@@ -270,6 +331,8 @@ export class ChangeOrderRepository {
       title: string;
       scope: string;
       reason: string | null;
+      room?: string | null;
+      workCategory?: WorkCategory | null;
       scheduleDeltaDays: number;
       revisedCompletionDate: string | null;
       approverContactId: string;
@@ -279,26 +342,37 @@ export class ChangeOrderRepository {
       taxDeltaMinor: bigint;
       totalDeltaMinor: bigint;
       expiresAt: Date | null;
+      proposal?: ProposalProvenanceWrite | null;
     },
   ): Promise<void> {
+    const proposal = input.proposal ?? null;
     await tx.db.execute(sql`
       INSERT INTO change_order_versions (
         id, organization_id, change_order_id, project_id, version_number, status, type,
-        title, scope_description, reason, schedule_delta_days, revised_completion_date,
+        title, scope_description, reason, room, work_category,
+        schedule_delta_days, revised_completion_date,
         approver_contact_id, assurance_required, currency,
         subtotal_delta_minor, tax_delta_minor, total_delta_minor,
-        expires_at, created_by_user_id
+        expires_at, created_by_user_id,
+        origin, raised_by_employee_id, submitted_for_review_at, submitted_by_user_id,
+        submitted_by_contact_id, submission_note
       ) VALUES (
         ${input.id}::uuid, ${ctx.organizationId}::uuid, ${input.changeOrderId}::uuid,
         ${input.projectId}::uuid, ${input.versionNumber}, 'DRAFT', ${input.type}::change_type,
-        ${input.title}, ${input.scope}, ${input.reason}, ${input.scheduleDeltaDays},
+        ${input.title}, ${input.scope}, ${input.reason}, ${input.room ?? null},
+        ${input.workCategory ?? null}, ${input.scheduleDeltaDays},
         ${input.revisedCompletionDate}::date, ${input.approverContactId}::uuid,
         ${input.assuranceRequired}::assurance_level, ${input.currency},
         ${input.subtotalDeltaMinor.toString()}::bigint,
         ${input.taxDeltaMinor.toString()}::bigint,
         ${input.totalDeltaMinor.toString()}::bigint,
         ${input.expiresAt?.toISOString() ?? null}::timestamptz,
-        ${ctx.userId}::uuid
+        ${ctx.userId}::uuid,
+        ${proposal?.origin ?? 'WEB'}, ${proposal?.raisedByEmployeeId ?? null}::uuid,
+        ${proposal?.submittedAt?.toISOString() ?? null}::timestamptz,
+        ${proposal?.submittedByUserId ?? null}::uuid,
+        ${proposal?.submittedByContactId ?? null}::uuid,
+        ${proposal?.submissionNote ?? null}
       )
     `);
   }
@@ -320,6 +394,8 @@ export class ChangeOrderRepository {
       title: string;
       scope: string;
       reason: string | null;
+      room: string | null;
+      workCategory: WorkCategory | null;
       scheduleDeltaDays: number;
       revisedCompletionDate: string | null;
       approverContactId: string;
@@ -337,6 +413,8 @@ export class ChangeOrderRepository {
         title = ${input.title},
         scope_description = ${input.scope},
         reason = ${input.reason},
+        room = ${input.room},
+        work_category = ${input.workCategory},
         schedule_delta_days = ${input.scheduleDeltaDays},
         revised_completion_date = ${input.revisedCompletionDate}::date,
         approver_contact_id = ${input.approverContactId}::uuid,
@@ -845,6 +923,101 @@ export class ChangeOrderRepository {
     return row ? { origin: row.origin, raisedByEmployeeId: row.raised_by_employee_id } : null;
   }
 
+  // --- Designer review (spec 2026-10-12, D4) ---------------------------------
+
+  /**
+   * Stamps that the designer has dealt with a proposal — by sending it or by
+   * dismissing it. Only ever moves an unreviewed submission to reviewed, so a
+   * second call (or a send of an ordinary draft) changes nothing and says so.
+   */
+  async markReviewed(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    versionId: string,
+    input: { reviewedByUserId: string | null; at: Date },
+  ): Promise<boolean> {
+    const result = await tx.db.execute<{ id: string }>(sql`
+      UPDATE change_order_versions
+         SET reviewed_at = ${input.at.toISOString()}::timestamptz,
+             reviewed_by_user_id = ${input.reviewedByUserId}::uuid
+       WHERE id = ${versionId}::uuid
+         AND organization_id = ${ctx.organizationId}::uuid
+         AND submitted_for_review_at IS NOT NULL
+         AND reviewed_at IS NULL
+       RETURNING id
+    `);
+    return Boolean(result.rows[0]);
+  }
+
+  /**
+   * Display label for whoever raised a version, when that was not the
+   * designer: "Ramesh · Kumar Constructions", "Priya Sharma (homeowner)".
+   */
+  async findSubmitterLabel(
+    db: Database,
+    ctx: TenantContext,
+    versionId: string,
+  ): Promise<string | null> {
+    const result = await db.execute<{ label: string | null }>(sql`
+      SELECT ${SUBMITTER_LABEL} AS label
+      FROM change_order_versions v
+      WHERE v.id = ${versionId}::uuid AND v.organization_id = ${ctx.organizationId}::uuid
+    `);
+    return result.rows[0]?.label ?? null;
+  }
+
+  // --- Invoiced mark (Tier 1 B) ---------------------------------------------
+
+  /**
+   * Marks an approved version as billed. Bookkeeping, not terms: the columns
+   * sit outside the freeze guard (migration 0021), and the CHECK there refuses
+   * a mark on anything but APPROVED as a second line behind the service.
+   */
+  async setInvoiced(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    versionId: string,
+    input: { invoicedByUserId: string | null; invoiceReference: string | null; at: Date },
+  ): Promise<VersionRow> {
+    const result = await tx.db.execute<{ id: string }>(sql`
+      UPDATE change_order_versions
+         SET invoiced_at = ${input.at.toISOString()}::timestamptz,
+             invoice_reference = ${input.invoiceReference},
+             invoiced_by_user_id = ${input.invoicedByUserId}::uuid
+       WHERE id = ${versionId}::uuid
+         AND organization_id = ${ctx.organizationId}::uuid
+         AND status = 'APPROVED'
+       RETURNING id
+    `);
+    if (!result.rows[0]) {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'Only an approved change can be marked as invoiced.',
+      });
+    }
+    return this.requireVersion(tx.db, ctx, versionId);
+  }
+
+  async clearInvoiced(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    versionId: string,
+  ): Promise<VersionRow> {
+    const result = await tx.db.execute<{ id: string }>(sql`
+      UPDATE change_order_versions
+         SET invoiced_at = NULL, invoice_reference = NULL, invoiced_by_user_id = NULL
+       WHERE id = ${versionId}::uuid
+         AND organization_id = ${ctx.organizationId}::uuid
+         AND status = 'APPROVED'
+       RETURNING id
+    `);
+    if (!result.rows[0]) {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'Only an approved change carries an invoiced mark.',
+      });
+    }
+    return this.requireVersion(tx.db, ctx, versionId);
+  }
+
   // --- Listing -------------------------------------------------------------
 
   async listSummaries(
@@ -855,6 +1028,8 @@ export class ChangeOrderRepository {
       status?: VersionStatus;
       bucket?: 'PENDING' | 'DECIDED' | 'EXPIRING' | 'DRAFT' | 'REVIEW' | 'UNBILLED';
       workCategory?: string;
+      /** Only requests this user raised for review (a collaborator's own list). */
+      raisedByUserId?: string;
       query?: string;
       cursor?: string;
       limit: number;
@@ -897,10 +1072,7 @@ export class ChangeOrderRepository {
       : sql``;
 
     const result = await this.db.execute<ChangeOrderSummaryRecord>(sql`
-      SELECT co.id, co.project_id, p.title AS project_title, cu.display_name AS customer_name,
-             co.number, v.title, co.type, v.status, v.version_number,
-             v.total_delta_minor, v.currency, v.schedule_delta_days,
-             v.sent_at, v.decided_at, v.expires_at, v.updated_at
+      SELECT ${SUMMARY_COLUMNS}
       FROM change_orders co
       JOIN change_order_versions v ON v.id = co.current_version_id
       JOIN projects p ON p.id = co.project_id
@@ -912,6 +1084,7 @@ export class ChangeOrderRepository {
         ${options.workCategory ? sql`AND v.work_category = ${options.workCategory}` : sql``}
         ${bucketFilter}
         ${grantFilter}
+        ${options.raisedByUserId ? sql`AND v.submitted_by_user_id = ${options.raisedByUserId}::uuid` : sql``}
         ${
           term
             ? sql`AND (co.search_document @@ plainto_tsquery('simple', extrawork_unaccent(lower(${term})))
@@ -1016,7 +1189,61 @@ export interface ChangeOrderSummaryRow {
   decidedAt: Date | null;
   expiresAt: Date | null;
   updatedAt: Date;
+  room: string | null;
+  workCategory: WorkCategory | null;
+  projectNumber: string;
+  origin: RequestOrigin;
+  awaitingReview: boolean;
+  submittedByLabel: string | null;
+  invoicedAt: Date | null;
 }
+
+/**
+ * Who raised a version, as the designer reads it (spec D4), or NULL when the
+ * designer's own firm raised it. Evaluated against an alias `v` of
+ * change_order_versions. Every lookup is pinned to the version's organization,
+ * so a label can never be read across tenants even where RLS is inert.
+ *
+ * A site-team member (paste-to-draft, WhatsApp) wins over the user who typed
+ * it in, because they are who asked for the work.
+ */
+const SUBMITTER_LABEL = sql`
+  CASE
+    WHEN v.raised_by_employee_id IS NOT NULL THEN (
+      SELECT e.name || COALESCE(' · ' || NULLIF(btrim(e.company_name), ''), '')
+      FROM employees e
+      WHERE e.id = v.raised_by_employee_id AND e.organization_id = v.organization_id
+    )
+    WHEN v.submitted_by_contact_id IS NOT NULL THEN (
+      SELECT c.name || ' (homeowner)'
+      FROM contacts c
+      WHERE c.id = v.submitted_by_contact_id AND c.organization_id = v.organization_id
+    )
+    WHEN v.submitted_by_user_id IS NOT NULL THEN (
+      SELECT u.display_name ||
+             CASE WHEN m.role = 'COLLABORATOR'
+                  THEN COALESCE(' · ' || NULLIF(btrim(m.company_name), ''), '')
+                  ELSE '' END
+      FROM users u
+      JOIN memberships m ON m.user_id = u.id AND m.organization_id = v.organization_id
+      WHERE u.id = v.submitted_by_user_id
+        AND m.role NOT IN ('OWNER','ADMIN','PROJECT_MANAGER')
+    )
+    ELSE NULL
+  END
+`;
+
+const SUMMARY_COLUMNS = sql`
+  co.id, co.project_id, p.title AS project_title, cu.display_name AS customer_name,
+  co.number, v.title, co.type, v.status, v.version_number,
+  v.total_delta_minor, v.currency, v.schedule_delta_days,
+  v.sent_at, v.decided_at, v.expires_at, v.updated_at,
+  v.room, v.work_category, p.project_number, v.origin,
+  (v.status = 'DRAFT' AND v.submitted_for_review_at IS NOT NULL AND v.reviewed_at IS NULL)
+    AS awaiting_review,
+  ${SUBMITTER_LABEL} AS submitted_by_label,
+  v.invoiced_at
+`;
 
 const VERSION_COLUMNS = sql`
   id, organization_id, change_order_id, project_id, version_number, status, type,
@@ -1025,7 +1252,10 @@ const VERSION_COLUMNS = sql`
   tax_delta_minor, total_delta_minor, baseline_total_minor, prior_approved_delta_minor,
   revised_contract_total_minor, canonical_snapshot, canonical_sha256,
   canonicalizer_version, terms_version, sent_at, viewed_at, decided_at, expires_at,
-  superseded_by_version_id, created_at, updated_at, lock_version
+  superseded_by_version_id, created_at, updated_at, lock_version,
+  room, work_category, origin, raised_by_employee_id, submitted_for_review_at,
+  submitted_by_user_id, submitted_by_contact_id, submission_note, reviewed_at,
+  reviewed_by_user_id, invoiced_at, invoice_reference, invoiced_by_user_id
 `;
 
 type VersionRecord = {
@@ -1062,6 +1292,19 @@ type VersionRecord = {
   created_at: Date;
   updated_at: Date;
   lock_version: number;
+  room: string | null;
+  work_category: WorkCategory | null;
+  origin: RequestOrigin;
+  raised_by_employee_id: string | null;
+  submitted_for_review_at: Date | null;
+  submitted_by_user_id: string | null;
+  submitted_by_contact_id: string | null;
+  submission_note: string | null;
+  reviewed_at: Date | null;
+  reviewed_by_user_id: string | null;
+  invoiced_at: Date | null;
+  invoice_reference: string | null;
+  invoiced_by_user_id: string | null;
 };
 
 function mapVersion(row: VersionRecord): VersionRow {
@@ -1076,6 +1319,8 @@ function mapVersion(row: VersionRecord): VersionRow {
     title: row.title,
     scopeDescription: row.scope_description,
     reason: row.reason,
+    room: row.room,
+    workCategory: row.work_category,
     scheduleDeltaDays: row.schedule_delta_days,
     revisedCompletionDate: row.revised_completion_date,
     approverContactId: row.approver_contact_id,
@@ -1101,6 +1346,17 @@ function mapVersion(row: VersionRecord): VersionRow {
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),
     lockVersion: row.lock_version,
+    origin: row.origin,
+    raisedByEmployeeId: row.raised_by_employee_id,
+    submittedForReviewAt: toDateOrNull(row.submitted_for_review_at),
+    submittedByUserId: row.submitted_by_user_id,
+    submittedByContactId: row.submitted_by_contact_id,
+    submissionNote: row.submission_note,
+    reviewedAt: toDateOrNull(row.reviewed_at),
+    reviewedByUserId: row.reviewed_by_user_id,
+    invoicedAt: toDateOrNull(row.invoiced_at),
+    invoiceReference: row.invoice_reference,
+    invoicedByUserId: row.invoiced_by_user_id,
   };
 }
 
@@ -1147,6 +1403,13 @@ type ChangeOrderSummaryRecord = {
   decided_at: Date | null;
   expires_at: Date | null;
   updated_at: Date;
+  room: string | null;
+  work_category: WorkCategory | null;
+  project_number: string;
+  origin: RequestOrigin;
+  awaiting_review: boolean;
+  submitted_by_label: string | null;
+  invoiced_at: Date | null;
 };
 
 function mapSummary(row: ChangeOrderSummaryRecord): ChangeOrderSummaryRow {
@@ -1167,6 +1430,13 @@ function mapSummary(row: ChangeOrderSummaryRecord): ChangeOrderSummaryRow {
     decidedAt: toDateOrNull(row.decided_at),
     expiresAt: toDateOrNull(row.expires_at),
     updatedAt: toDate(row.updated_at),
+    room: row.room,
+    workCategory: row.work_category,
+    projectNumber: row.project_number,
+    origin: row.origin,
+    awaitingReview: row.awaiting_review,
+    submittedByLabel: row.submitted_by_label,
+    invoicedAt: toDateOrNull(row.invoiced_at),
   };
 }
 

@@ -3,6 +3,7 @@ import {
   DOMAIN_EVENTS,
   type BaselineAmendmentInput,
   type CreateCustomerInput,
+  type ContractHistoryDto,
   type CreateProjectInput,
 } from '@extrawork/contracts';
 import { allocateNumber, type CustomerRow, type ProjectRow } from '@extrawork/db';
@@ -140,6 +141,7 @@ export class ProjectService {
         customerId: input.customerId,
         projectNumber: number.formatted,
         title: input.title,
+        description: input.description?.trim() || null,
         siteAddress: input.siteAddress ?? null,
         currency: input.currency,
         timezone: input.timezone,
@@ -304,6 +306,102 @@ export class ProjectService {
     });
   }
 
+  /**
+   * Reopens a closed project — a snag list after handover, a phase two. The
+   * same right that closes a project reopens it (`project:close`), so the
+   * designer who closed it by mistake can undo it without asking the owner.
+   */
+  async reopenProject(
+    ctx: RequestContext,
+    projectId: string,
+    reason: string | null,
+  ): Promise<void> {
+    const project = await this.app.repos.projects.requireById(ctx.tenant, projectId);
+    authorize(ctx.actor, 'project:close', { organizationId: project.organizationId, projectId });
+    if (project.status !== 'CLOSED') {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'Only a closed project can be reopened.',
+        details: { currentStatus: project.status },
+      });
+    }
+
+    await this.app.uow.transaction(async (tx) => {
+      const reopened = await this.app.repos.projects.reopen(tx, ctx.tenant, projectId);
+      if (!reopened) {
+        throw new AppError('INVALID_STATE_TRANSITION', {
+          message: 'This project is no longer closed.',
+        });
+      }
+      await this.app.repos.audit.append(tx, ctx.tenant, [
+        {
+          aggregateType: 'project',
+          aggregateId: projectId,
+          projectId,
+          eventType: DOMAIN_EVENTS.PROJECT_REOPENED,
+          actorType: 'USER',
+          actorId: ctx.actor.userId,
+          occurredAt: this.app.clock.now(),
+          payload: { reason, closedAt: project.closedAt?.toISOString() ?? null },
+        },
+      ]);
+    });
+  }
+
+  /**
+   * The contract value over time: the original baseline, each audited
+   * amendment, and each approved change in the order it was decided, with the
+   * running total after each. A deduction carries its negative delta, so the
+   * running total always ends at the project's revised total.
+   */
+  async contractHistory(ctx: RequestContext, projectId: string): Promise<ContractHistoryDto> {
+    const project = await this.app.repos.projects.requireById(ctx.tenant, projectId);
+    authorize(ctx.actor, 'project:read', { organizationId: project.organizationId, projectId });
+
+    const sources = await this.app.repos.projects.contractHistorySources(ctx.tenant, projectId);
+    // Stable by time; on a tie the baseline row comes first, because an
+    // amendment and a decision in the same instant cannot have been ordered
+    // the other way by the person who recorded the amendment.
+    const ordered = sources
+      .map((source, index) => ({ source, index }))
+      .sort(
+        (a, b) =>
+          a.source.occurredAt.getTime() - b.source.occurredAt.getTime() ||
+          kindRank(a.source.kind) - kindRank(b.source.kind) ||
+          a.index - b.index,
+      )
+      .map((entry) => entry.source);
+
+    let baseline = 0n;
+    let approved = 0n;
+    const entries = ordered.map((source) => {
+      let delta: bigint;
+      if (source.kind === 'APPROVED_CHANGE') {
+        delta = source.amountMinor;
+        approved += delta;
+      } else {
+        delta = source.amountMinor - baseline;
+        baseline = source.amountMinor;
+      }
+      return {
+        kind: source.kind,
+        occurredAt: source.occurredAt.toISOString(),
+        label: source.label,
+        deltaMinor: Number(delta),
+        runningTotalMinor: Number(baseline + approved),
+        scheduleDeltaDays: source.scheduleDeltaDays,
+        changeOrderId: source.changeOrderId,
+        number: source.number,
+        reason: source.reason,
+      };
+    });
+
+    return {
+      currency: project.currency,
+      entries,
+      currentTotalMinor: Number(project.revisedTotalMinor),
+    };
+  }
+
   /** Read used by the project workspace, including the pending-delta preview. */
   async projectTotals(
     tenant: TenantContext,
@@ -318,4 +416,8 @@ export class ProjectService {
     const pending = await this.app.repos.projects.pendingTotals(tenant, projectId);
     return { project, ...pending };
   }
+}
+
+function kindRank(kind: 'BASELINE' | 'BASELINE_AMENDMENT' | 'APPROVED_CHANGE'): number {
+  return kind === 'APPROVED_CHANGE' ? 1 : 0;
 }
