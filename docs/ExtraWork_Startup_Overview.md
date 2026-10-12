@@ -1,5 +1,7 @@
 # ExtraWork — Startup Brief
 
+> Superseded in part by `ExtraWork_Product_Brief_v3.md` (October 2026): the primary user is now the designer or architect; see that document.
+
 _September 2026. Sources: ExtraWork PRD v2.0, Technical Design Report v2.0, August 2026 engineering handoffs._
 
 ## 1. What it is
