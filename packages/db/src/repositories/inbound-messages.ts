@@ -32,12 +32,20 @@ export type InboundStatus =
   | 'REJECTED_NOT_AUTHORIZED'
   | 'REJECTED_UNPARSEABLE'
   | 'REJECTED_POLICY'
-  | 'ACCEPTED';
+  | 'ACCEPTED'
+  // Migration 0023.
+  | 'SAVED'
+  | 'AWAITING_CHOICE'
+  | 'ANSWERED';
 
 export interface InboundMessageRow {
   id: string;
   organizationId: string | null;
   employeeId: string | null;
+  /** Migration 0023: the customer contact who sent it, when not site team. */
+  contactId: string | null;
+  /** Migration 0023: the project document it was filed as. */
+  documentId: string | null;
   projectId: string | null;
   changeOrderId: string | null;
   provider: string;
@@ -56,6 +64,8 @@ export interface InboundMessageRow {
   employeeName: string | null;
   /** Present on tenant-scoped reads; null for unattributed/write projections. */
   projectTitle: string | null;
+  /** Present on tenant-scoped reads; null for unattributed/write projections. */
+  contactName: string | null;
 }
 
 export class InboundMessageRepository {
@@ -262,12 +272,15 @@ export class InboundMessageRepository {
 
   async findById(ctx: TenantContext, id: string): Promise<InboundMessageRow | null> {
     const result = await this.db.execute<InboundRecord>(sql`
-      SELECT ${INBOUND_COLUMNS_ALIASED}, e.name AS employee_name, p.title AS project_title
+      SELECT ${INBOUND_COLUMNS_ALIASED}, e.name AS employee_name, p.title AS project_title,
+             c.name AS contact_name
       FROM inbound_messages im
       LEFT JOIN employees e
         ON e.id = im.employee_id AND e.organization_id = im.organization_id
       LEFT JOIN projects p
         ON p.id = im.project_id AND p.organization_id = im.organization_id
+      LEFT JOIN contacts c
+        ON c.id = im.contact_id AND c.organization_id = im.organization_id
       WHERE im.id = ${id}::uuid AND im.organization_id = ${ctx.organizationId}::uuid
     `);
     const row = result.rows[0];
@@ -298,12 +311,15 @@ export class InboundMessageRepository {
     nextCursor: { receivedAt: string; id: string } | null;
   }> {
     const result = await this.db.execute<InboundRecord>(sql`
-      SELECT ${INBOUND_COLUMNS_ALIASED}, e.name AS employee_name, p.title AS project_title
+      SELECT ${INBOUND_COLUMNS_ALIASED}, e.name AS employee_name, p.title AS project_title,
+             c.name AS contact_name
       FROM inbound_messages im
       LEFT JOIN employees e
         ON e.id = im.employee_id AND e.organization_id = im.organization_id
       LEFT JOIN projects p
         ON p.id = im.project_id AND p.organization_id = im.organization_id
+      LEFT JOIN contacts c
+        ON c.id = im.contact_id AND c.organization_id = im.organization_id
       WHERE im.organization_id = ${ctx.organizationId}::uuid
         ${options.status ? sql`AND im.status = ${options.status}::inbound_status` : sql``}
         ${options.employeeId ? sql`AND im.employee_id = ${options.employeeId}::uuid` : sql``}
@@ -358,13 +374,14 @@ export class InboundMessageRepository {
 }
 
 const INBOUND_COLUMNS_BARE = sql`
-  id, organization_id, employee_id, project_id, change_order_id, provider,
+  id, organization_id, employee_id, contact_id, document_id, project_id, change_order_id, provider,
   provider_account_id, provider_message_id, from_phone_e164, body, media_count, status, parsed,
   rejection_reason, reply_text, received_at, processed_at
 `;
 
 const INBOUND_COLUMNS_ALIASED = sql`
-  im.id, im.organization_id, im.employee_id, im.project_id, im.change_order_id, im.provider,
+  im.id, im.organization_id, im.employee_id, im.contact_id, im.document_id, im.project_id,
+  im.change_order_id, im.provider,
   im.provider_account_id, im.provider_message_id, im.from_phone_e164, im.body, im.media_count,
   im.status, im.parsed,
   im.rejection_reason, im.reply_text, im.received_at, im.processed_at
@@ -374,6 +391,8 @@ type InboundRecord = {
   id: string;
   organization_id: string | null;
   employee_id: string | null;
+  contact_id: string | null;
+  document_id: string | null;
   project_id: string | null;
   change_order_id: string | null;
   provider: string;
@@ -390,6 +409,7 @@ type InboundRecord = {
   processed_at: Date | null;
   employee_name?: string | null;
   project_title?: string | null;
+  contact_name?: string | null;
 };
 
 function mapInbound(row: InboundRecord): InboundMessageRow {
@@ -397,6 +417,8 @@ function mapInbound(row: InboundRecord): InboundMessageRow {
     id: row.id,
     organizationId: row.organization_id,
     employeeId: row.employee_id,
+    contactId: row.contact_id,
+    documentId: row.document_id,
     projectId: row.project_id,
     changeOrderId: row.change_order_id,
     provider: row.provider,
@@ -413,5 +435,6 @@ function mapInbound(row: InboundRecord): InboundMessageRow {
     processedAt: toDateOrNull(row.processed_at),
     employeeName: row.employee_name ?? null,
     projectTitle: row.project_title ?? null,
+    contactName: row.contact_name ?? null,
   };
 }

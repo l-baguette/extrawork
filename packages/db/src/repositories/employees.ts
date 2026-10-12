@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { AppError } from '@extrawork/contracts';
+import { AppError, type TeamParty, type TeamRole } from '@extrawork/contracts';
 import type { TenantContext } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
 import { newId } from '../ids.js';
@@ -35,6 +35,10 @@ export interface EmployeeRow {
   allProjects: boolean;
   /** Per-request ceiling in minor units. Null means no ceiling. */
   maxRequestMinor: bigint | null;
+  /** Migration 0020: which firm they belong to, and what they do on site. */
+  party: TeamParty;
+  companyName: string | null;
+  teamRole: TeamRole;
   createdByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -59,6 +63,9 @@ export class EmployeeRepository {
       allProjects: boolean;
       maxRequestMinor: bigint | null;
       projectIds: string[];
+      party?: TeamParty;
+      companyName?: string | null;
+      teamRole?: TeamRole;
     },
   ): Promise<EmployeeWithAssignments> {
     const id = newId();
@@ -66,12 +73,14 @@ export class EmployeeRepository {
       await tx.db.execute(sql`
         INSERT INTO employees (
           id, organization_id, name, phone_e164, role_note,
-          all_projects, max_request_minor, created_by_user_id
+          all_projects, max_request_minor, created_by_user_id,
+          party, company_name, team_role
         ) VALUES (
           ${id}::uuid, ${ctx.organizationId}::uuid, ${input.name}, ${input.phoneE164},
           ${input.roleNote}, ${input.allProjects},
           ${input.maxRequestMinor === null ? null : input.maxRequestMinor.toString()}::bigint,
-          ${ctx.userId}::uuid
+          ${ctx.userId}::uuid,
+          ${input.party ?? 'INTERNAL'}, ${input.companyName ?? null}, ${input.teamRole ?? 'OTHER'}
         )
       `);
     } catch (error) {
@@ -166,6 +175,9 @@ export class EmployeeRepository {
       allProjects: boolean;
       maxRequestMinor: bigint | null;
       projectIds: string[];
+      party: TeamParty;
+      companyName: string | null;
+      teamRole: TeamRole;
     }>,
   ): Promise<EmployeeWithAssignments> {
     let result;
@@ -182,6 +194,11 @@ export class EmployeeRepository {
               ? sql`max_request_minor`
               : sql`${patch.maxRequestMinor === null ? null : patch.maxRequestMinor.toString()}::bigint`
           },
+          party = COALESCE(${patch.party ?? null}, party),
+          company_name = ${
+            patch.companyName === undefined ? sql`company_name` : sql`${patch.companyName}`
+          },
+          team_role = COALESCE(${patch.teamRole ?? null}, team_role),
           updated_at = now(),
           lock_version = lock_version + 1
         WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
@@ -296,6 +313,7 @@ function translateUniqueViolation(error: unknown): unknown {
 const EMPLOYEE_COLUMNS = sql`
   e.id, e.organization_id, e.name, e.phone_e164, e.role_note, e.status,
   e.all_projects, e.max_request_minor, e.created_by_user_id,
+  e.party, e.company_name, e.team_role,
   e.created_at, e.updated_at, e.lock_version
 `;
 
@@ -319,6 +337,9 @@ type EmployeeRecord = {
   all_projects: boolean;
   max_request_minor: string | null;
   created_by_user_id: string | null;
+  party: TeamParty;
+  company_name: string | null;
+  team_role: TeamRole;
   created_at: Date;
   updated_at: Date;
   lock_version: number;
@@ -335,6 +356,9 @@ function mapEmployee(row: EmployeeRecord): EmployeeRow {
     status: row.status,
     allProjects: row.all_projects,
     maxRequestMinor: toBigIntOrNull(row.max_request_minor),
+    party: row.party,
+    companyName: row.company_name,
+    teamRole: row.team_role,
     createdByUserId: row.created_by_user_id,
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),

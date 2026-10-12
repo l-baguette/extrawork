@@ -24,9 +24,10 @@ export async function registerOrganizationRoutes(app: FastifyInstance): Promise<
     const auth = await app.requireAuth(request, reply);
     authorize(auth.actor, 'organization:read', { organizationId: auth.actor.organizationId });
 
-    const [organization, entitlements] = await Promise.all([
+    const [organization, entitlements, storageUsed] = await Promise.all([
       app.repos.organizations.findById(auth.tenant),
       app.repos.organizations.resolveEntitlements(auth.tenant),
+      app.repos.organizations.storageUsedBytes(auth.tenant),
     ]);
     if (!organization) throw new AppError('NOT_FOUND');
 
@@ -45,6 +46,12 @@ export async function registerOrganizationRoutes(app: FastifyInstance): Promise<
       contactPhone: organization.contactPhone,
       contactEmail: organization.contactEmail,
       reminderPolicyHours: organization.reminderPolicyHours,
+      businessType: organization.businessType,
+      requestRouting: organization.requestRouting,
+      storage: {
+        quotaBytes: Number(organization.storageQuotaBytes),
+        usedBytes: Number(storageUsed),
+      },
       createdAt: organization.createdAt.toISOString(),
       subscription: {
         planCode: entitlements.subscription.planCode,

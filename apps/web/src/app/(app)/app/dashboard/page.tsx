@@ -93,9 +93,9 @@ export default async function DashboardPage() {
             note="From send to customer decision"
           />
           <Figure
-            label="Unbilled projects"
-            value={data.projectsWithUnbilledApprovedExtras}
-            note="Approved extras not yet invoiced"
+            label="Approved, not invoiced"
+            value={formatMoneyCompact(data.unbilledApprovedTotalMinor, data.currency)}
+            note={`${data.unbilledApprovedCount} change${data.unbilledApprovedCount === 1 ? '' : 's'} to bill`}
           />
         </div>
 

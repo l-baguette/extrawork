@@ -111,7 +111,17 @@ export interface OutboundMessage {
    * to the message they answer. Recording them twice would put the same fact in
    * two places that can disagree.
    */
-  purpose: 'REQUEST' | 'REMINDER' | 'DECISION_RECEIPT' | 'OTP' | 'INTAKE_REPLY';
+  purpose:
+    | 'REQUEST'
+    | 'REMINDER'
+    | 'DECISION_RECEIPT'
+    | 'OTP'
+    | 'INTAKE_REPLY'
+    // Spec 2026-10-12: in-app notification copies and collaborator invitations.
+    // Like INTAKE_REPLY, neither is a customer message, so neither is recorded
+    // in the `messages` ledger.
+    | 'NOTIFICATION'
+    | 'INVITATION';
   /** Provider idempotency key; the outbox event id (report §13.2). */
   idempotencyKey: string;
   organizationName: string;

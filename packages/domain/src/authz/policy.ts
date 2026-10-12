@@ -66,6 +66,29 @@ export const ACTIONS = [
   // Reporting
   'report:read',
   'report:export',
+  // --- Three-party workspace (spec 2026-10-12) ---
+  // Raise a request for the designer to review. Every role that may raise
+  // anything has it; only the designer roles may then edit, price, send or
+  // dismiss it ("only the designer makes actual changes").
+  'change_order:propose',
+  // Tier 1 B: mark an approved change as billed.
+  'change_order:invoice',
+  // Who is on a project, and inviting or removing people from other firms.
+  'collaborator:read',
+  'collaborator:invite',
+  'collaborator:remove',
+  // Project folders, files, links and notes.
+  'document:read',
+  'document:upload',
+  'document:manage',
+  // Timeline.
+  'milestone:read',
+  'milestone:manage',
+  'calendar:read',
+  // The homeowner portal link.
+  'portal:share',
+  // Personal inbox; every role has it.
+  'notification:read',
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -106,6 +129,18 @@ const ROLE_ACTIONS: Record<MembershipRole, ReadonlySet<Action>> = {
     'request_template:read',
     'inbound_message:read',
     'report:read',
+    'change_order:propose',
+    'collaborator:read',
+    'collaborator:invite',
+    'collaborator:remove',
+    'document:read',
+    'document:upload',
+    'document:manage',
+    'milestone:read',
+    'milestone:manage',
+    'calendar:read',
+    'portal:share',
+    'notification:read',
   ]),
   FINANCE: new Set<Action>([
     'organization:read',
@@ -121,6 +156,13 @@ const ROLE_ACTIONS: Record<MembershipRole, ReadonlySet<Action>> = {
     'inbound_message:read',
     'report:read',
     'report:export',
+    // Accounts marks approved changes as billed; it cannot change scope.
+    'change_order:invoice',
+    'collaborator:read',
+    'document:read',
+    'milestone:read',
+    'calendar:read',
+    'notification:read',
   ]),
   VIEWER: new Set<Action>([
     'organization:read',
@@ -133,11 +175,40 @@ const ROLE_ACTIONS: Record<MembershipRole, ReadonlySet<Action>> = {
     'request_template:read',
     'inbound_message:read',
     'report:read',
+    'collaborator:read',
+    'document:read',
+    'milestone:read',
+    'calendar:read',
+    'notification:read',
+  ]),
+  /**
+   * Someone from another firm, or the homeowner, on specific projects. They see
+   * a granted project, its requests and its shared folders; they can raise a
+   * request for review and add files. They cannot edit or send a request,
+   * manage folders, see the customer list, the site-team roster, reports, or
+   * anything organization-wide. Never in ORG_WIDE_ROLES.
+   *
+   * `organization:read` lets the shell show whose workspace this is.
+   */
+  COLLABORATOR: new Set<Action>([
+    'organization:read',
+    'project:read',
+    'change_order:read',
+    'change_order:read_evidence',
+    'change_order:propose',
+    'file:upload',
+    'file:read',
+    'collaborator:read',
+    'document:read',
+    'document:upload',
+    'milestone:read',
+    'calendar:read',
+    'notification:read',
   ]),
 };
 
 /** Roles that see every project without an explicit grant. */
-const ORG_WIDE_ROLES: ReadonlySet<MembershipRole> = new Set<MembershipRole>([
+export const ORG_WIDE_ROLES: ReadonlySet<MembershipRole> = new Set<MembershipRole>([
   'OWNER',
   'ADMIN',
   'FINANCE',
@@ -263,10 +334,29 @@ const READ_ONLY_SAFE_ACTIONS: ReadonlySet<Action> = new Set<Action>([
   'file:read',
   'report:read',
   'report:export',
+  'collaborator:read',
+  'document:read',
+  'milestone:read',
+  'calendar:read',
+  'notification:read',
 ]);
 
 export function assertWritableSubscription(action: Action, readOnly: boolean): void {
   if (!readOnly) return;
   if (READ_ONLY_SAFE_ACTIONS.has(action)) return;
   throw new AppError('SUBSCRIPTION_READ_ONLY', { details: { action } });
+}
+
+/**
+ * The roles that act for the designer's firm: they review proposals and are
+ * the audience for "something arrived on your project" notifications.
+ */
+export const DESIGNER_ROLES: ReadonlySet<MembershipRole> = new Set<MembershipRole>([
+  'OWNER',
+  'ADMIN',
+  'PROJECT_MANAGER',
+]);
+
+export function isDesignerRole(role: MembershipRole): boolean {
+  return DESIGNER_ROLES.has(role);
 }

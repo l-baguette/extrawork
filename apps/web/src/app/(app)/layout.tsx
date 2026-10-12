@@ -19,7 +19,12 @@ import { serverGet } from '@/lib/server-fetch';
 
 interface MeResponse {
   user: { id: string; email: string; displayName: string };
-  memberships: Array<{ organizationId: string; organizationName: string; role: string }>;
+  memberships: Array<{
+    organizationId: string;
+    organizationName: string;
+    role: string;
+    collaboratorParty: string | null;
+  }>;
   activeOrganizationId: string | null;
 }
 
@@ -53,6 +58,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     email: me.ok ? me.data.user.email : '',
     role: active?.role ?? null,
     organizationName: active?.organizationName ?? null,
+    activeOrganizationId: active?.organizationId ?? null,
+    workspaces: me.ok
+      ? me.data.memberships.map((m) => ({
+          organizationId: m.organizationId,
+          organizationName: m.organizationName,
+          role: m.role,
+        }))
+      : [],
   };
 
   return (

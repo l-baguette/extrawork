@@ -1,5 +1,11 @@
-import { ACCOUNT_DELETION_GRACE_DAYS, AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
 import {
+  ACCOUNT_DELETION_GRACE_DAYS,
+  AppError,
+  DOMAIN_EVENTS,
+  type BusinessType,
+} from '@extrawork/contracts';
+import {
+  DEFAULT_PLAN_CODE,
   assertUsablePassword,
   authorize,
   hashPassword,
@@ -502,6 +508,7 @@ export class AuthService {
       gstin: string | null;
       timezone: string;
       defaultCurrency: string;
+      businessType?: BusinessType | null;
     },
   ): Promise<{ organizationId: string }> {
     const user = await this.app.repos.identity.findUserById(userId);
@@ -516,7 +523,11 @@ export class AuthService {
         userId,
         role: 'OWNER',
       });
-      await this.app.repos.organizations.createTrialSubscription(tx, organization.id);
+      await this.app.repos.organizations.createInitialSubscription(
+        tx,
+        organization.id,
+        DEFAULT_PLAN_CODE,
+      );
 
       await this.app.repos.audit.append(tx, tenant, [
         {

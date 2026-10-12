@@ -11,6 +11,11 @@ import { GoogleOAuthProvider } from './identity/google-oauth.js';
 import { AuthService, type AuthProvider } from './identity/auth-service.js';
 import { LocalMagicLinkProvider, ManagedJwtProvider } from './identity/providers.js';
 import { ProjectService } from './projects/service.js';
+import { NotificationService } from './notifications/service.js';
+import { CollaborationService } from './collaboration/service.js';
+import { WorkspaceService } from './workspace/service.js';
+import { TimelineService } from './timeline/service.js';
+import { PortalService } from './portal/service.js';
 
 /** The use-case surface the API and worker consume. */
 export interface Services {
@@ -24,6 +29,12 @@ export interface Services {
   files: FileService;
   employees: EmployeeService;
   intake: IntakeService;
+  // Three-party workspace (spec 2026-10-12).
+  notifications: NotificationService;
+  collaboration: CollaborationService;
+  workspace: WorkspaceService;
+  timeline: TimelineService;
+  portal: PortalService;
   /** Null when GOOGLE_CLIENT_ID/SECRET are not configured. */
   google: GoogleOAuthProvider | null;
 }
@@ -63,6 +74,11 @@ export function createServices(app: AppContext): Services {
     files: new FileService(app),
     employees: new EmployeeService(app),
     intake: new IntakeService(app, changeOrders, send),
+    notifications: new NotificationService(app),
+    collaboration: new CollaborationService(app),
+    workspace: new WorkspaceService(app),
+    timeline: new TimelineService(app),
+    portal: new PortalService(app),
     google:
       app.env.GOOGLE_CLIENT_ID && app.env.GOOGLE_CLIENT_SECRET
         ? new GoogleOAuthProvider({

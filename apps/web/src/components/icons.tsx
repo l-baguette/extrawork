@@ -176,3 +176,85 @@ export function IconBuilding(props: IconProps) {
     </Svg>
   );
 }
+
+/** A calendar sheet — the timeline. */
+export function IconCalendar(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="2.25" y="3.25" width="11.5" height="10.5" />
+      <path d="M2.25 6.5h11.5M5.5 1.75v3M10.5 1.75v3M5 9h1.5M9.5 9H11M5 11.5h1.5" />
+    </Svg>
+  );
+}
+
+/** A tray with a notch — the inbox. */
+export function IconInbox(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.25 9.25V13.75h11.5V9.25M2.25 9.25 4 2.75h8l1.75 6.5M2.25 9.25h3.5l.75 1.75h3l.75-1.75h3.5" />
+    </Svg>
+  );
+}
+
+/** A folder — project files. */
+export function IconFolder(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.25 4.25v9.5h11.5v-7.5H7.5L6 4.25z" />
+    </Svg>
+  );
+}
+
+/** Two people side by side — collaborators. */
+export function IconPeople(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 7.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5ZM11.5 7.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5ZM1.5 13v-1.75L3 9.75h2l1.5 1.5V13M9 13v-1.75l1.5-1.5h2l1.5 1.5V13" />
+    </Svg>
+  );
+}
+
+/** A chain link — a linked folder. */
+export function IconLink(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6.75 9.25 9.25 6.75M5.5 7.5 3.75 9.25a2.12 2.12 0 0 0 3 3L8.5 10.5M10.5 8.5l1.75-1.75a2.12 2.12 0 0 0-3-3L7.5 5.5" />
+    </Svg>
+  );
+}
+
+/** A switch between two sheets — the workspace switcher. */
+export function IconSwap(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 5.5h9.5L10 3M13 10.5H3.5L6 13" />
+    </Svg>
+  );
+}
+
+/** A tick in a box — reviewed. */
+export function IconCheck(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m3.5 8.5 3 3 6-7" />
+    </Svg>
+  );
+}
+
+/** A page with a folded corner — a document or note. */
+export function IconDocument(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.25 1.75v12.5h9.5V5.25l-3.5-3.5zM9.25 1.75v3.5h3.5M5.5 8.5h5M5.5 11h5" />
+    </Svg>
+  );
+}
+
+/** An upward arrow out of a tray — upload. */
+export function IconUpload(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 10.5V2.5M4.75 5.5 8 2.25l3.25 3.25M2.25 10v3.75h11.5V10" />
+    </Svg>
+  );
+}

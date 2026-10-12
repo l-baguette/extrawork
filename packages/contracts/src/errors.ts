@@ -60,10 +60,26 @@ export const ERROR_CODES = {
   ATTACHMENT_NOT_READY: 409,
   ATTACHMENT_IMMUTABLE: 409,
   DUPLICATE_NUMBER: 409,
-  // A phone number identifies exactly one employee system-wide (migration 0005):
-  // an inbound message from a number registered twice cannot be attributed to a
-  // tenant, and guessing is the cross-tenant mistake §3.2 forbids.
+  // A phone number appears at most once on one organization's site team. Since
+  // migration 0020 the same number may be on several organizations' rosters;
+  // intake asks which project rather than guessing (spec 2026-10-12, D7).
   EMPLOYEE_PHONE_TAKEN: 409,
+  /** A proposal action on a version that is not awaiting the designer. */
+  NOT_AWAITING_REVIEW: 409,
+  FOLDER_NOT_FOUND: 404,
+  FOLDER_NOT_EMPTY: 409,
+  FOLDER_NAME_TAKEN: 409,
+  /** The default folders anchor WhatsApp filing; they can be renamed, not removed. */
+  FOLDER_PROTECTED: 409,
+  DOCUMENT_NOT_FOUND: 404,
+  MILESTONE_NOT_FOUND: 404,
+
+  // --- Collaboration -------------------------------------------------------
+  INVITATION_NOT_FOUND: 404,
+  INVITATION_EXPIRED: 410,
+  INVITATION_EMAIL_MISMATCH: 403,
+  ALREADY_COLLABORATING: 409,
+  PORTAL_LINK_INVALID: 404,
 
   // --- Assurance -----------------------------------------------------------
   ASSURANCE_REQUIRED: 403,
@@ -82,6 +98,7 @@ export const ERROR_CODES = {
   FILE_TOO_LARGE: 413,
   FILE_SCAN_FAILED: 422,
   FILE_CONTENT_MISMATCH: 422,
+  STORAGE_QUOTA_EXCEEDED: 507,
 
   // --- Throughput ----------------------------------------------------------
   RATE_LIMITED: 429,
@@ -147,7 +164,21 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   ATTACHMENT_IMMUTABLE:
     'Attachments cannot be removed after a version is sent. Create a revision instead.',
   DUPLICATE_NUMBER: 'That document number is already in use.',
-  EMPLOYEE_PHONE_TAKEN: 'That phone number is already registered to an employee.',
+  EMPLOYEE_PHONE_TAKEN: 'That phone number is already on your site team.',
+  NOT_AWAITING_REVIEW: 'This request is no longer waiting for review.',
+  FOLDER_NOT_FOUND: 'That folder could not be found.',
+  FOLDER_NOT_EMPTY: 'Move or remove the files in this folder before deleting it.',
+  FOLDER_NAME_TAKEN: 'This project already has a folder with that name.',
+  FOLDER_PROTECTED:
+    'This folder is one of the project defaults. You can rename it but not delete it.',
+  DOCUMENT_NOT_FOUND: 'That file could not be found.',
+  MILESTONE_NOT_FOUND: 'That milestone could not be found.',
+  INVITATION_NOT_FOUND: 'This invitation link is not valid. Ask for a new one.',
+  INVITATION_EXPIRED: 'This invitation has expired. Ask for a new one.',
+  INVITATION_EMAIL_MISMATCH:
+    'This invitation was sent to a different email address. Sign in with that address to accept it.',
+  ALREADY_COLLABORATING: 'That person already has access to this project.',
+  PORTAL_LINK_INVALID: 'This project link is not valid any more. Ask your designer for a new one.',
 
   ASSURANCE_REQUIRED: 'Additional verification is required before you can decide.',
   ASSURANCE_UNAVAILABLE: 'The required verification method is unavailable right now.',
@@ -164,6 +195,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   FILE_TOO_LARGE: 'That file is larger than the allowed limit.',
   FILE_SCAN_FAILED: 'That file did not pass the safety scan.',
   FILE_CONTENT_MISMATCH: 'The uploaded file does not match what was declared.',
+  STORAGE_QUOTA_EXCEEDED:
+    'This workspace has used all of its file storage. Remove old files or ask us for more space.',
 
   RATE_LIMITED: 'Too many requests. Please slow down and try again.',
 

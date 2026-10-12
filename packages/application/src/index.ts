@@ -14,3 +14,8 @@ export * from './intake/intake-service.js';
 export * from './files/service.js';
 export * from './evidence/build.js';
 export * from './services.js';
+export * from './notifications/service.js';
+export * from './collaboration/service.js';
+export * from './workspace/service.js';
+export * from './timeline/service.js';
+export * from './portal/service.js';

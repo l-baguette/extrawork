@@ -853,7 +853,8 @@ export class ChangeOrderRepository {
       projectId?: string;
       customerId?: string;
       status?: VersionStatus;
-      bucket?: 'PENDING' | 'DECIDED' | 'EXPIRING' | 'DRAFT';
+      bucket?: 'PENDING' | 'DECIDED' | 'EXPIRING' | 'DRAFT' | 'REVIEW' | 'UNBILLED';
+      workCategory?: string;
       query?: string;
       cursor?: string;
       limit: number;
@@ -872,7 +873,14 @@ export class ChangeOrderRepository {
         case 'EXPIRING':
           return sql`AND v.status IN ('SENT','VIEWED') AND v.expires_at < now() + interval '48 hours'`;
         case 'DRAFT':
-          return sql`AND v.status = 'DRAFT'`;
+          // A proposal waiting for the designer is its own bucket (spec D4).
+          return sql`AND v.status = 'DRAFT'
+                     AND NOT (v.submitted_for_review_at IS NOT NULL AND v.reviewed_at IS NULL)`;
+        case 'REVIEW':
+          return sql`AND v.status = 'DRAFT'
+                     AND v.submitted_for_review_at IS NOT NULL AND v.reviewed_at IS NULL`;
+        case 'UNBILLED':
+          return sql`AND v.status = 'APPROVED' AND v.invoiced_at IS NULL`;
         default:
           return sql``;
       }
@@ -901,6 +909,7 @@ export class ChangeOrderRepository {
         ${options.projectId ? sql`AND co.project_id = ${options.projectId}::uuid` : sql``}
         ${options.customerId ? sql`AND p.customer_id = ${options.customerId}::uuid` : sql``}
         ${options.status ? sql`AND v.status = ${options.status}::version_status` : sql``}
+        ${options.workCategory ? sql`AND v.work_category = ${options.workCategory}` : sql``}
         ${bucketFilter}
         ${grantFilter}
         ${

@@ -13,3 +13,8 @@ export * from './api/public-approval.js';
 export * from './api/files.js';
 export * from './api/reports.js';
 export * from './api/employees.js';
+export * from './api/collaboration.js';
+export * from './api/workspace.js';
+export * from './api/notifications.js';
+export * from './api/portal.js';
+export * from './api/intake.js';

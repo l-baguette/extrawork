@@ -8,9 +8,11 @@ import {
   LocalDateSchema,
   LongTextSchema,
   MediumTextSchema,
+  RoomSchema,
   ShortTextSchema,
   UuidSchema,
   VersionStatusSchema,
+  WorkCategorySchema,
 } from '../primitives.js';
 import {
   AttachmentSchema,
@@ -35,6 +37,8 @@ export const CreateChangeOrderSchema = z
     title: ShortTextSchema,
     scope: LongTextSchema,
     reason: MediumTextSchema.optional(),
+    room: RoomSchema.optional(),
+    workCategory: WorkCategorySchema.optional(),
     lineItems: z.array(LineItemInputSchema).max(100).default([]),
     scheduleDeltaDays: z.number().int().min(-365).max(365).default(0),
     approverContactId: UuidSchema,
@@ -58,6 +62,8 @@ export const UpdateDraftSchema = z
     title: ShortTextSchema,
     scope: LongTextSchema,
     reason: MediumTextSchema.nullable().optional(),
+    room: RoomSchema.nullable().optional(),
+    workCategory: WorkCategorySchema.nullable().optional(),
     lineItems: z.array(LineItemInputSchema).max(100),
     scheduleDeltaDays: z.number().int().min(-365).max(365),
     approverContactId: UuidSchema,
@@ -179,8 +185,13 @@ export const ListChangeOrdersQuerySchema = z.object({
   projectId: UuidSchema.optional(),
   customerId: UuidSchema.optional(),
   status: VersionStatusSchema.optional(),
-  /** Convenience buckets used by the dashboard cards. */
-  bucket: z.enum(['PENDING', 'DECIDED', 'EXPIRING', 'DRAFT']).optional(),
+  /**
+   * Convenience buckets used by the dashboard cards and the Requests tabs.
+   * REVIEW is a draft waiting for the designer (spec D4); DRAFT excludes those.
+   * UNBILLED is approved and not yet marked invoiced (Tier 1 B).
+   */
+  bucket: z.enum(['PENDING', 'DECIDED', 'EXPIRING', 'DRAFT', 'REVIEW', 'UNBILLED']).optional(),
+  workCategory: WorkCategorySchema.optional(),
   query: z.string().trim().max(200).optional(),
   cursor: CursorSchema.optional(),
   limit: LimitSchema,
@@ -223,3 +234,49 @@ export const ChangeOrderEventsSchema = z.object({
 export type ChangeOrderEventsDto = z.infer<typeof ChangeOrderEventsSchema>;
 
 export { AttachmentSchema, ChangeOrderSchema, ChangeOrderSummarySchema };
+
+// --- Designer review (spec 2026-10-12, D4) -----------------------------------
+
+/**
+ * A request raised for the designer to review. Deliberately looser than
+ * `CreateChangeOrderSchema`: the person on site, the collaborator or the
+ * homeowner often does not know the price, and the designer completes it. An
+ * amount, when given, becomes a single priced line the designer can rework.
+ */
+export const ProposalInputSchema = z.object({
+  title: ShortTextSchema.optional(),
+  description: LongTextSchema,
+  /** "Justification of why" in the notes. */
+  reason: MediumTextSchema.optional(),
+  room: RoomSchema.optional(),
+  workCategory: WorkCategorySchema.optional(),
+  /** Whole rupees in minor units, if the submitter has a figure. */
+  amountMinor: z.number().int().min(0).max(1_000_000_000_00).optional(),
+  scheduleDeltaDays: z.number().int().min(-365).max(365).optional(),
+  /** Already-uploaded, scanned files to attach (photos, sheets). */
+  attachmentIds: z.array(UuidSchema).max(12).default([]),
+  note: MediumTextSchema.optional(),
+  /** Attribute to a site-team member (paste-to-draft). Designers only. */
+  raisedByEmployeeId: UuidSchema.optional(),
+  /** Set by paste-to-draft so a pasted request stays distinguishable. */
+  pasted: z.boolean().optional(),
+});
+export type ProposalInput = z.infer<typeof ProposalInputSchema>;
+
+export const ProposalResultSchema = z.object({
+  changeOrderId: UuidSchema,
+  number: z.string(),
+  versionId: UuidSchema,
+});
+export type ProposalResultDto = z.infer<typeof ProposalResultSchema>;
+
+/** The designer declines a proposal without sending it to the homeowner. */
+export const DismissProposalSchema = z.object({
+  reason: MediumTextSchema,
+});
+
+// --- Invoiced mark (Tier 1 B) ----------------------------------------------
+
+export const MarkInvoicedSchema = z.object({
+  invoiceReference: z.string().trim().min(1).max(100).optional(),
+});

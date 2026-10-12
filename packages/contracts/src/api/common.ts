@@ -7,10 +7,35 @@ import {
   LocalDateSchema,
   MoneySchema,
   QuantitySchema,
+  RequestOriginSchema,
   TaxRateBpsSchema,
   UuidSchema,
   VersionStatusSchema,
+  WorkCategorySchema,
 } from '../primitives.js';
+
+/**
+ * Who raised a request and how — the provenance the designer reviews against
+ * (spec 2026-10-12, D4). `label` is display-ready ("Ramesh · Kumar
+ * Constructions", "Priya Sharma (homeowner)").
+ */
+export const SubmissionSchema = z.object({
+  origin: RequestOriginSchema,
+  submittedAt: InstantSchema.nullable(),
+  label: z.string().nullable(),
+  /** Set while the request waits for the designer. */
+  awaitingReview: z.boolean(),
+  reviewedAt: InstantSchema.nullable(),
+  note: z.string().nullable(),
+});
+export type SubmissionDto = z.infer<typeof SubmissionSchema>;
+
+/** Tier 1 B: whether an approved change has been billed. */
+export const InvoicingSchema = z.object({
+  invoicedAt: InstantSchema,
+  invoiceReference: z.string().nullable(),
+});
+export type InvoicingDto = z.infer<typeof InvoicingSchema>;
 
 /**
  * Projections shared by several endpoints. Keeping them here means the API, the
@@ -87,6 +112,10 @@ export const ChangeOrderVersionSchema = z.object({
   title: z.string(),
   scopeDescription: z.string(),
   reason: z.string().nullable(),
+  room: z.string().nullable(),
+  workCategory: WorkCategorySchema.nullable(),
+  submission: SubmissionSchema,
+  invoicing: InvoicingSchema.nullable(),
   type: ChangeTypeSchema,
   currency: CurrencySchema,
   totals: TotalsSchema,
@@ -153,6 +182,14 @@ export const ChangeOrderSummarySchema = z.object({
   decidedAt: InstantSchema.nullable(),
   expiresAt: InstantSchema.nullable(),
   updatedAt: InstantSchema,
+  room: z.string().nullable(),
+  workCategory: WorkCategorySchema.nullable(),
+  projectNumber: z.string(),
+  origin: RequestOriginSchema,
+  awaitingReview: z.boolean(),
+  /** Who raised it, when that was not the designer ("Ramesh · Kumar Constructions"). */
+  submittedByLabel: z.string().nullable(),
+  invoicedAt: InstantSchema.nullable(),
 });
 export type ChangeOrderSummaryDto = z.infer<typeof ChangeOrderSummarySchema>;
 

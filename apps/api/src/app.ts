@@ -20,6 +20,12 @@ import { registerWebhookRoutes } from './routes/webhooks.js';
 import { registerReportRoutes } from './routes/reports.js';
 import { registerEmployeeRoutes } from './routes/employees.js';
 import { registerSimulatorRoutes } from './routes/simulator.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerCollaborationRoutes } from './routes/collaboration.js';
+import { registerWorkspaceRoutes } from './routes/workspace.js';
+import { registerTimelineRoutes } from './routes/timeline.js';
+import { registerPortalRoutes } from './routes/portal.js';
+import { registerIntakeRoutes } from './routes/intake.js';
 import { registerOpenApiRoute } from './openapi/route.js';
 
 export interface BuildAppOptions {
@@ -151,6 +157,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerPublicRoutes(app, options.appContext);
   await registerWebhookRoutes(app, options.appContext);
   await registerSimulatorRoutes(app, options.appContext);
+  // Three-party workspace (spec 2026-10-12).
+  await registerNotificationRoutes(app, options.appContext);
+  await registerCollaborationRoutes(app, options.appContext);
+  await registerWorkspaceRoutes(app, options.appContext);
+  await registerTimelineRoutes(app, options.appContext);
+  await registerPortalRoutes(app, options.appContext);
+  await registerIntakeRoutes(app, options.appContext);
 
   return app;
 }

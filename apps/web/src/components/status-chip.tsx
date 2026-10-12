@@ -42,6 +42,7 @@ const CODES: Record<VersionStatus, Code> = {
  * misread. Grouped by tone so the rail stays scannable.
  */
 export const LEGEND: Array<{ letter: string; label: string; tone: Code['tone'] }> = [
+  { letter: 'N', label: 'Needs review', tone: 'waiting' },
   { letter: 'W', label: 'Waiting', tone: 'waiting' },
   { letter: 'O', label: 'Opened', tone: 'waiting' },
   { letter: 'R', label: 'Revision asked', tone: 'waiting' },
@@ -60,6 +61,29 @@ export function StatusChip({ status }: { status: VersionStatus }) {
       {code.label}
     </span>
   );
+}
+
+/**
+ * A request's status as the designer reads it. A draft raised by somebody else
+ * and not yet reviewed is "Needs review" (spec 2026-10-12, D4), not "Draft":
+ * it is waiting on the designer, which is the one thing on the sheet they can
+ * act on.
+ */
+export function RequestStatusChip({
+  status,
+  awaitingReview,
+}: {
+  status: VersionStatus;
+  awaitingReview: boolean;
+}) {
+  if (status === 'DRAFT' && awaitingReview) {
+    return (
+      <span className="code code-waiting" data-code="N">
+        Needs review
+      </span>
+    );
+  }
+  return <StatusChip status={status} />;
 }
 
 /** A bare code tag, for the legend and for dense rows. */

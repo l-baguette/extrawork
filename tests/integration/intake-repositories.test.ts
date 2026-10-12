@@ -144,14 +144,15 @@ describe('employee repository', () => {
       );
     });
 
-    it('rejects the same number registered at a different organization', async () => {
-      // This is the case that makes inbound attribution unambiguous: without it
-      // a message from this number could belong to either tenant.
+    it('allows the same number on a different organization’s site team', async () => {
+      // Spec 2026-10-12, D7: a foreman routinely works with several design
+      // firms. Intake resolves the ambiguity by asking which project, so the
+      // database no longer forbids the second roster entry.
       const phone = nextPhone();
-      await addEmployee(alpha, { phoneE164: phone });
-      await expect(addEmployee(beta, { phoneE164: phone })).rejects.toThrowError(
-        expect.objectContaining({ code: 'EMPLOYEE_PHONE_TAKEN' }),
-      );
+      const first = await addEmployee(alpha, { phoneE164: phone });
+      const second = await addEmployee(beta, { phoneE164: phone });
+      expect(first.organizationId).toBe(alpha.organizationId);
+      expect(second.organizationId).toBe(beta.organizationId);
     });
 
     it('frees the number once the employee is removed', async () => {

@@ -42,6 +42,8 @@ export type BaselineInput = z.infer<typeof BaselineInputSchema>;
 export const CreateProjectSchema = z.object({
   customerId: UuidSchema,
   title: ShortTextSchema,
+  /** What the project is — scope, style, anything the team should know. */
+  description: z.string().trim().max(4_000).optional(),
   siteAddress: AddressSchema.optional(),
   currency: CurrencySchema.default('INR'),
   timezone: TimezoneSchema.default('Asia/Kolkata'),
@@ -62,6 +64,7 @@ export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 export const UpdateProjectSchema = z
   .object({
     title: ShortTextSchema,
+    description: z.string().trim().max(4_000).nullable(),
     siteAddress: AddressSchema.nullable(),
     status: ProjectStatusSchema.exclude(['INTEGRITY_REVIEW', 'CLOSED', 'ARCHIVED']),
     startDate: LocalDateSchema.nullable(),
@@ -103,11 +106,14 @@ export const ProjectSchema = z.object({
   customerName: z.string(),
   projectNumber: z.string(),
   title: z.string(),
+  description: z.string().nullable(),
   siteAddress: AddressSchema.nullable(),
   status: ProjectStatusSchema,
   currency: CurrencySchema,
   timezone: z.string(),
   totals: ProjectTotalsSchema,
+  /** Requests raised for the designer that have not been reviewed yet. */
+  awaitingReviewCount: z.number().int(),
   startDate: LocalDateSchema.nullable(),
   expectedCompletionDate: LocalDateSchema.nullable(),
   revisedCompletionDate: LocalDateSchema.nullable(),
@@ -135,6 +141,9 @@ export const ProjectSummarySchema = z.object({
   approvedDeltaMinor: z.number().int(),
   revisedTotalMinor: z.number().int(),
   pendingChangeCount: z.number().int(),
+  awaitingReviewCount: z.number().int(),
+  city: z.string().nullable(),
+  expectedCompletionDate: LocalDateSchema.nullable(),
   updatedAt: InstantSchema,
 });
 export type ProjectSummaryDto = z.infer<typeof ProjectSummarySchema>;
@@ -158,13 +167,51 @@ export const CloseProjectSchema = z.object({
   reason: MediumTextSchema.optional(),
 });
 
+export const ReopenProjectSchema = z.object({
+  reason: MediumTextSchema.optional(),
+});
+
+/**
+ * Contract value over time (notes: "includes history and changes over time"):
+ * the original baseline, each audited amendment, and each approved change, in
+ * order, with the running total after each.
+ */
+export const ContractHistoryEntrySchema = z.object({
+  kind: z.enum(['BASELINE', 'BASELINE_AMENDMENT', 'APPROVED_CHANGE']),
+  occurredAt: InstantSchema,
+  label: z.string(),
+  /** The change in contract value this entry made. */
+  deltaMinor: z.number().int(),
+  runningTotalMinor: z.number().int(),
+  scheduleDeltaDays: z.number().int(),
+  changeOrderId: UuidSchema.nullable(),
+  number: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+
+export const ContractHistorySchema = z.object({
+  currency: CurrencySchema,
+  entries: z.array(ContractHistoryEntrySchema),
+  currentTotalMinor: z.number().int(),
+});
+export type ContractHistoryDto = z.infer<typeof ContractHistorySchema>;
+
 export const DashboardSchema = z.object({
   currency: CurrencySchema,
   pendingDecisions: z.number().int(),
   overdueOrExpiring: z.number().int(),
   approvedValueThisMonthMinor: z.number().int(),
   averageHoursToDecision: z.number().nullable(),
-  projectsWithUnbilledApprovedExtras: z.number().int(),
+  /**
+   * Tier 1 B: approved changes not yet marked invoiced. Replaces the old
+   * project count, which counted every project that had ever had an approval
+   * and could never go down.
+   */
+  unbilledApprovedTotalMinor: z.number().int(),
+  unbilledApprovedCount: z.number().int(),
+  /** Requests waiting for the designer (spec D4). */
+  awaitingReviewCount: z.number().int(),
+  awaitingReview: z.array(ChangeOrderSummarySchema),
   recentDecisions: z.array(ChangeOrderSummarySchema),
   awaitingDecision: z.array(ChangeOrderSummarySchema),
 });

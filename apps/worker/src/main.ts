@@ -23,6 +23,9 @@ import {
 import { scanFile } from './jobs/files.js';
 import { generateExport } from './jobs/exports.js';
 import { normalizeWebhook } from './jobs/webhooks.js';
+import { sendNotificationEmail } from './jobs/notifications.js';
+import { sendInvitation } from './jobs/invitations.js';
+import { sendDueReminders } from './jobs/reminders.js';
 
 /**
  * Worker entrypoint — a second process from the same image as the API
@@ -56,6 +59,9 @@ const handlers: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KINDS.EXPIRE_REQUESTS]: expireRequests,
   [JOB_KINDS.CHECK_PROJECT_INTEGRITY]: checkProjectIntegrity,
   [JOB_KINDS.APPLY_RETENTION]: applyRetention,
+  [JOB_KINDS.SEND_NOTIFICATION_EMAIL]: sendNotificationEmail,
+  [JOB_KINDS.SEND_INVITATION]: sendInvitation,
+  [JOB_KINDS.SEND_DUE_REMINDERS]: sendDueReminders,
 };
 
 // The worker is system-level end to end: it drains a queue and an outbox that

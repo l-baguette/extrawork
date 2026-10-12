@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import {
+  BusinessTypeSchema,
+  CollaboratorPartySchema,
   CurrencySchema,
   EmailSchema,
   InstantSchema,
   MembershipRoleSchema,
+  RequestRoutingSchema,
   ShortTextSchema,
   TimezoneSchema,
   UuidSchema,
@@ -20,6 +23,7 @@ export const CreateOrganizationSchema = z.object({
   gstin: GstinSchema.optional(),
   timezone: TimezoneSchema.default('Asia/Kolkata'),
   defaultCurrency: CurrencySchema.default('INR'),
+  businessType: BusinessTypeSchema.optional(),
 });
 export type CreateOrganizationInput = z.infer<typeof CreateOrganizationSchema>;
 
@@ -38,6 +42,9 @@ export const UpdateOrganizationSchema = z
     contactEmail: EmailSchema.nullable(),
     /** Hours after send at which reminders fire (report §8.6). */
     reminderPolicyHours: z.array(z.number().int().min(1).max(720)).max(4),
+    businessType: BusinessTypeSchema.nullable(),
+    /** Spec D3: whether WhatsApp requests wait for the designer. */
+    requestRouting: RequestRoutingSchema,
   })
   .partial();
 export type UpdateOrganizationInput = z.infer<typeof UpdateOrganizationSchema>;
@@ -74,7 +81,7 @@ export const EntitlementsSchema = z.object({
 export type EntitlementsDto = z.infer<typeof EntitlementsSchema>;
 
 export const SubscriptionSchema = z.object({
-  planCode: z.enum(['TRIAL', 'STARTER_MONTHLY', 'PROJECT_PASS', 'PRO_MONTHLY']),
+  planCode: z.enum(['TRIAL', 'STARTER_MONTHLY', 'PROJECT_PASS', 'PRO_MONTHLY', 'BETA']),
   status: z.enum(['TRIALING', 'ACTIVE', 'GRACE', 'LAPSED', 'CANCELLED']),
   currentPeriodStart: InstantSchema,
   currentPeriodEnd: InstantSchema,
@@ -106,6 +113,12 @@ export const OrganizationSchema = z.object({
   contactPhone: z.string().nullable(),
   contactEmail: z.string().nullable(),
   reminderPolicyHours: z.array(z.number().int()),
+  businessType: BusinessTypeSchema.nullable(),
+  requestRouting: RequestRoutingSchema,
+  storage: z.object({
+    quotaBytes: z.number().int(),
+    usedBytes: z.number().int(),
+  }),
   createdAt: InstantSchema,
   subscription: SubscriptionSchema,
 });
@@ -118,6 +131,9 @@ export const MembershipSchema = z.object({
   email: z.string(),
   role: MembershipRoleSchema,
   status: z.enum(['ACTIVE', 'INVITED', 'REVOKED']),
+  /** Set for COLLABORATOR memberships only. */
+  collaboratorParty: CollaboratorPartySchema.nullable(),
+  companyName: z.string().nullable(),
   createdAt: InstantSchema,
 });
 export type MembershipDto = z.infer<typeof MembershipSchema>;
@@ -125,13 +141,16 @@ export type MembershipDto = z.infer<typeof MembershipSchema>;
 export const InviteMembershipSchema = z.object({
   email: EmailSchema,
   displayName: ShortTextSchema,
-  /** Ownership is transferred through a dedicated re-authenticated command. */
-  role: MembershipRoleSchema.exclude(['OWNER']),
+  /**
+   * Ownership is transferred through a dedicated re-authenticated command, and
+   * collaborators are invited to a project, not to the whole workspace.
+   */
+  role: MembershipRoleSchema.exclude(['OWNER', 'COLLABORATOR']),
 });
 export type InviteMembershipInput = z.infer<typeof InviteMembershipSchema>;
 
 export const UpdateMembershipSchema = z.object({
-  role: MembershipRoleSchema.exclude(['OWNER']),
+  role: MembershipRoleSchema.exclude(['OWNER', 'COLLABORATOR']),
 });
 
 export const CurrentUserSchema = z.object({
@@ -145,6 +164,7 @@ export const CurrentUserSchema = z.object({
       organizationId: UuidSchema,
       organizationName: z.string(),
       role: MembershipRoleSchema,
+      collaboratorParty: CollaboratorPartySchema.nullable(),
     }),
   ),
   activeOrganizationId: UuidSchema.nullable(),

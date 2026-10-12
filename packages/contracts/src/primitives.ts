@@ -100,6 +100,9 @@ export const MembershipRoleSchema = z.enum([
   'PROJECT_MANAGER',
   'FINANCE',
   'VIEWER',
+  // Someone from another firm (or the homeowner) working on specific projects
+  // in this workspace. Never organization-wide; sees only granted projects.
+  'COLLABORATOR',
 ]);
 export type MembershipRole = z.infer<typeof MembershipRoleSchema>;
 
@@ -136,3 +139,211 @@ export type AssuranceLevel = z.infer<typeof AssuranceLevelSchema>;
 
 export const ActorTypeSchema = z.enum(['USER', 'CUSTOMER', 'SYSTEM', 'SUPPORT', 'PROVIDER']);
 export type ActorType = z.infer<typeof ActorTypeSchema>;
+
+// --- Three-party workspace (spec 2026-10-12) ------------------------------
+
+/** Which party a collaborator represents on a project. */
+export const CollaboratorPartySchema = z.enum([
+  'CONSTRUCTION',
+  'ARCHITECT',
+  'CONSULTANT',
+  'HOMEOWNER',
+  'OTHER',
+]);
+export type CollaboratorParty = z.infer<typeof CollaboratorPartySchema>;
+
+export const COLLABORATOR_PARTY_LABELS: Record<CollaboratorParty, string> = {
+  CONSTRUCTION: 'Construction company',
+  ARCHITECT: 'Architecture firm',
+  CONSULTANT: 'Consultant',
+  HOMEOWNER: 'Homeowner',
+  OTHER: 'Other',
+};
+
+/** Which firm a site-team member belongs to, relative to this workspace. */
+export const TeamPartySchema = z.enum([
+  'INTERNAL',
+  'CONSTRUCTION',
+  'ARCHITECT',
+  'CONSULTANT',
+  'OTHER',
+]);
+export type TeamParty = z.infer<typeof TeamPartySchema>;
+
+export const TeamRoleSchema = z.enum([
+  'SITE_SUPERVISOR',
+  'FOREMAN',
+  'CONTRACTOR',
+  'DESIGNER',
+  'WORKER',
+  'OTHER',
+]);
+export type TeamRole = z.infer<typeof TeamRoleSchema>;
+
+export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
+  SITE_SUPERVISOR: 'Site supervisor',
+  FOREMAN: 'Foreman',
+  CONTRACTOR: 'Contractor',
+  DESIGNER: 'Designer',
+  WORKER: 'Site worker',
+  OTHER: 'Other',
+};
+
+export const BusinessTypeSchema = z.enum([
+  'DESIGN_FIRM',
+  'ARCHITECTURE_FIRM',
+  'DESIGN_AND_BUILD',
+  'CONSTRUCTION',
+  'SPECIALIST_CONTRACTOR',
+  'OTHER',
+]);
+export type BusinessType = z.infer<typeof BusinessTypeSchema>;
+
+export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
+  DESIGN_FIRM: 'Interior design firm',
+  ARCHITECTURE_FIRM: 'Architecture firm',
+  DESIGN_AND_BUILD: 'Design-and-build / turnkey',
+  CONSTRUCTION: 'Construction company',
+  SPECIALIST_CONTRACTOR: 'Specialist contractor',
+  OTHER: 'Other',
+};
+
+/** Spec D3. */
+export const RequestRoutingSchema = z.enum(['DESIGNER_REVIEW', 'AUTO_SEND']);
+export type RequestRouting = z.infer<typeof RequestRoutingSchema>;
+
+/** Type of work on a request. Mirrors the CHECK in migration 0021. */
+export const WorkCategorySchema = z.enum([
+  'CIVIL',
+  'DEMOLITION',
+  'PLUMBING',
+  'ELECTRICAL',
+  'CARPENTRY',
+  'MODULAR_KITCHEN',
+  'FALSE_CEILING',
+  'FLOORING',
+  'PAINTING',
+  'WATERPROOFING',
+  'HVAC',
+  'FABRICATION',
+  'GLASS_ALUMINIUM',
+  'FURNITURE',
+  'RENOVATION',
+  'DESIGN_CHANGE',
+  'OTHER',
+]);
+export type WorkCategory = z.infer<typeof WorkCategorySchema>;
+
+export const WORK_CATEGORY_LABELS: Record<WorkCategory, string> = {
+  CIVIL: 'Civil & masonry',
+  DEMOLITION: 'Demolition',
+  PLUMBING: 'Plumbing & sanitary',
+  ELECTRICAL: 'Electrical & lighting',
+  CARPENTRY: 'Carpentry & woodwork',
+  MODULAR_KITCHEN: 'Modular kitchen & wardrobes',
+  FALSE_CEILING: 'False ceiling',
+  FLOORING: 'Flooring & tiling',
+  PAINTING: 'Painting & polish',
+  WATERPROOFING: 'Waterproofing',
+  HVAC: 'Air-conditioning & ventilation',
+  FABRICATION: 'Fabrication & metalwork',
+  GLASS_ALUMINIUM: 'Glass & aluminium',
+  FURNITURE: 'Furniture & furnishing',
+  RENOVATION: 'General renovation',
+  DESIGN_CHANGE: 'Design change',
+  OTHER: 'Other',
+};
+
+/** Free entry is allowed; these are the suggestions offered in the picker. */
+export const ROOM_SUGGESTIONS = [
+  'Whole home',
+  'Living room',
+  'Dining',
+  'Kitchen',
+  'Master bedroom',
+  'Bedroom 2',
+  'Bedroom 3',
+  "Kids' bedroom",
+  'Guest bedroom',
+  'Master bathroom',
+  'Common bathroom',
+  'Powder room',
+  'Pooja room',
+  'Study',
+  'Foyer',
+  'Passage',
+  'Balcony',
+  'Utility',
+  'Terrace',
+  'Exterior',
+] as const;
+
+export const RoomSchema = z.string().trim().min(1).max(80);
+
+/** Where a request came from (migration 0021). */
+export const RequestOriginSchema = z.enum([
+  'WEB',
+  'WHATSAPP',
+  'IMPORT',
+  'PASTED',
+  'COLLABORATOR',
+  'PORTAL',
+]);
+export type RequestOrigin = z.infer<typeof RequestOriginSchema>;
+
+export const FolderVisibilitySchema = z.enum(['INTERNAL', 'PROJECT', 'CLIENT']);
+export type FolderVisibility = z.infer<typeof FolderVisibilitySchema>;
+
+export const FOLDER_VISIBILITY_LABELS: Record<FolderVisibility, string> = {
+  INTERNAL: 'Your firm only',
+  PROJECT: 'Firm and collaborators',
+  CLIENT: 'Everyone, including the homeowner',
+};
+
+export const FolderSystemKeySchema = z.enum(['PLANS', 'CONTRACTS', 'PHOTOS', 'BILLS', 'WHATSAPP']);
+export type FolderSystemKey = z.infer<typeof FolderSystemKeySchema>;
+
+/** The folders every project starts with, in display order. */
+export const DEFAULT_PROJECT_FOLDERS: ReadonlyArray<{
+  systemKey: FolderSystemKey;
+  name: string;
+  visibility: FolderVisibility;
+}> = [
+  { systemKey: 'PLANS', name: 'Plans & drawings', visibility: 'CLIENT' },
+  { systemKey: 'CONTRACTS', name: 'Contracts & quotes', visibility: 'CLIENT' },
+  { systemKey: 'PHOTOS', name: 'Site photos', visibility: 'PROJECT' },
+  { systemKey: 'BILLS', name: 'Bills & invoices', visibility: 'INTERNAL' },
+  { systemKey: 'WHATSAPP', name: 'From WhatsApp', visibility: 'PROJECT' },
+];
+
+export const DocumentKindSchema = z.enum(['FILE', 'LINK', 'NOTE']);
+export type DocumentKind = z.infer<typeof DocumentKindSchema>;
+
+export const MilestoneKindSchema = z.enum([
+  'MILESTONE',
+  'SITE_VISIT',
+  'DELIVERY',
+  'HANDOVER',
+  'PAYMENT',
+  'OTHER',
+]);
+export type MilestoneKind = z.infer<typeof MilestoneKindSchema>;
+
+export const MILESTONE_KIND_LABELS: Record<MilestoneKind, string> = {
+  MILESTONE: 'Milestone',
+  SITE_VISIT: 'Site visit',
+  DELIVERY: 'Delivery',
+  HANDOVER: 'Handover',
+  PAYMENT: 'Payment',
+  OTHER: 'Other',
+};
+
+/** User-facing role names. PROJECT_MANAGER is the designer leading projects. */
+export const MEMBERSHIP_ROLE_LABELS: Record<MembershipRole, string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  PROJECT_MANAGER: 'Designer',
+  FINANCE: 'Accounts',
+  VIEWER: 'Viewer',
+  COLLABORATOR: 'Collaborator',
+};
