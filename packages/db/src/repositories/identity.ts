@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { SYSTEM_SCOPE, runInScope } from '../tenant-scope.js';
-import { AppError, type MembershipRole } from '@extrawork/contracts';
+import { AppError, type CollaboratorParty, type MembershipRole } from '@extrawork/contracts';
 import {
   isReadOnly,
   type PlanCode,
@@ -46,6 +46,31 @@ export interface MembershipRow {
   role: MembershipRole;
   status: string;
   organizationName: string;
+  /** Set for COLLABORATOR memberships (spec 2026-10-12, D1); null for staff. */
+  collaboratorParty: CollaboratorParty | null;
+  companyName: string | null;
+}
+
+type MembershipRecord = {
+  organization_id: string;
+  user_id: string;
+  role: MembershipRole;
+  status: string;
+  organization_name: string;
+  collaborator_party: CollaboratorParty | null;
+  company_name: string | null;
+};
+
+function mapMembership(row: MembershipRecord): MembershipRow {
+  return {
+    organizationId: row.organization_id,
+    userId: row.user_id,
+    role: row.role,
+    status: row.status,
+    organizationName: row.organization_name,
+    collaboratorParty: row.role === 'COLLABORATOR' ? (row.collaborator_party ?? 'OTHER') : null,
+    companyName: row.role === 'COLLABORATOR' ? row.company_name : null,
+  };
 }
 
 export interface SessionRow {
@@ -252,50 +277,27 @@ export class IdentityRepository {
   }
 
   async listMemberships(userId: string, db: Database = this.db): Promise<MembershipRow[]> {
-    const result = await db.execute<{
-      organization_id: string;
-      user_id: string;
-      role: MembershipRole;
-      status: string;
-      organization_name: string;
-    }>(sql`
-      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name
+    const result = await db.execute<MembershipRecord>(sql`
+      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name,
+             m.collaborator_party, m.company_name
       FROM memberships m
       JOIN organizations o ON o.id = m.organization_id
       WHERE m.user_id = ${userId}::uuid AND m.status = 'ACTIVE' AND o.status <> 'CLOSED'
       ORDER BY o.display_name
     `);
-    return result.rows.map((r) => ({
-      organizationId: r.organization_id,
-      userId: r.user_id,
-      role: r.role,
-      status: r.status,
-      organizationName: r.organization_name,
-    }));
+    return result.rows.map(mapMembership);
   }
 
   async getMembership(organizationId: string, userId: string): Promise<MembershipRow | null> {
-    const result = await this.db.execute<{
-      organization_id: string;
-      user_id: string;
-      role: MembershipRole;
-      status: string;
-      organization_name: string;
-    }>(sql`
-      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name
+    const result = await this.db.execute<MembershipRecord>(sql`
+      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name,
+             m.collaborator_party, m.company_name
       FROM memberships m
       JOIN organizations o ON o.id = m.organization_id
       WHERE m.organization_id = ${organizationId}::uuid AND m.user_id = ${userId}::uuid
     `);
     const row = result.rows[0];
-    if (!row) return null;
-    return {
-      organizationId: row.organization_id,
-      userId: row.user_id,
-      role: row.role,
-      status: row.status,
-      organizationName: row.organization_name,
-    };
+    return row ? mapMembership(row) : null;
   }
 
   /** Project grants for roles that are not organization-wide (report §3.2). */

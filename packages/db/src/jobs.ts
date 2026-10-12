@@ -140,12 +140,16 @@ export async function heartbeatJob(
   return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * Completing a delivery job erases the sealed link it carried: the approval
+ * link (report §3.4) and the collaborator invitation link (spec 2026-10-12).
+ */
 export async function completeJob(db: Database, id: string, leasedBy: string): Promise<boolean> {
   const result = await db.execute(sql`
     UPDATE job_queue
        SET status = 'COMPLETED', completed_at = now(), leased_until = NULL,
            leased_by = NULL, last_error = NULL,
-           payload = payload - 'approvalUrlCiphertext'
+           payload = payload - 'approvalUrlCiphertext' - 'inviteUrlCiphertext'
      WHERE id = ${id}::uuid AND status = 'RUNNING' AND leased_by = ${leasedBy}
   `);
   return (result.rowCount ?? 0) > 0;

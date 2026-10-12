@@ -135,6 +135,13 @@ export const MembershipSchema = z.object({
   collaboratorParty: CollaboratorPartySchema.nullable(),
   companyName: z.string().nullable(),
   createdAt: InstantSchema,
+  /**
+   * The projects a COLLABORATOR can see (their grants). Absent for staff, whose
+   * reach is set by their role. Slice A, spec 2026-10-12.
+   */
+  projects: z
+    .array(z.object({ id: UuidSchema, title: z.string(), projectNumber: z.string() }))
+    .optional(),
 });
 export type MembershipDto = z.infer<typeof MembershipSchema>;
 
