@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { API_URL, ApiError, api } from '@/lib/api';
 import { BOT_CHALLENGE_ENABLED, BotChallenge } from '@/components/bot-challenge';
+import { withNext } from '@/lib/safe-next';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -16,7 +17,10 @@ const MIN_PASSWORD_LENGTH = 8;
  * attempts the sign-in immediately afterwards, and a wrong password on an
  * existing address surfaces as an ordinary sign-in failure.
  */
-export function RegisterForm() {
+export function RegisterForm({ next = null }: { next?: string | null } = {}) {
+  // Carried to the sign-in links so someone who registered from an invitation
+  // lands back on it after confirming their address and signing in.
+  const signInHref = withNext('/sign-in', next);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,6 +85,12 @@ export function RegisterForm() {
         <p className="small muted">
           The link lasts 24 hours. Nothing else happens until you use it — you can close this page.
         </p>
+        {next ? (
+          <p className="small muted">
+            Once confirmed, <Link href={signInHref}>sign in</Link> and you will come back to your
+            invitation.
+          </p>
+        ) : null}
         <p className="small muted">
           Nothing arrived? <Link href="/verify-email">Request a new link</Link>.
         </p>
@@ -152,7 +162,7 @@ export function RegisterForm() {
             {exists ? (
               <>
                 {' '}
-                <Link href="/sign-in">Go to sign in</Link>.
+                <Link href={signInHref}>Go to sign in</Link>.
               </>
             ) : null}
           </p>
@@ -172,7 +182,7 @@ export function RegisterForm() {
       </form>
 
       <p className="small muted">
-        Already have an account? <Link href="/sign-in">Sign in</Link>.
+        Already have an account? <Link href={signInHref}>Sign in</Link>.
       </p>
     </section>
   );
