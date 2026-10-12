@@ -7,6 +7,8 @@ import { ErrorPanel } from '@/components/error-panel';
 import { Block, Figure, SheetTop } from '@/components/sheet';
 import { BusinessForm } from './business-form';
 import { CloseAccount } from './close-account';
+import { PeopleRoles } from './people-roles';
+import { WorkspaceForm } from './workspace-form';
 
 /** Organization policy, team and plan — report §6.2 `/app/settings/*`. */
 export const dynamic = 'force-dynamic';
@@ -26,11 +28,13 @@ export default async function SettingsPage() {
   const members = membersResult.ok ? membersResult.data.items : [];
   // Closing the account is owner-only; the API enforces that independently, so
   // hiding it here is about not offering a control that would be refused.
-  const isOwner = meResult.ok
-    ? meResult.data.memberships.some(
-        (m) => m.organizationId === organization.id && m.role === 'OWNER',
-      )
-    : false;
+  const myRole = meResult.ok
+    ? (meResult.data.memberships.find((m) => m.organizationId === organization.id)?.role ?? null)
+    : null;
+  const isOwner = myRole === 'OWNER';
+  // Workspace settings and role changes are owner/admin actions; the API
+  // enforces it, the page just does not offer what would be refused.
+  const isAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
 
   return (
     <>
@@ -38,9 +42,14 @@ export default async function SettingsPage() {
         title="Settings"
         meta={`${organization.displayName} · since ${formatDate(organization.createdAt)}`}
         actions={
-          <Link className="btn btn-sm" href="/app/settings/profile">
-            Your details
-          </Link>
+          <>
+            <Link className="btn btn-sm" href="/app/settings/profile">
+              Your details
+            </Link>
+            <Link className="btn btn-sm" href="/app/settings/notifications">
+              Notifications
+            </Link>
+          </>
         }
       />
 
@@ -55,6 +64,18 @@ export default async function SettingsPage() {
 
         <Block title="Business details">
           <BusinessForm organization={organization} />
+        </Block>
+
+        <Block title="How your workspace works">
+          <WorkspaceForm organization={organization} canEdit={isAdmin} />
+        </Block>
+
+        <Block title="People & roles">
+          <PeopleRoles
+            members={members}
+            canChangeRoles={isAdmin}
+            currentUserId={meResult.ok ? meResult.data.user.id : null}
+          />
         </Block>
 
         <Block
@@ -98,7 +119,7 @@ export default async function SettingsPage() {
               <tbody>
                 <tr>
                   <td>Plan</td>
-                  <td className="num">{subscription.planCode.replace(/_/g, ' ')}</td>
+                  <td className="num">{planLabel(subscription.planCode)}</td>
                 </tr>
                 <tr>
                   <td>Status</td>
@@ -133,41 +154,6 @@ export default async function SettingsPage() {
           </p>
         </Block>
 
-        <Block title="Team">
-          <div className="panel">
-            <div className="table-scroll">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="muted">
-                        No team members yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    members.map((member) => (
-                      <tr key={member.userId}>
-                        <td>{member.displayName}</td>
-                        <td className="small mono">{member.email}</td>
-                        <td>{member.role.replace(/_/g, ' ')}</td>
-                        <td className="small muted">{member.status}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Block>
-
         {isOwner ? (
           <Block title="Close this account">
             <CloseAccount organization={organization} />
@@ -176,6 +162,12 @@ export default async function SettingsPage() {
       </main>
     </>
   );
+}
+
+/** Spec D13: early workspaces are on the free founding beta. */
+function planLabel(planCode: OrganizationDto['subscription']['planCode']): string {
+  if (planCode === 'BETA') return 'Founding beta — free';
+  return planCode.replace(/_/g, ' ');
 }
 
 function limit(value: number): string {

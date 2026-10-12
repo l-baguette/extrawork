@@ -5,11 +5,14 @@ import { ErrorPanel } from '@/components/error-panel';
 import { EmployeeManager, type ProjectOption } from './employee-manager';
 
 /**
- * The employee roster — who may raise a change request by WhatsApp.
+ * The site team — spec 2026-10-12, D2: people identified only by their
+ * WhatsApp number, from this firm or the construction company, who send
+ * requests, photos and files for their projects by message.
  *
- * There is no login for these people: the phone number the owner enters here is
- * their whole identity. That is the point of the channel, and it is why the
- * number and the approval ceiling are the two fields that matter most.
+ * There is no login for these people: the phone number entered here is their
+ * whole identity. A number is unique within this team; since D7 the same
+ * foreman may also be on another firm's team, and intake asks which project
+ * rather than guessing.
  */
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +27,12 @@ export default async function EmployeesPage() {
 
   return (
     <main className="page page-wide">
-      <h1 style={{ marginBottom: 'var(--space-2)' }}>Employees</h1>
+      <h1 style={{ marginBottom: 'var(--space-2)' }}>Site team</h1>
       <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>
-        People who can request approval for extra work by sending one WhatsApp message. They do not
-        sign in — their phone number identifies them.
+        People on site — yours and the construction company&rsquo;s — who send requests, photos and
+        files for their projects in a WhatsApp message. They do not sign in: their WhatsApp number
+        identifies them. Someone who also needs the web app is invited from a project&rsquo;s Team
+        tab.
       </p>
 
       <EmployeeManager
