@@ -35,6 +35,13 @@ export interface SnapshotInput {
     title: string;
     description: string;
     reason: string | null;
+    /**
+     * Where the work is and what kind of work it is (spec 2026-10-12, D9).
+     * Optional so every caller that predates them, and every version that
+     * never had them, builds exactly the object it always did.
+     */
+    room?: string | null;
+    workCategory?: string | null;
   };
   commercial: {
     currency: string;
@@ -109,11 +116,7 @@ export function buildCanonicalSnapshot(input: SnapshotInput): JsonValue {
       type: input.change.type,
       version: input.change.version,
     },
-    scope: {
-      description: input.scope.description,
-      reason: input.scope.reason,
-      title: input.scope.title,
-    },
+    scope: buildScope(input.scope),
     commercial: {
       currency: input.commercial.currency,
       lines: input.commercial.lines.map((line) => ({
@@ -163,6 +166,29 @@ export function buildCanonicalSnapshot(input: SnapshotInput): JsonValue {
     expiresAt: input.expiresAt,
     sentAt: input.sentAt,
   };
+}
+
+/**
+ * The scope object of the snapshot.
+ *
+ * Room and type of work are terms the homeowner agrees to, so they are frozen
+ * here (spec 2026-10-12, D9) — but only when present. Emitting `room: null` on
+ * a version that never had one would add a key to every snapshot built from now
+ * on, so a re-freeze of an old version's inputs, or a verifier rebuilding one,
+ * would no longer reproduce the stored digest. Absent means absent: a version
+ * without them canonicalises byte-for-byte as it did before they existed.
+ */
+function buildScope(scope: SnapshotInput['scope']): { [key: string]: JsonValue } {
+  const out: { [key: string]: JsonValue } = {
+    description: scope.description,
+    reason: scope.reason,
+    title: scope.title,
+  };
+  if (scope.room !== undefined && scope.room !== null) out.room = scope.room;
+  if (scope.workCategory !== undefined && scope.workCategory !== null) {
+    out.workCategory = scope.workCategory;
+  }
+  return out;
 }
 
 export interface FrozenSnapshot {

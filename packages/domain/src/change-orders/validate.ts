@@ -38,11 +38,27 @@ export interface Blocker {
   message: string;
 }
 
+export interface DraftValidationOptions {
+  /**
+   * Accept a draft with no priced line and no schedule impact.
+   *
+   * Only for a proposal raised for the designer to review (spec 2026-10-12,
+   * D4): the person on site often does not know the price, and the designer
+   * completes it. It relaxes nothing else, and it never reaches send — the
+   * send path re-checks substance through `collectSendBlockers`, which has no
+   * such option, so an empty proposal can be saved but not sent.
+   */
+  allowEmpty?: boolean;
+}
+
 /**
  * Hard rules. Throws — used by create/update/send. `collectSendBlockers` is the
  * soft counterpart used by the preview to explain what still needs doing.
  */
-export function validateDraft(input: DraftValidationInput): DraftValidationResult {
+export function validateDraft(
+  input: DraftValidationInput,
+  options: DraftValidationOptions = {},
+): DraftValidationResult {
   if (input.currency !== input.projectCurrency) {
     throw new AppError('CURRENCY_MISMATCH', {
       details: { projectCurrency: input.projectCurrency, received: input.currency },
@@ -56,7 +72,7 @@ export function validateDraft(input: DraftValidationInput): DraftValidationResul
   }
   // Report §4.6: a zero-price time-only change is valid, so substance is
   // "lines OR schedule", not "lines".
-  if (input.lineItems.length === 0 && input.scheduleDeltaDays === 0) {
+  if (!options.allowEmpty && input.lineItems.length === 0 && input.scheduleDeltaDays === 0) {
     throw new AppError('EMPTY_CHANGE');
   }
   if (input.type === 'TIME_ONLY' && input.lineItems.length > 0) {
