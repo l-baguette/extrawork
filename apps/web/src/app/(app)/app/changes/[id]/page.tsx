@@ -1,8 +1,14 @@
 import Link from 'next/link';
-import type { ChangeOrderDto, ChangeOrderEventsDto } from '@extrawork/contracts';
+import {
+  WORK_CATEGORY_LABELS,
+  type ChangeOrderDto,
+  type ChangeOrderEventsDto,
+} from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
+import { activeMembership, canInvoice, isDesigner } from '@/lib/active-role';
+import { ORIGIN_LABELS } from '@/features/composer/from-change';
 import { formatDate, formatMoney, formatScheduleDelta, formatTaxRate } from '@/lib/format';
-import { StatusChip } from '@/components/status-chip';
+import { RequestStatusChip } from '@/components/status-chip';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { ChangeActions } from './change-actions';
@@ -17,9 +23,10 @@ type EventsResponse = ChangeOrderEventsDto;
 
 export default async function ChangePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [changeResult, eventsResult] = await Promise.all([
+  const [changeResult, eventsResult, membership] = await Promise.all([
     serverGet<ChangeOrderDto>(`/v1/change-orders/${id}`),
     serverGet<EventsResponse>(`/v1/change-orders/${id}/events`),
+    activeMembership(),
   ]);
 
   if (!changeResult.ok && changeResult.status === 401) return <SignInPrompt />;
@@ -29,6 +36,11 @@ export default async function ChangePage({ params }: { params: Promise<{ id: str
   const version = change.currentVersion;
   const totals = version.totals;
   const events = eventsResult.ok ? eventsResult.data : { events: [], chainValid: true };
+  const submission = version.submission;
+  const viewer = {
+    designer: isDesigner(membership?.role),
+    canInvoice: canInvoice(membership?.role),
+  };
 
   return (
     <main className="page">
@@ -44,9 +56,25 @@ export default async function ChangePage({ params }: { params: Promise<{ id: str
               {change.number} · version {version.versionNumber} of {change.versionCount}
             </p>
           </div>
-          <StatusChip status={version.status} />
+          <RequestStatusChip status={version.status} awaitingReview={submission.awaitingReview} />
         </div>
       </header>
+
+      {submission.awaitingReview ? (
+        <div className="banner banner-info" role="status">
+          <strong>Waiting for the design team.</strong>{' '}
+          {submission.label ? `${submission.label} raised this` : 'This was raised'}{' '}
+          {submission.submittedAt ? formatDate(submission.submittedAt, { withTime: true }) : ''}.
+          {viewer.designer
+            ? ' Check it, price it and send it to the homeowner, or dismiss it.'
+            : ' The designer will check it and price it before the homeowner sees it.'}
+          {submission.note ? (
+            <p style={{ margin: 'var(--space-2) 0 0' }}>
+              <strong>Note:</strong> {submission.note}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {!events.chainValid ? (
         <div className="banner banner-error" role="alert">
@@ -60,9 +88,31 @@ export default async function ChangePage({ params }: { params: Promise<{ id: str
         <p style={{ whiteSpace: 'pre-wrap' }}>{version.scopeDescription}</p>
         {version.reason ? (
           <p className="small muted">
-            <strong>Why:</strong> {version.reason}
+            <strong>Why it is needed:</strong> {version.reason}
           </p>
         ) : null}
+        <dl className="kv" style={{ marginBottom: 0 }}>
+          <dt>Room or area</dt>
+          <dd>{version.room ?? '—'}</dd>
+          <dt>Type of work</dt>
+          <dd>{version.workCategory ? WORK_CATEGORY_LABELS[version.workCategory] : '—'}</dd>
+          <dt>Raised</dt>
+          <dd>
+            {submission.label ? `${submission.label} · ` : ''}
+            {ORIGIN_LABELS[submission.origin]}
+          </dd>
+          {version.invoicing ? (
+            <>
+              <dt>Invoiced</dt>
+              <dd>
+                {formatDate(version.invoicing.invoicedAt)}
+                {version.invoicing.invoiceReference
+                  ? ` · ${version.invoicing.invoiceReference}`
+                  : ''}
+              </dd>
+            </>
+          ) : null}
+        </dl>
       </section>
 
       <section className="card" aria-labelledby="money-heading">
@@ -163,7 +213,7 @@ export default async function ChangePage({ params }: { params: Promise<{ id: str
         </section>
       ) : null}
 
-      <ChangeActions change={change} />
+      <ChangeActions change={change} viewer={viewer} />
 
       <section className="card" aria-labelledby="history-heading">
         <h2 id="history-heading">History</h2>
