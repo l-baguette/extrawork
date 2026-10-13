@@ -159,6 +159,7 @@ export class ChangeOrderRepository {
     await tx.db.execute(sql`
       UPDATE change_orders SET current_version_id = ${versionId}::uuid
       WHERE id = ${changeOrderId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
     `);
 
     await this.replaceLineItems(tx, ctx, versionId, input.lineItems);
@@ -218,23 +219,41 @@ export class ChangeOrderRepository {
 
     // Report §4.4: the prior version becomes SUPERSEDED and its token is revoked.
     if (previous.status !== 'APPROVED' && previous.status !== 'DECLINED') {
-      await tx.db.execute(sql`
+      const superseded = await tx.db.execute<{ id: string }>(sql`
         UPDATE change_order_versions
            SET status = 'SUPERSEDED', superseded_by_version_id = ${versionId}::uuid,
                lock_version = lock_version + 1
-         WHERE id = ${previous.id}::uuid AND organization_id = ${ctx.organizationId}::uuid
+         WHERE id = ${previous.id}::uuid
+           AND organization_id = ${ctx.organizationId}::uuid
+           AND status = ${previous.status}::version_status
+         RETURNING id
       `);
+      if (!superseded.rows[0]) {
+        throw new AppError('INVALID_STATE_TRANSITION', {
+          message: 'The prior version changed while the revision was being created.',
+        });
+      }
       await tx.db.execute(sql`
         UPDATE approval_tokens
            SET revoked_at = now(), revoked_reason = 'SUPERSEDED'
-         WHERE version_id = ${previous.id}::uuid AND revoked_at IS NULL
+         WHERE version_id = ${previous.id}::uuid
+           AND organization_id = ${ctx.organizationId}::uuid
+           AND revoked_at IS NULL
       `);
     }
 
-    await tx.db.execute(sql`
+    const advanced = await tx.db.execute<{ id: string }>(sql`
       UPDATE change_orders SET current_version_id = ${versionId}::uuid, updated_at = now()
-      WHERE id = ${previous.changeOrderId}::uuid AND organization_id = ${ctx.organizationId}::uuid
+      WHERE id = ${previous.changeOrderId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
+        AND current_version_id = ${previous.id}::uuid
+      RETURNING id
     `);
+    if (!advanced.rows[0]) {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'A newer revision already exists.',
+      });
+    }
 
     return this.requireVersion(tx.db, ctx, versionId);
   }
@@ -353,7 +372,10 @@ export class ChangeOrderRepository {
     await tx.db.execute(sql`
       UPDATE change_orders co SET type = ${input.type}::change_type, updated_at = now()
       FROM change_order_versions v
-      WHERE v.id = ${versionId}::uuid AND co.id = v.change_order_id
+      WHERE v.id = ${versionId}::uuid
+        AND v.organization_id = ${ctx.organizationId}::uuid
+        AND co.id = v.change_order_id
+        AND co.organization_id = ${ctx.organizationId}::uuid
     `);
 
     return this.requireVersion(tx.db, ctx, versionId);
@@ -446,33 +468,55 @@ export class ChangeOrderRepository {
    * Row lock for the decision and supersede paths (report §7.8, §8.4). Returns
    * the locked row so the caller can revalidate state under the lock.
    */
-  async lockVersion(tx: TransactionContext, versionId: string): Promise<VersionRow | null> {
-    const locked = await tx.db.execute<{ organization_id: string }>(sql`
-      SELECT organization_id FROM change_order_versions
-      WHERE id = ${versionId}::uuid
+  async lockVersion(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    versionId: string,
+  ): Promise<VersionRow | null> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM change_order_versions
+      WHERE id = ${versionId}::uuid AND organization_id = ${ctx.organizationId}::uuid
       FOR UPDATE
     `);
-    const organizationId = locked.rows[0]?.organization_id;
-    if (!organizationId) return null;
-    return this.findVersion(tx.db, { organizationId } as TenantContext, versionId);
+    if (!locked.rows[0]) return null;
+    return this.findVersion(tx.db, ctx, versionId);
+  }
+
+  /** Tenant-scoped version lock for authenticated commands such as send. */
+  async lockVersionForTenant(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    versionId: string,
+  ): Promise<VersionRow | null> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM change_order_versions
+      WHERE id = ${versionId}::uuid AND organization_id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) return null;
+    return this.findVersion(tx.db, ctx, versionId);
   }
 
   async setStatus(
     tx: TransactionContext,
+    ctx: TenantContext,
     versionId: string,
     status: VersionStatus,
     at: Date,
   ): Promise<void> {
     const decided =
       status === 'APPROVED' || status === 'DECLINED' || status === 'REVISION_REQUESTED';
-    await tx.db.execute(sql`
+    const result = await tx.db.execute<{ id: string }>(sql`
       UPDATE change_order_versions SET
         status = ${status}::version_status,
         viewed_at = ${status === 'VIEWED' ? sql`COALESCE(viewed_at, ${at.toISOString()}::timestamptz)` : sql`viewed_at`},
         decided_at = ${decided ? sql`${at.toISOString()}::timestamptz` : sql`decided_at`},
         lock_version = lock_version + 1
       WHERE id = ${versionId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
+      RETURNING id
     `);
+    if (!result.rows[0]) throw new AppError('CHANGE_ORDER_NOT_FOUND');
   }
 
   // --- Reads ---------------------------------------------------------------
@@ -539,7 +583,27 @@ export class ChangeOrderRepository {
     return result.rows.map(mapVersion);
   }
 
-  async listLineItems(db: Database, versionId: string): Promise<LineItemRow[]> {
+  /**
+   * Every immutable version that was sent for a project, in chronological
+   * order. A project evidence pack is a historical export, so superseded,
+   * expired, cancelled and decided versions remain in scope; drafts do not.
+   */
+  async listFrozenVersionsForProject(
+    db: Database,
+    ctx: TenantContext,
+    projectId: string,
+  ): Promise<VersionRow[]> {
+    const result = await db.execute<VersionRecord>(sql`
+      SELECT ${VERSION_COLUMNS} FROM change_order_versions
+      WHERE project_id = ${projectId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
+        AND canonical_snapshot IS NOT NULL
+      ORDER BY sent_at ASC NULLS LAST, change_order_id ASC, version_number ASC
+    `);
+    return result.rows.map(mapVersion);
+  }
+
+  async listLineItems(db: Database, ctx: TenantContext, versionId: string): Promise<LineItemRow[]> {
     const result = await db.execute<{
       id: string;
       position: number;
@@ -555,7 +619,10 @@ export class ChangeOrderRepository {
     }>(sql`
       SELECT id, position, description, quantity, unit, direction, unit_price_minor,
              tax_rate_bps, subtotal_minor, tax_minor, total_minor
-      FROM line_items WHERE version_id = ${versionId}::uuid ORDER BY position
+      FROM line_items
+      WHERE version_id = ${versionId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
+      ORDER BY position
     `);
     return result.rows.map((r) => ({
       id: r.id,
@@ -572,7 +639,11 @@ export class ChangeOrderRepository {
     }));
   }
 
-  async listAttachments(db: Database, versionId: string): Promise<AttachmentRow[]> {
+  async listAttachments(
+    db: Database,
+    ctx: TenantContext,
+    versionId: string,
+  ): Promise<AttachmentRow[]> {
     const result = await db.execute<{
       file_object_id: string;
       position: number;
@@ -596,6 +667,7 @@ export class ChangeOrderRepository {
       FROM version_attachments va
       JOIN file_objects f ON f.id = va.file_object_id
       WHERE va.version_id = ${versionId}::uuid
+        AND va.organization_id = ${ctx.organizationId}::uuid
       ORDER BY va.position
     `);
     return result.rows.map((r) => ({
@@ -615,16 +687,62 @@ export class ChangeOrderRepository {
     }));
   }
 
+  /**
+   * Locks attachment links and their immutable file metadata in a stable order,
+   * then reloads them from the same transaction for canonical snapshotting.
+   */
+  async lockAttachments(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    versionId: string,
+  ): Promise<AttachmentRow[]> {
+    await tx.db.execute(sql`
+      SELECT va.file_object_id
+      FROM version_attachments va
+      JOIN file_objects f ON f.id = va.file_object_id
+      WHERE va.version_id = ${versionId}::uuid
+        AND va.organization_id = ${ctx.organizationId}::uuid
+        AND f.organization_id = ${ctx.organizationId}::uuid
+      ORDER BY va.position, va.file_object_id
+      FOR UPDATE OF va, f
+    `);
+    return this.listAttachments(tx.db, ctx, versionId);
+  }
+
   async addAttachment(
     tx: TransactionContext,
     ctx: TenantContext,
     versionId: string,
     fileObjectId: string,
     caption: string | null,
+    maxAttachments: number,
   ): Promise<void> {
+    const version = await this.lockVersionForTenant(tx, ctx, versionId);
+    if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
+    if (version.status !== 'DRAFT') {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'Attachments can only be changed while the request is a draft.',
+        details: { currentStatus: version.status },
+      });
+    }
+
+    const count = await tx.db.execute<{ count: string }>(sql`
+      SELECT count(*)::text AS count
+      FROM version_attachments
+      WHERE version_id = ${versionId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
+    `);
+    if (Number.parseInt(count.rows[0]?.count ?? '0', 10) >= maxAttachments) {
+      throw new AppError('VALIDATION_FAILED', {
+        message: `A change request can carry at most ${maxAttachments} attachments.`,
+      });
+    }
+
     const next = await tx.db.execute<{ position: number }>(sql`
       SELECT COALESCE(max(position), -1) + 1 AS position
-      FROM version_attachments WHERE version_id = ${versionId}::uuid
+      FROM version_attachments
+      WHERE version_id = ${versionId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
     `);
     await tx.db.execute(sql`
       INSERT INTO version_attachments
@@ -643,6 +761,15 @@ export class ChangeOrderRepository {
     versionId: string,
     fileObjectId: string,
   ): Promise<void> {
+    const version = await this.lockVersionForTenant(tx, ctx, versionId);
+    if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
+    if (version.status !== 'DRAFT') {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'Attachments can only be changed while the request is a draft.',
+        details: { currentStatus: version.status },
+      });
+    }
+
     const result = await tx.db.execute(sql`
       DELETE FROM version_attachments
       WHERE version_id = ${versionId}::uuid
@@ -754,7 +881,10 @@ export class ChangeOrderRepository {
     // Project-scoped roles only see granted projects (report §3.2).
     const grantFilter = options.projectGrants
       ? options.projectGrants.length > 0
-        ? sql`AND v.project_id = ANY(${sql.raw(`ARRAY[${options.projectGrants.map((g) => `'${g}'::uuid`).join(',')}]`)})`
+        ? sql`AND v.project_id IN (${sql.join(
+            options.projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
         : sql`AND false`
       : sql``;
 

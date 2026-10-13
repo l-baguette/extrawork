@@ -65,6 +65,10 @@ rollover (JWKS serves both keys during overlap) over a hard cut.
   the rotation date so an investigation knows why hashes diverge at a boundary.
 - `STORAGE_URL_SECRET` — only used by the local filesystem driver; invalidates
   outstanding signed URLs immediately.
+- `APPROVAL_LINK_ENCRYPTION_SECRET` — decrypts request links waiting in the
+  worker queue. Drain or deliberately dead-letter/re-enqueue all
+  `send_request_message` jobs before rotating it; completed jobs have already
+  had their ciphertext removed.
 
 ## After any rotation
 

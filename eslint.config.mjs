@@ -22,6 +22,10 @@ export default tseslint.config(
       'test-results/**',
       'playwright-report/**',
       'docs/openapi/**',
+      // A worktree is a second checkout of this repo nested inside it; linting
+      // it duplicates every file and fails on work in progress.
+      '.claude/worktrees/**',
+      'graphify-out/**',
     ],
   },
 

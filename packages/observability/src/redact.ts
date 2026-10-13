@@ -17,6 +17,7 @@ export const REDACTED_KEYS = new Set(
     'approvalToken',
     'receiptToken',
     'approvalUrl',
+    'approvalUrlCiphertext',
     'uploadUrl',
     'downloadUrl',
     'evidenceUrl',

@@ -43,6 +43,9 @@ export const DOMAIN_EVENTS = {
   PAYMENT_STATUS_CHANGED: 'payment.status_changed.v1',
   DATA_RETENTION_DUE: 'data.retention_due.v1',
   DATA_DELETED: 'data.deleted.v1',
+  ORGANIZATION_CLOSURE_REQUESTED: 'organization.closure_requested.v1',
+  ORGANIZATION_CLOSURE_CANCELLED: 'organization.closure_cancelled.v1',
+  ORGANIZATION_PURGED: 'organization.purged.v1',
   SUPPORT_ACCESS_GRANTED: 'support.access_granted.v1',
   SUPPORT_ACCESS_REVOKED: 'support.access_revoked.v1',
   INTEGRITY_MISMATCH_DETECTED: 'integrity.mismatch_detected.v1',
@@ -86,6 +89,8 @@ export const JOB_KINDS = {
    * must never retry the customer's copy.
    */
   NOTIFY_TEAM_DECISION: 'notify_team_decision',
+  /** Delivers one durable message-ledger row to exactly one recipient. */
+  SEND_MESSAGE_DELIVERY: 'send_message_delivery',
   SEND_REQUEST_MESSAGE: 'send_request_message',
   SEND_OTP: 'send_otp',
   SEND_REMINDER: 'send_reminder',
@@ -106,6 +111,7 @@ export const JOB_PRIORITY: Record<JobKind, number> = {
   // Just behind the customer's own receipt: the team wants to know quickly,
   // but never at the cost of the customer's confirmation.
   [JOB_KINDS.NOTIFY_TEAM_DECISION]: 15,
+  [JOB_KINDS.SEND_MESSAGE_DELIVERY]: 16,
   [JOB_KINDS.SEND_REQUEST_MESSAGE]: 20,
   [JOB_KINDS.SEND_OTP]: 30,
   [JOB_KINDS.SEND_REMINDER]: 40,

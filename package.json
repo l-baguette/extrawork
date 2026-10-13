@@ -37,10 +37,12 @@
     "db:verify-chain": "pnpm --filter @extrawork/db verify-chain",
     "db:repair": "pnpm --filter @extrawork/db repair-project-totals",
     "db:replay": "pnpm --filter @extrawork/db replay",
-    "e2e": "playwright test",
     "dev:lan": "bash scripts/dev-lan.sh",
-    "preflight:hosted": "tsx scripts/preflight-hosted.mts",
-    "db:test-account": "tsx scripts/seed-test-account.mts"
+    "preflight:hosted": "node --conditions=development --import tsx scripts/preflight-hosted.mts",
+    "db:test-account": "node --conditions=development --import tsx scripts/seed-test-account.mts",
+    "db:purge-organization": "pnpm --filter @extrawork/db purge-organization",
+    "db:erase-contact": "pnpm --filter @extrawork/db erase-contact",
+    "db:export-subject": "pnpm --filter @extrawork/db export-subject"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

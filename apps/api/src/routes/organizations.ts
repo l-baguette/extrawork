@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  ACCOUNT_DELETION_GRACE_DAYS,
   AppError,
+  CloseAccountSchema,
   InviteMembershipSchema,
   UpdateMembershipSchema,
   UpdateOrganizationSchema,
@@ -37,6 +39,8 @@ export async function registerOrganizationRoutes(app: FastifyInstance): Promise<
       defaultCurrency: organization.defaultCurrency,
       retentionMonths: organization.retentionMonths,
       status: organization.status,
+      closedAt: organization.closedAt?.toISOString() ?? null,
+      purgeAfter: organization.purgeAfter?.toISOString() ?? null,
       brandPrimaryColor: organization.brandPrimaryColor,
       contactPhone: organization.contactPhone,
       contactEmail: organization.contactEmail,
@@ -144,6 +148,47 @@ export async function registerOrganizationRoutes(app: FastifyInstance): Promise<
       // Report §12.1: revoke sessions when membership is removed.
       await app.repos.identity.revokeSessionsForMembership(tx, auth.actor.organizationId, userId);
     });
+    return reply.status(204).send();
+  });
+
+  // --- Account closure -------------------------------------------------------
+
+  /**
+   * Closes the account. The owner must retype the organisation's display name,
+   * which is the only confirmation that survives a misread dialog — a typed
+   * name cannot be produced by a double-click, a stray Enter, or a CSRF-shaped
+   * request that guessed the endpoint.
+   */
+  app.post('/v1/organizations/closure', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    assertFreshAuthentication(auth.actor, 'organization:close');
+    app.requireWrite(request, 'organization:close');
+
+    const input = CloseAccountSchema.parse(request.body);
+    const organization = await app.repos.organizations.findById(auth.tenant);
+    if (!organization) throw new AppError('ORGANIZATION_REQUIRED');
+
+    if (input.confirmName.trim() !== organization.displayName.trim()) {
+      throw new AppError('VALIDATION_FAILED', {
+        message: 'Type the business name exactly as it appears to confirm closure.',
+      });
+    }
+
+    const result = await app.services.auth.closeAccount(auth, { reason: input.reason ?? null });
+    return reply.status(200).send({
+      status: 'CLOSED',
+      closedAt: result.closedAt.toISOString(),
+      purgeAfter: result.purgeAfter.toISOString(),
+      graceDays: ACCOUNT_DELETION_GRACE_DAYS,
+    });
+  });
+
+  /** Cancels a pending closure while the account is still inside the window. */
+  app.delete('/v1/organizations/closure', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    assertFreshAuthentication(auth.actor, 'organization:close');
+
+    await app.services.auth.reopenAccount(auth);
     return reply.status(204).send();
   });
 

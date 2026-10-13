@@ -56,7 +56,7 @@ export class LocalMagicLinkProvider implements AuthProvider {
 
   async completeSignIn(credential: string): Promise<AuthenticatedIdentity> {
     const consumed = await this.options.uow.transaction((tx) =>
-      this.options.repos.identity.consumeAuthChallenge(tx, credential),
+      this.options.repos.identity.consumeAuthChallenge(tx, credential, 'SIGN_IN'),
     );
     if (!consumed) {
       throw new AppError('UNAUTHENTICATED', {
@@ -77,7 +77,7 @@ export class LocalMagicLinkProvider implements AuthProvider {
 export interface ManagedJwtOptions {
   jwksUrl: string;
   issuer: string;
-  audience?: string;
+  audience: string;
   providerName: 'supabase' | 'clerk';
   fetchImpl?: typeof fetch;
 }
@@ -114,26 +114,39 @@ export class ManagedJwtProvider implements AuthProvider {
   }
 
   async completeSignIn(credential: string): Promise<AuthenticatedIdentity> {
-    const [headerPart, payloadPart, signaturePart] = credential.split('.');
+    const parts = credential.split('.');
+    if (parts.length !== 3) {
+      throw new AppError('UNAUTHENTICATED', { message: 'Malformed authentication token' });
+    }
+    const [headerPart, payloadPart, signaturePart] = parts;
     if (!headerPart || !payloadPart || !signaturePart) {
       throw new AppError('UNAUTHENTICATED', { message: 'Malformed authentication token' });
     }
 
-    const header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8')) as {
-      alg: string;
-      kid?: string;
-    };
-    const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as {
+    let header: { alg?: string; kid?: string };
+    let payload: {
       sub?: string;
       email?: string;
       name?: string;
       iss?: string;
       aud?: string | string[];
       exp?: number;
+      nbf?: number;
       user_metadata?: { full_name?: string };
     };
+    try {
+      header = JSON.parse(Buffer.from(headerPart, 'base64url').toString('utf8')) as typeof header;
+      payload = JSON.parse(
+        Buffer.from(payloadPart, 'base64url').toString('utf8'),
+      ) as typeof payload;
+    } catch {
+      throw new AppError('UNAUTHENTICATED', { message: 'Malformed authentication token' });
+    }
+    if (!header.alg) {
+      throw new AppError('UNAUTHENTICATED', { message: 'Authentication token has no algorithm' });
+    }
 
-    const key = await this.resolveKey(header.kid);
+    const key = await this.resolveKey(header.kid, header.alg);
     const verified = await this.verifySignature(
       header.alg,
       key,
@@ -149,15 +162,19 @@ export class ManagedJwtProvider implements AuthProvider {
     if (payload.iss !== this.options.issuer) {
       throw new AppError('UNAUTHENTICATED', { message: 'Authentication token issuer mismatch' });
     }
-    if (this.options.audience) {
-      const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-      if (!audiences.includes(this.options.audience)) {
-        throw new AppError('UNAUTHENTICATED', {
-          message: 'Authentication token audience mismatch',
-        });
-      }
+    const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+    if (!audiences.includes(this.options.audience)) {
+      throw new AppError('UNAUTHENTICATED', {
+        message: 'Authentication token audience mismatch',
+      });
     }
-    if (!payload.exp || payload.exp * 1000 <= Date.now()) {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (payload.nbf && payload.nbf > nowSeconds + 60) {
+      throw new AppError('UNAUTHENTICATED', {
+        message: 'Authentication token is not active yet',
+      });
+    }
+    if (!payload.exp || payload.exp <= nowSeconds - 60) {
       throw new AppError('SESSION_EXPIRED');
     }
     if (!payload.sub || !payload.email) {
@@ -175,25 +192,44 @@ export class ManagedJwtProvider implements AuthProvider {
     };
   }
 
-  private async resolveKey(kid: string | undefined): Promise<Jwk> {
-    const fresh = this.jwksCache && Date.now() - this.jwksCache.fetchedAt < 10 * 60_000;
-    if (!fresh) {
-      const response = await this.fetchImpl(this.options.jwksUrl, {
-        signal: AbortSignal.timeout(10_000),
+  private async fetchKeys(): Promise<Jwk[]> {
+    const response = await this.fetchImpl(this.options.jwksUrl, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      throw new AppError('PROVIDER_UNAVAILABLE', {
+        message: 'Could not reach the authentication provider.',
       });
-      if (!response.ok) {
-        throw new AppError('PROVIDER_UNAVAILABLE', {
-          message: 'Could not reach the authentication provider.',
-        });
-      }
-      const body = (await response.json()) as { keys: Jwk[] };
-      this.jwksCache = { keys: body.keys ?? [], fetchedAt: Date.now() };
     }
+    try {
+      const body = (await response.json()) as { keys?: unknown };
+      if (!Array.isArray(body.keys)) throw new Error('invalid JWKS');
+      const keys = body.keys as Jwk[];
+      this.jwksCache = { keys, fetchedAt: Date.now() };
+      return keys;
+    } catch {
+      throw new AppError('PROVIDER_UNAVAILABLE', {
+        message: 'The authentication provider returned invalid signing keys.',
+      });
+    }
+  }
 
-    const keys = this.jwksCache?.keys ?? [];
-    const key = kid ? keys.find((k) => k.kid === kid) : keys[0];
+  private async resolveKey(kid: string | undefined, alg: string): Promise<Jwk> {
+    const fresh = this.jwksCache && Date.now() - this.jwksCache.fetchedAt < 10 * 60_000;
+    let keys = fresh ? this.jwksCache!.keys : await this.fetchKeys();
+    let key = kid ? keys.find((candidate) => candidate.kid === kid) : keys[0];
+
+    if (!key && fresh && kid) {
+      keys = await this.fetchKeys();
+      key = keys.find((candidate) => candidate.kid === kid);
+    }
     if (!key) {
       throw new AppError('UNAUTHENTICATED', { message: 'Unknown authentication signing key' });
+    }
+    if (key.alg && key.alg !== alg) {
+      throw new AppError('UNAUTHENTICATED', {
+        message: 'Authentication token algorithm does not match its signing key',
+      });
     }
     return key;
   }

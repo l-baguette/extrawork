@@ -15,6 +15,7 @@ import { FileRepository } from './files.js';
 import { IdentityRepository } from './identity.js';
 import { InboundMessageRepository } from './inbound-messages.js';
 import { OrganizationRepository } from './organizations.js';
+import { PaymentRepository } from './payments.js';
 import { ProjectRepository } from './projects.js';
 import { ReminderRepository } from './reminders.js';
 import { ReportingRepository, SupportRepository } from './reporting.js';
@@ -37,6 +38,7 @@ export interface Repositories {
   messages: MessageRepository;
   webhooks: WebhookInboxRepository;
   reminders: ReminderRepository;
+  payments: PaymentRepository;
   reporting: ReportingRepository;
   support: SupportRepository;
   // WhatsApp intake (migration 0005).
@@ -65,6 +67,7 @@ export function createRepositories(
     messages: new MessageRepository(db),
     webhooks: new WebhookInboxRepository(db),
     reminders: new ReminderRepository(db),
+    payments: new PaymentRepository(),
     reporting: new ReportingRepository(db),
     support: new SupportRepository(db),
     employees: new EmployeeRepository(db),

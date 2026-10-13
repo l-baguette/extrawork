@@ -1,6 +1,7 @@
 export * from './errors.js';
 export * from './primitives.js';
 export * from './assurance.js';
+export * from './legal.js';
 export * from './signer-name.js';
 export * from './events.js';
 export * from './api/common.js';

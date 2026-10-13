@@ -3,6 +3,9 @@ import { localAuthSubject } from '@extrawork/application';
 import type { Container } from '@extrawork/runtime';
 import { actorContext, publicContext } from '../context.js';
 
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
+
 /**
  * Demonstration data for local development and the E2E suite.
  *
@@ -484,6 +487,7 @@ async function decideAs(
       input: {
         type: input.type,
         signerName: input.signerName,
+        signedDate: today(),
         ...(input.comment ? { comment: input.comment } : {}),
         declarationAccepted: true,
       },

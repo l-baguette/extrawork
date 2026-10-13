@@ -20,6 +20,7 @@ import {
   calculateRevisedContractTotal,
   calculateVersionTotals,
   collectSendBlockers,
+  encryptApprovalUrl,
   freezeSnapshot,
   generateApprovalToken,
   maskEmail,
@@ -64,182 +65,221 @@ export class SendService {
     changeOrderId: string,
     input: SendChangeOrderInput,
   ): Promise<SendResult> {
-    const changeOrder = await this.app.repos.changeOrders.requireChangeOrder(
+    const initialChangeOrder = await this.app.repos.changeOrders.requireChangeOrder(
       this.app.uow.db,
       ctx.tenant,
       changeOrderId,
     );
     authorize(ctx.actor, 'change_order:send', {
-      organizationId: changeOrder.organizationId,
-      projectId: changeOrder.projectId,
+      organizationId: initialChangeOrder.organizationId,
+      projectId: initialChangeOrder.projectId,
     });
 
-    const [organization, entitlementState] = await Promise.all([
-      this.app.repos.organizations.findById(ctx.tenant),
+    // Cheap preflight checks keep ordinary validation failures fast. Every
+    // mutable value used below is reloaded again under database locks before
+    // the canonical snapshot is built.
+    const [candidateVersion, preflightEntitlements] = await Promise.all([
+      this.app.repos.changeOrders.getCurrentVersion(ctx.tenant, changeOrderId),
       this.app.repos.organizations.resolveEntitlements(ctx.tenant),
     ]);
-    if (!organization) throw new AppError('ORGANIZATION_REQUIRED');
-
-    // Report §8.7: a lapsed subscription stops new sends but never hides data.
-    if (entitlementState.readOnly) {
+    if (!candidateVersion) throw new AppError('CHANGE_ORDER_NOT_FOUND');
+    assertTransition(candidateVersion.status, 'SEND');
+    if (preflightEntitlements.readOnly) {
       throw new AppError('SUBSCRIPTION_READ_ONLY');
     }
-    // Report §13.1 puts the customer decision above everything, so the plan
-    // limit is checked here at send rather than at decision time.
     assertQuota(
-      entitlementState.entitlements,
-      entitlementState.usage,
+      preflightEntitlements.entitlements,
+      preflightEntitlements.usage,
       'completedDecisionsPerPeriod',
     );
 
-    const version = await this.app.repos.changeOrders.getCurrentVersion(ctx.tenant, changeOrderId);
-    if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
-    // Throws the right code if this version is not sendable.
-    assertTransition(version.status, 'SEND');
-
-    const project = await this.app.repos.projects.requireById(ctx.tenant, changeOrder.projectId);
-    const [lineItems, attachments, approver, customer] = await Promise.all([
-      this.app.repos.changeOrders.listLineItems(this.app.uow.db, version.id),
-      this.app.repos.changeOrders.listAttachments(this.app.uow.db, version.id),
-      this.app.repos.customers.requireContact(ctx.tenant, version.approverContactId),
-      this.app.repos.customers.requireById(ctx.tenant, project.customerId),
-    ]);
-
-    const calcLines = lineItems.map((l) => ({
-      quantity: l.quantity,
-      unitPriceMinor: l.unitPriceMinor,
-      taxRateBps: l.taxRateBps,
-      direction: l.direction,
-    }));
-
-    const blockers = collectSendBlockers({
-      lineItems: calcLines,
-      scheduleDeltaDays: version.scheduleDeltaDays,
-      attachmentScanStatuses: attachments.map((a) => a.scanStatus),
-      approverHasContactChannel: Boolean(approver.phoneE164 || approver.emailNormalized),
-      projectStatus: project.status,
-      scopeLength: version.scopeDescription.length,
-      readOnlySubscription: entitlementState.readOnly,
-    });
-    if (blockers.length > 0) {
-      throw new AppError('VALIDATION_FAILED', {
-        message: blockers[0]?.message ?? 'This change request is not ready to send.',
-        details: { blockers },
-      });
-    }
-
-    // Recomputed at send time so the frozen snapshot can never inherit a stale
-    // stored total (report §8.1).
-    const totals = calculateVersionTotals(calcLines);
-    const priorApproved = await this.app.repos.changeOrders.priorApprovedDelta(
-      this.app.uow.db,
-      ctx.tenant,
-      project.id,
-      version.id,
-    );
-    const revisedContractTotalMinor = calculateRevisedContractTotal({
-      baselineTotalMinor: project.baselineTotalMinor,
-      priorApprovedDeltaMinor: priorApproved,
-      currentVersionDeltaMinor: totals.totalDeltaMinor,
-    });
-
-    const now = this.app.clock.now();
-    const expiresAt = resolveExpiry(
-      input.expiresAt ? new Date(input.expiresAt) : version.expiresAt,
-      now,
-      this.app.env.APPROVAL_TOKEN_MAX_LIFETIME_DAYS,
-      this.app.env.DEFAULT_REQUEST_EXPIRY_DAYS,
-    );
-
-    const frozen = freezeSnapshot({
-      organization: {
-        displayName: organization.displayName,
-        legalName: organization.legalName,
-        gstin: organization.gstin,
-      },
-      project: {
-        id: project.id,
-        number: project.projectNumber,
-        title: project.title,
-        baselineTotalMinor: project.baselineTotalMinor,
-        currency: project.currency,
-        timezone: project.timezone,
-      },
-      change: {
-        id: changeOrder.id,
-        number: changeOrder.number,
-        version: version.versionNumber,
-        type: version.type,
-      },
-      scope: {
-        title: version.title,
-        description: version.scopeDescription,
-        reason: version.reason,
-      },
-      commercial: {
-        currency: version.currency,
-        lines: lineItems.map((l) => ({
-          position: l.position,
-          description: l.description,
-          quantity: l.quantity,
-          unit: l.unit,
-          unitPriceMinor: l.unitPriceMinor,
-          taxRateBps: l.taxRateBps,
-          direction: l.direction,
-          subtotalMinor: l.subtotalMinor,
-          taxMinor: l.taxMinor,
-          totalMinor: l.totalMinor,
-        })),
-        subtotalDeltaMinor: totals.subtotalDeltaMinor,
-        taxDeltaMinor: totals.taxDeltaMinor,
-        totalDeltaMinor: totals.totalDeltaMinor,
-        priorApprovedDeltaMinor: priorApproved,
-        revisedContractTotalMinor,
-      },
-      schedule: {
-        deltaDays: version.scheduleDeltaDays,
-        revisedCompletionDate: version.revisedCompletionDate,
-      },
-      approver: {
-        contactId: approver.id,
-        name: approver.name,
-        maskedPhone: maskPhone(approver.phoneE164),
-        maskedEmail: maskEmail(approver.emailNormalized),
-        authorityNote: approver.authorityNote,
-      },
-      attachments: attachments.map((a) => ({
-        id: a.fileObjectId,
-        sha256: a.sha256?.toString('hex') ?? '',
-        mimeType: a.mimeType,
-        filename: a.filename,
-        byteSize: Number(a.byteSize),
-        caption: a.caption,
-      })),
-      assuranceRequired: version.assuranceRequired,
-      expiresAt: expiresAt.toISOString(),
-      sentAt: now.toISOString(),
-    });
-
-    // Generated outside the transaction so the plaintext never sits in a
-    // transaction-scoped structure longer than necessary.
     const token = generateApprovalToken();
     const approvalUrl = `${this.app.env.WEB_PUBLIC_URL.replace(/\/+$/, '')}/r/${token.plaintext}`;
 
-    const messageText = buildRequestMessage({
-      organizationName: organization.displayName,
-      customerFirstName: firstName(approver.name || customer.displayName),
-      projectTitle: project.title,
-      changeNumber: changeOrder.number,
-      totalDeltaMinor: totals.totalDeltaMinor,
-      currency: version.currency,
-      scheduleDeltaDays: version.scheduleDeltaDays,
-      approvalUrl,
-      expiresAt,
-      timezone: project.timezone,
-      note: input.messageNote ?? null,
-    });
+    const sent = await this.app.uow.transaction(async (tx) => {
+      // The version is the command's serialization point. Draft edits and
+      // attachment changes acquire this same lock before mutating child rows.
+      const version = await this.app.repos.changeOrders.lockVersionForTenant(
+        tx,
+        ctx.tenant,
+        candidateVersion.id,
+      );
+      if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
+      assertTransition(version.status, 'SEND');
 
-    await this.app.uow.transaction(async (tx) => {
+      const changeOrder = await this.app.repos.changeOrders.requireChangeOrder(
+        tx.db,
+        ctx.tenant,
+        changeOrderId,
+      );
+      if (changeOrder.currentVersionId !== version.id) {
+        throw new AppError('INVALID_STATE_TRANSITION', {
+          message: 'A newer version of this change request is now current.',
+        });
+      }
+      authorize(ctx.actor, 'change_order:send', {
+        organizationId: changeOrder.organizationId,
+        projectId: changeOrder.projectId,
+      });
+
+      // Match the decision path's version -> project lock order. The remaining
+      // legal-document inputs are then locked in stable table order.
+      const project = await this.app.repos.projects.lockById(tx, ctx.tenant, version.projectId);
+      const organization = await this.app.repos.organizations.lockById(tx, ctx.tenant);
+      const customer = await this.app.repos.customers.lockById(tx, ctx.tenant, project.customerId);
+      const approver = await this.app.repos.customers.lockContact(
+        tx,
+        ctx.tenant,
+        version.approverContactId,
+      );
+      const lineItems = await this.app.repos.changeOrders.listLineItems(
+        tx.db,
+        ctx.tenant,
+        version.id,
+      );
+      const attachments = await this.app.repos.changeOrders.lockAttachments(
+        tx,
+        ctx.tenant,
+        version.id,
+      );
+      const entitlementState = await this.app.repos.organizations.resolveEntitlements(
+        ctx.tenant,
+        tx.db,
+      );
+
+      // Report §8.7: a lapsed subscription stops new sends but never hides data.
+      if (entitlementState.readOnly) throw new AppError('SUBSCRIPTION_READ_ONLY');
+      assertQuota(
+        entitlementState.entitlements,
+        entitlementState.usage,
+        'completedDecisionsPerPeriod',
+      );
+
+      const calcLines = lineItems.map((line) => ({
+        quantity: line.quantity,
+        unitPriceMinor: line.unitPriceMinor,
+        taxRateBps: line.taxRateBps,
+        direction: line.direction,
+      }));
+      const blockers = collectSendBlockers({
+        lineItems: calcLines,
+        scheduleDeltaDays: version.scheduleDeltaDays,
+        attachmentScanStatuses: attachments.map((attachment) => attachment.scanStatus),
+        approverHasContactChannel: Boolean(approver.phoneE164 || approver.emailNormalized),
+        projectStatus: project.status,
+        scopeLength: version.scopeDescription.length,
+        readOnlySubscription: entitlementState.readOnly,
+      });
+      if (blockers.length > 0) {
+        throw new AppError('VALIDATION_FAILED', {
+          message: blockers[0]?.message ?? 'This change request is not ready to send.',
+          details: { blockers },
+        });
+      }
+
+      // Recomputed from the row-locked draft so the snapshot cannot inherit a
+      // stale stored total or a mix of two concurrent edits.
+      const totals = calculateVersionTotals(calcLines);
+      const priorApproved = await this.app.repos.changeOrders.priorApprovedDelta(
+        tx.db,
+        ctx.tenant,
+        project.id,
+        version.id,
+      );
+      const revisedContractTotalMinor = calculateRevisedContractTotal({
+        baselineTotalMinor: project.baselineTotalMinor,
+        priorApprovedDeltaMinor: priorApproved,
+        currentVersionDeltaMinor: totals.totalDeltaMinor,
+      });
+      const now = this.app.clock.now();
+      const expiresAt = resolveExpiry(
+        input.expiresAt ? new Date(input.expiresAt) : version.expiresAt,
+        now,
+        this.app.env.APPROVAL_TOKEN_MAX_LIFETIME_DAYS,
+        this.app.env.DEFAULT_REQUEST_EXPIRY_DAYS,
+      );
+      const frozen = freezeSnapshot({
+        organization: {
+          displayName: organization.displayName,
+          legalName: organization.legalName,
+          gstin: organization.gstin,
+        },
+        project: {
+          id: project.id,
+          number: project.projectNumber,
+          title: project.title,
+          baselineTotalMinor: project.baselineTotalMinor,
+          currency: project.currency,
+          timezone: project.timezone,
+        },
+        change: {
+          id: changeOrder.id,
+          number: changeOrder.number,
+          version: version.versionNumber,
+          type: version.type,
+        },
+        scope: {
+          title: version.title,
+          description: version.scopeDescription,
+          reason: version.reason,
+        },
+        commercial: {
+          currency: version.currency,
+          lines: lineItems.map((line) => ({
+            position: line.position,
+            description: line.description,
+            quantity: line.quantity,
+            unit: line.unit,
+            unitPriceMinor: line.unitPriceMinor,
+            taxRateBps: line.taxRateBps,
+            direction: line.direction,
+            subtotalMinor: line.subtotalMinor,
+            taxMinor: line.taxMinor,
+            totalMinor: line.totalMinor,
+          })),
+          subtotalDeltaMinor: totals.subtotalDeltaMinor,
+          taxDeltaMinor: totals.taxDeltaMinor,
+          totalDeltaMinor: totals.totalDeltaMinor,
+          priorApprovedDeltaMinor: priorApproved,
+          revisedContractTotalMinor,
+        },
+        schedule: {
+          deltaDays: version.scheduleDeltaDays,
+          revisedCompletionDate: version.revisedCompletionDate,
+        },
+        approver: {
+          contactId: approver.id,
+          name: approver.name,
+          maskedPhone: maskPhone(approver.phoneE164),
+          maskedEmail: maskEmail(approver.emailNormalized),
+          authorityNote: approver.authorityNote,
+        },
+        attachments: attachments.map((attachment) => ({
+          id: attachment.fileObjectId,
+          sha256: attachment.sha256?.toString('hex') ?? '',
+          mimeType: attachment.mimeType,
+          filename: attachment.filename,
+          byteSize: Number(attachment.byteSize),
+          caption: attachment.caption,
+        })),
+        assuranceRequired: version.assuranceRequired,
+        expiresAt: expiresAt.toISOString(),
+        sentAt: now.toISOString(),
+      });
+      const messageText = buildRequestMessage({
+        organizationName: organization.displayName,
+        customerFirstName: firstName(approver.name || customer.displayName),
+        projectTitle: project.title,
+        changeNumber: changeOrder.number,
+        totalDeltaMinor: totals.totalDeltaMinor,
+        currency: version.currency,
+        scheduleDeltaDays: version.scheduleDeltaDays,
+        approvalUrl,
+        expiresAt,
+        timezone: project.timezone,
+        note: input.messageNote ?? null,
+      });
+
       const frozenVersion = await this.app.repos.changeOrders.freezeAndSend(
         tx,
         ctx.tenant,
@@ -288,17 +328,19 @@ export class SendService {
         dedupeKey: `request:${frozenVersion.id}:${input.channel}`,
       });
 
-      const reminderChannel = input.channel === 'EMAIL' ? 'EMAIL' : 'WHATSAPP_NATIVE_SHARE';
-      await this.app.repos.reminders.schedule(
-        tx,
-        ctx.tenant.organizationId,
-        frozenVersion.id,
-        reminderChannel,
-        buildReminderSchedule(frozenVersion.id, now, expiresAt, reminderChannel, {
-          ...DEFAULT_REMINDER_POLICY,
-          stepsHoursAfterSend: organization.reminderPolicyHours,
-        }),
-      );
+      if (systemDelivers) {
+        const reminderChannel = input.channel === 'EMAIL' ? 'EMAIL' : 'WHATSAPP';
+        await this.app.repos.reminders.schedule(
+          tx,
+          ctx.tenant.organizationId,
+          frozenVersion.id,
+          reminderChannel,
+          buildReminderSchedule(frozenVersion.id, now, expiresAt, reminderChannel, {
+            ...DEFAULT_REMINDER_POLICY,
+            stepsHoursAfterSend: organization.reminderPolicyHours,
+          }),
+        );
+      }
 
       await this.app.repos.organizations.incrementUsage(
         tx,
@@ -368,30 +410,50 @@ export class SendService {
             versionId: frozenVersion.id,
             contactId: approver.id,
             channel: input.channel,
-            // The plaintext token exists only here (report §3.4 stores only its
-            // hash), so the worker cannot rebuild the link and it has to travel
-            // in the payload. That payload lives in `job_queue` in the same
-            // database as the hash, never in log output.
-            approvalUrl,
+            // The worker needs the one-time link after commit, but job_queue is
+            // durable storage. Persist authenticated ciphertext, bound to this
+            // tenant and version, rather than placing the bearer token beside
+            // its hash in the database.
+            approvalUrlCiphertext: encryptApprovalUrl(
+              approvalUrl,
+              this.app.env.APPROVAL_LINK_ENCRYPTION_SECRET,
+              {
+                organizationId: ctx.tenant.organizationId,
+                versionId: frozenVersion.id,
+              },
+            ),
           },
         });
       }
+
+      return {
+        changeOrderId: changeOrder.id,
+        versionId: frozenVersion.id,
+        versionNumber: frozenVersion.versionNumber,
+        expiresAt,
+        canonicalSha256: frozen.sha256Hex,
+        messageText,
+        approverPhone: approver.phoneE164,
+        approverEmail: approver.emailNormalized,
+        changeNumber: changeOrder.number,
+        projectTitle: project.title,
+      };
     });
 
     return {
-      changeOrderId: changeOrder.id,
-      versionId: version.id,
-      versionNumber: version.versionNumber,
+      changeOrderId: sent.changeOrderId,
+      versionId: sent.versionId,
+      versionNumber: sent.versionNumber,
       approvalUrl,
-      expiresAt,
-      canonicalSha256: frozen.sha256Hex,
-      messageText,
-      whatsappUrl: buildWhatsAppShareUrl(approver.phoneE164, messageText),
-      smsUrl: buildSmsUrl(approver.phoneE164, messageText),
+      expiresAt: sent.expiresAt,
+      canonicalSha256: sent.canonicalSha256,
+      messageText: sent.messageText,
+      whatsappUrl: buildWhatsAppShareUrl(sent.approverPhone, sent.messageText),
+      smsUrl: buildSmsUrl(sent.approverPhone, sent.messageText),
       mailtoUrl: buildMailtoUrl(
-        approver.emailNormalized,
-        requestEmailSubject(changeOrder.number, project.title),
-        messageText,
+        sent.approverEmail,
+        requestEmailSubject(sent.changeNumber, sent.projectTitle),
+        sent.messageText,
       ),
     };
   }

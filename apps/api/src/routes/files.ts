@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { AppError, CompleteUploadSchema, CreateUploadSchema } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
+import { authorize } from '@extrawork/domain';
 import { LocalObjectStore } from '@extrawork/files';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 
@@ -51,6 +52,10 @@ export async function registerFileRoutes(
     const auth = await app.requireAuth(request, reply);
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const file = await app.repos.files.requireById(auth.tenant, id);
+    authorize(auth.actor, 'file:read', {
+      organizationId: file.organizationId,
+      projectId: file.projectId,
+    });
 
     const downloadUrl =
       file.scanStatus === 'CLEAN' ? await app.services.files.downloadUrl(auth, id) : null;

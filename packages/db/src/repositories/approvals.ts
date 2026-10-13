@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { SYSTEM_SCOPE, runInScope } from '../tenant-scope.js';
 import { AppError, type AssuranceLevel, type DecisionType } from '@extrawork/contracts';
 import { hashToken, type TenantContext, type TokenRevocationReason } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
@@ -40,6 +41,9 @@ export interface PublicSessionRow {
 }
 
 export interface DecisionRow {
+  /** Asserted by the signatory. Null on decisions taken before migration 0010. */
+  signedDate: string | null;
+  signedPlace: string | null;
   id: string;
   organizationId: string;
   projectId: string;
@@ -89,10 +93,21 @@ export class ApprovalRepository {
    * timing difference cannot reveal whether a token exists beyond the single
    * indexed equality that any lookup requires.
    */
+  /**
+   * Resolves a customer's approval link.
+   *
+   * Runs system-scoped on purpose: the caller cannot name a tenant here because
+   * finding out which tenant the link belongs to is the entire point of the
+   * lookup. Possession of the token is the authorization — it is high-entropy,
+   * stored only as a hash, and single-purpose — and the organization it resolves
+   * to becomes the scope for everything the request does afterwards.
+   */
   async findByToken(plaintext: string): Promise<ApprovalTokenRow | null> {
-    const result = await this.db.execute<TokenRecord>(sql`
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<TokenRecord>(sql`
       SELECT ${TOKEN_COLUMNS} FROM approval_tokens WHERE token_hash = ${hashToken(plaintext)}
-    `);
+    `),
+    );
     const row = result.rows[0];
     return row ? mapToken(row) : null;
   }
@@ -108,7 +123,27 @@ export class ApprovalRepository {
     return row ? mapToken(row) : null;
   }
 
-  async recordView(tx: TransactionContext, tokenId: string): Promise<{ firstView: boolean }> {
+  async findForVersion(
+    ctx: TenantContext,
+    versionId: string,
+    db: Database = this.db,
+  ): Promise<ApprovalTokenRow | null> {
+    const result = await db.execute<TokenRecord>(sql`
+      SELECT ${TOKEN_COLUMNS} FROM approval_tokens
+      WHERE organization_id = ${ctx.organizationId}::uuid
+        AND version_id = ${versionId}::uuid
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const row = result.rows[0];
+    return row ? mapToken(row) : null;
+  }
+
+  async recordView(
+    tx: TransactionContext,
+    organizationId: string,
+    tokenId: string,
+  ): Promise<{ firstView: boolean }> {
     // Report §4.5: the first valid view appends an evidence event; repeat views
     // only move the aggregate counters.
     const result = await tx.db.execute<{ first_view: boolean }>(sql`
@@ -116,7 +151,7 @@ export class ApprovalRepository {
          SET view_count = view_count + 1,
              first_viewed_at = COALESCE(first_viewed_at, now()),
              last_viewed_at = now()
-       WHERE id = ${tokenId}::uuid
+       WHERE id = ${tokenId}::uuid AND organization_id = ${organizationId}::uuid
       RETURNING (view_count = 1) AS first_view
     `);
     return { firstView: result.rows[0]?.first_view ?? false };
@@ -124,23 +159,29 @@ export class ApprovalRepository {
 
   async revoke(
     tx: TransactionContext,
+    organizationId: string,
     tokenId: string,
     reason: TokenRevocationReason,
   ): Promise<void> {
     await tx.db.execute(sql`
       UPDATE approval_tokens SET revoked_at = now(), revoked_reason = ${reason}
-      WHERE id = ${tokenId}::uuid AND revoked_at IS NULL
+      WHERE id = ${tokenId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND revoked_at IS NULL
     `);
   }
 
   async revokeForVersion(
     tx: TransactionContext,
+    organizationId: string,
     versionId: string,
     reason: TokenRevocationReason,
   ): Promise<number> {
     const result = await tx.db.execute(sql`
       UPDATE approval_tokens SET revoked_at = now(), revoked_reason = ${reason}
-      WHERE version_id = ${versionId}::uuid AND revoked_at IS NULL
+      WHERE version_id = ${versionId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND revoked_at IS NULL
     `);
     return result.rowCount ?? 0;
   }
@@ -151,6 +192,7 @@ export class ApprovalRepository {
    * the same approver on a live token for the successor version.
    */
   async findSuccessorToken(
+    organizationId: string,
     supersededVersionId: string,
     approverContactId: string,
   ): Promise<{ versionId: string } | null> {
@@ -160,6 +202,9 @@ export class ApprovalRepository {
       JOIN change_order_versions next ON next.id = old.superseded_by_version_id
       JOIN approval_tokens t ON t.version_id = next.id
       WHERE old.id = ${supersededVersionId}::uuid
+        AND old.organization_id = ${organizationId}::uuid
+        AND next.organization_id = ${organizationId}::uuid
+        AND t.organization_id = ${organizationId}::uuid
         AND t.revoked_at IS NULL
         AND t.expires_at > now()
         AND t.approver_contact_id = ${approverContactId}::uuid
@@ -201,17 +246,22 @@ export class ApprovalRepository {
     return { sessionToken: session.token, csrfToken: csrf.token, sessionId: id, expiresAt };
   }
 
+  /** System-scoped for the same reason as `findByToken`: the session cookie is
+   * what identifies the tenant, so it cannot be scoped by one. */
   async findPublicSession(sessionToken: string): Promise<PublicSessionRow | null> {
-    const result = await this.db.execute<PublicSessionRecord>(sql`
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<PublicSessionRecord>(sql`
       SELECT ${PUBLIC_SESSION_COLUMNS} FROM public_sessions
       WHERE session_token_hash = ${hashOpaqueToken(sessionToken)} AND expires_at > now()
-    `);
+    `),
+    );
     const row = result.rows[0];
     return row ? mapPublicSession(row) : null;
   }
 
   async raiseSessionAssurance(
     tx: TransactionContext,
+    organizationId: string,
     sessionId: string,
     level: AssuranceLevel,
     verifiedPhone: string,
@@ -221,7 +271,7 @@ export class ApprovalRepository {
          SET assurance_achieved = ${level}::assurance_level,
              verified_phone_e164 = ${verifiedPhone},
              verified_at = now()
-       WHERE id = ${sessionId}::uuid
+       WHERE id = ${sessionId}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
@@ -266,6 +316,7 @@ export class ApprovalRepository {
 
   async lockOtpChallenge(
     tx: TransactionContext,
+    organizationId: string,
     challengeId: string,
     publicSessionId: string,
   ): Promise<{
@@ -291,7 +342,9 @@ export class ApprovalRepository {
       SELECT id, code_hash, salt, expires_at, attempt_count, max_attempts,
              consumed_at, destination_e164
       FROM otp_challenges
-      WHERE id = ${challengeId}::uuid AND public_session_id = ${publicSessionId}::uuid
+      WHERE id = ${challengeId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND public_session_id = ${publicSessionId}::uuid
       FOR UPDATE
     `);
     const row = result.rows[0];
@@ -310,6 +363,7 @@ export class ApprovalRepository {
 
   async recordOtpAttempt(
     tx: TransactionContext,
+    organizationId: string,
     challengeId: string,
     succeeded: boolean,
   ): Promise<void> {
@@ -317,14 +371,15 @@ export class ApprovalRepository {
       UPDATE otp_challenges
          SET attempt_count = attempt_count + 1,
              consumed_at = ${succeeded ? sql`now()` : sql`consumed_at`}
-       WHERE id = ${challengeId}::uuid
+       WHERE id = ${challengeId}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
   async otpSendCounts(
     contactId: string,
+    db: Database = this.db,
   ): Promise<{ sentInWindow: number; sentToday: number; lastSentAt: Date | null }> {
-    const result = await this.db.execute<{
+    const result = await db.execute<{
       in_window: string;
       today: string;
       last_sent: Date | null;
@@ -360,6 +415,9 @@ export class ApprovalRepository {
       versionId: string;
       type: DecisionType;
       signerName: string;
+      /** Asserted by the signatory; never derived from the clock. */
+      signedDate: string;
+      signedPlace: string | null;
       comment: string | null;
       assuranceAchieved: AssuranceLevel;
       verifiedPhoneE164: string | null;
@@ -376,12 +434,14 @@ export class ApprovalRepository {
     const id = newId();
     await tx.db.execute(sql`
       INSERT INTO decisions (
-        id, organization_id, project_id, version_id, type, signer_name, signer_comment,
+        id, organization_id, project_id, version_id, type, signer_name, signed_date,
+        signed_place, signer_comment,
         assurance_achieved, verified_phone_e164, public_session_id, ip_hash, user_agent,
         declaration_text, terms_version, occurred_at, receipt_token_hash, receipt_display_id
       ) VALUES (
         ${id}::uuid, ${ctx.organizationId}::uuid, ${input.projectId}::uuid,
         ${input.versionId}::uuid, ${input.type}::decision_type, ${input.signerName},
+        ${input.signedDate}::date, ${input.signedPlace},
         ${input.comment}, ${input.assuranceAchieved}::assurance_level,
         ${input.verifiedPhoneE164}, ${input.publicSessionId}::uuid, ${input.ipHash},
         ${input.userAgent}, ${input.declarationText}, ${input.termsVersion},
@@ -498,12 +558,14 @@ function mapPublicSession(row: PublicSessionRecord): PublicSessionRow {
  */
 const DECISION_COLUMNS = sql`
   id, organization_id, project_id, version_id, type, signer_name,
+  signed_date, signed_place,
   signer_comment, assurance_achieved, verified_phone_e164, occurred_at,
   receipt_display_id
 `;
 
 const DECISION_COLUMNS_D = sql`
   d.id, d.organization_id, d.project_id, d.version_id, d.type, d.signer_name,
+  d.signed_date, d.signed_place,
   d.signer_comment, d.assurance_achieved, d.verified_phone_e164, d.occurred_at,
   d.receipt_display_id
 `;
@@ -515,6 +577,8 @@ type DecisionRecord = {
   version_id: string;
   type: DecisionType;
   signer_name: string;
+  signed_date: string | Date | null;
+  signed_place: string | null;
   signer_comment: string | null;
   assurance_achieved: AssuranceLevel;
   verified_phone_e164: string | null;
@@ -530,6 +594,15 @@ function mapDecision(row: DecisionRecord): DecisionRow {
     versionId: row.version_id,
     type: row.type,
     signerName: row.signer_name,
+    // `date` comes back as a string from pg; normalise to YYYY-MM-DD either way
+    // so the evidence pack never renders a timezone-shifted day.
+    signedDate:
+      row.signed_date === null
+        ? null
+        : typeof row.signed_date === 'string'
+          ? row.signed_date.slice(0, 10)
+          : row.signed_date.toISOString().slice(0, 10),
+    signedPlace: row.signed_place,
     signerComment: row.signer_comment,
     assuranceAchieved: row.assurance_achieved,
     verifiedPhoneE164: row.verified_phone_e164,

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "kind": "google-docs-trusted-read-context",
+  "target": {
+    "documentId": "1xX0N6gIwTFLViul3qP9jVRZDA9dKgMVEnOmjK8xMUcQ",
+    "title": "Copy of HeadStart Resume Sample Template",
+    "revisionId": "AIroW35tR0tcbc0b4dJFwWV9ueHHHCDRxzDJtylOhV0eAR-wgFYWeX1HIrxr_n5I4Ga1uUXWaxmevoFd8LdnBQTvxAHnWtQGngy-xWjoDFk",
+    "documentUrl": "https://docs.google.com/document/d/1xX0N6gIwTFLViul3qP9jVRZDA9dKgMVEnOmjK8xMUcQ",
+    "selectedTabId": "t.0"
+  },
+  "dropdownMetadata": {
+    "status": "unavailable",
+    "resolvedTool": null,
+    "authoritative": false,
+    "count": 0
+  },
+  "derivedControlInventory": {
+    "hasProtectedControls": false,
+    "authoritativeDropdownCount": 0,
+    "opaqueControlCount": 0,
+    "nativeElementCounts": {},
+    "tabsScanned": [
+      "t.0"
+    ],
+    "controls": [],
+    "nativeElements": []
+  },
+  "editGuidance": {
+    "advisoryOnly": true,
+    "requiresTargetedPreservation": false,
+    "recommendedBehavior": "No protected controls were detected in the scanned scope.",
+    "warnings": []
+  }
+}

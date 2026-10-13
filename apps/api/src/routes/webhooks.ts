@@ -43,6 +43,47 @@ export async function registerWebhookRoutes(
     return out;
   }
 
+  /**
+   * Stores one provider event and queues its normalisation in a single
+   * transaction. Returns false when the provider redelivered an event already
+   * held.
+   *
+   * The two writes have to commit together. Apart, a crash between them leaves
+   * a stored event with no job — and the provider's retry then hits the unique
+   * `(provider, account, event id)` index, gets no id back, and schedules
+   * nothing. The event is held forever, unprocessed, while the endpoint keeps
+   * answering 200: silent loss of exactly the kind report §14.6 forbids, and
+   * invisible precisely because the storage half succeeded. One transaction
+   * makes a retry either find the work already queued or redo all of it.
+   *
+   * Per event rather than per request: Meta batches several statuses into one
+   * POST, and one malformed entry should not discard the others.
+   */
+  async function recordAndSchedule(input: {
+    provider: string;
+    providerAccountId: string | null;
+    providerEventId: string;
+    rawPayload: unknown;
+    headers: Record<string, string>;
+    providerEventAt: Date | null;
+    kind: string;
+  }): Promise<boolean> {
+    return appContext.uow.transaction(async (tx) => {
+      const inboxId = await app.repos.webhooks.insert(tx.db, {
+        ...input,
+        signatureVerified: true,
+      });
+      if (!inboxId) return false;
+      await enqueueJob(tx, {
+        kind: JOB_KINDS.NORMALIZE_WEBHOOK,
+        organizationId: null,
+        dedupeKey: `webhook:${inboxId}`,
+        payload: { webhookInboxId: inboxId },
+      });
+      return true;
+    });
+  }
+
   /** Meta's GET challenge for webhook setup (report §10.3). */
   app.get('/webhooks/v1/meta/whatsapp', { preHandler: webhookLimit }, async (request, reply) => {
     const verifyToken = app.env.WHATSAPP_VERIFY_TOKEN;
@@ -67,27 +108,17 @@ export async function registerWebhookRoutes(
     const events = appContext.integrations.whatsapp.verifyAndParse(raw, headerMap(request));
 
     for (const event of events) {
-      const inboxId = await app.repos.webhooks.insert(appContext.uow.db, {
+      // A duplicate is acknowledged with 200 rather than inviting a retry storm
+      // (report §13.2).
+      await recordAndSchedule({
         provider: event.provider,
         providerAccountId: event.providerAccountId,
         providerEventId: event.providerEventId,
-        signatureVerified: true,
         rawPayload: event.raw,
         headers: redactedHeaders(headerMap(request)),
         providerEventAt: event.occurredAt,
+        kind: event.kind,
       });
-      // A null id means the event was already recorded: acknowledge with 200
-      // rather than inviting a retry storm (report §13.2).
-      if (inboxId) {
-        await appContext.uow.transaction((tx) =>
-          enqueueJob(tx, {
-            kind: JOB_KINDS.NORMALIZE_WEBHOOK,
-            organizationId: null,
-            dedupeKey: `webhook:${inboxId}`,
-            payload: { webhookInboxId: inboxId },
-          }),
-        );
-      }
     }
 
     return reply.status(200).send({ received: events.length });
@@ -98,25 +129,15 @@ export async function registerWebhookRoutes(
     const events = appContext.integrations.payments.verifyAndParse(raw, headerMap(request));
 
     for (const event of events) {
-      const inboxId = await app.repos.webhooks.insert(appContext.uow.db, {
+      await recordAndSchedule({
         provider: event.provider,
         providerAccountId: event.providerAccountId,
         providerEventId: event.providerEventId,
-        signatureVerified: true,
         rawPayload: event.raw,
         headers: redactedHeaders(headerMap(request)),
         providerEventAt: event.occurredAt,
+        kind: event.kind,
       });
-      if (inboxId) {
-        await appContext.uow.transaction((tx) =>
-          enqueueJob(tx, {
-            kind: JOB_KINDS.NORMALIZE_WEBHOOK,
-            organizationId: null,
-            dedupeKey: `webhook:${inboxId}`,
-            payload: { webhookInboxId: inboxId },
-          }),
-        );
-      }
     }
 
     return reply.status(200).send({ received: events.length });
@@ -137,26 +158,16 @@ export async function registerWebhookRoutes(
       throw new AppError('WEBHOOK_SIGNATURE_INVALID');
     }
 
-    const inboxId = await app.repos.webhooks.insert(appContext.uow.db, {
+    await recordAndSchedule({
       provider: `auth:${app.env.AUTH_DRIVER}`,
       providerAccountId: null,
       providerEventId: headerMap(request)['x-webhook-id'] ?? `auth:${Date.now()}:${raw.byteLength}`,
-      signatureVerified: true,
       rawPayload: JSON.parse(raw.toString('utf8')) as unknown,
       headers: redactedHeaders(headerMap(request)),
       providerEventAt: null,
+      kind: 'AUTH',
     });
 
-    if (inboxId) {
-      await appContext.uow.transaction((tx) =>
-        enqueueJob(tx, {
-          kind: JOB_KINDS.NORMALIZE_WEBHOOK,
-          organizationId: null,
-          dedupeKey: `webhook:${inboxId}`,
-          payload: { webhookInboxId: inboxId },
-        }),
-      );
-    }
     return reply.status(200).send({ received: 1 });
   });
 

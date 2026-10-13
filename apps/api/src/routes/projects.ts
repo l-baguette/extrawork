@@ -10,7 +10,7 @@ import {
   UpdateProjectSchema,
 } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
-import { authorize } from '@extrawork/domain';
+import { authorize, projectAccessFilter } from '@extrawork/domain';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 
 const IdParams = z.object({ id: z.string().uuid() });
@@ -37,19 +37,11 @@ export async function registerProjectRoutes(
       ...(query.query ? { query: query.query } : {}),
       ...(query.cursor ? { cursor: query.cursor } : {}),
       limit: query.limit,
+      projectGrants: projectAccessFilter(auth.actor),
     });
 
-    // Project-scoped roles only see granted projects (report §3.2).
-    const visible = result.items.filter(
-      (p) =>
-        auth.actor.role === 'OWNER' ||
-        auth.actor.role === 'ADMIN' ||
-        auth.actor.role === 'FINANCE' ||
-        auth.actor.projectGrants.has(p.id),
-    );
-
     return reply.send({
-      items: visible.map(summariseProject),
+      items: result.items.map(summariseProject),
       nextCursor: result.nextCursor,
     });
   });
@@ -195,11 +187,24 @@ export async function registerProjectRoutes(
   app.get('/v1/dashboard', { preHandler: read }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
     authorize(auth.actor, 'project:read', { organizationId: auth.actor.organizationId });
+    const projectGrants = projectAccessFilter(auth.actor);
 
     const [data, awaiting, recent] = await Promise.all([
-      app.repos.reporting.dashboard(auth.tenant, auth.organizationTimezone ?? 'Asia/Kolkata'),
-      app.repos.changeOrders.listSummaries(auth.tenant, { bucket: 'PENDING', limit: 10 }),
-      app.repos.changeOrders.listSummaries(auth.tenant, { bucket: 'DECIDED', limit: 10 }),
+      app.repos.reporting.dashboard(
+        auth.tenant,
+        auth.organizationTimezone ?? 'Asia/Kolkata',
+        projectGrants,
+      ),
+      app.repos.changeOrders.listSummaries(auth.tenant, {
+        bucket: 'PENDING',
+        limit: 10,
+        projectGrants,
+      }),
+      app.repos.changeOrders.listSummaries(auth.tenant, {
+        bucket: 'DECIDED',
+        limit: 10,
+        projectGrants,
+      }),
     ]);
 
     return reply.send({
@@ -219,7 +224,12 @@ export async function registerProjectRoutes(
     const auth = await app.requireAuth(request, reply);
     authorize(auth.actor, 'project:read', { organizationId: auth.actor.organizationId });
     const { q, limit } = SearchQuerySchema.parse(request.query);
-    const results = await app.repos.reporting.search(auth.tenant, q, limit);
+    const results = await app.repos.reporting.search(
+      auth.tenant,
+      q,
+      limit,
+      projectAccessFilter(auth.actor),
+    );
     return reply.send(results);
   });
 }

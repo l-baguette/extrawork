@@ -1,13 +1,15 @@
-import { AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
+import { ACCOUNT_DELETION_GRACE_DAYS, AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
 import {
   assertUsablePassword,
+  authorize,
   hashPassword,
+  needsRehash,
   normalizeEmail,
   systemTenantContext,
   verifyPassword as verifyPasswordHash,
 } from '@extrawork/domain';
 import { displayNameFromEmail, localAuthSubject } from './providers.js';
-import type { AppContext } from '../context.js';
+import type { AppContext, RequestContext } from '../context.js';
 
 /**
  * A real hash of a value nobody holds. Verifying against it makes an unknown
@@ -49,6 +51,14 @@ export interface AuthProvider {
   /** Completes a sign-in from a challenge token or a provider JWT. */
   completeSignIn(credential: string): Promise<AuthenticatedIdentity>;
 }
+
+/**
+ * Longer than a sign-in link's fifteen minutes. Registration is a one-off act
+ * often interrupted — the person walks away, checks mail on another device, or
+ * finds it in spam an hour later — and forcing them to re-register because a
+ * short timer elapsed converts a small friction into an abandoned signup.
+ */
+const VERIFY_EMAIL_TTL_MINUTES = 60 * 24;
 
 export class AuthService {
   constructor(
@@ -153,21 +163,88 @@ export class AuthService {
       // Someone already holds this address. Say nothing that distinguishes
       // "taken" from "created"; the sign-in page is where a real owner
       // recovers, and an attacker learns nothing either way.
-      return { created: false };
+      //
+      // But if that account never proved the address, reissue the confirmation
+      // rather than returning in silence. The response is identical either way,
+      // so this is not an enumeration oracle — and without it the caller is
+      // shown "check your email" for a message that was never sent, which is
+      // the exact dead end this branch used to create. Someone who registers
+      // twice because the first link never arrived is the common case, not the
+      // adversarial one.
+      // Unconfirmed: reissue the link and answer as if newly created. The
+      // person almost certainly never received the first one.
+      const verification = await this.app.repos.identity.findUserByEmailWithVerification(email);
+      if (!verification || verification.emailVerifiedAt === null) {
+        await this.resendVerification(email);
+        return { created: false };
+      }
+
+      // Confirmed and usable: say so plainly.
+      //
+      // This is a deliberate, owner-approved trade against report §12.2. It does
+      // make the signup form an account-enumeration oracle — someone can test
+      // whether an address is registered here. The exchange is that a real
+      // owner who has forgotten they signed up is told what happened instead of
+      // being sent to an inbox for a message that will never arrive. The
+      // sign-in and reset paths remain enumeration-resistant, so this is the
+      // only surface that answers the question.
+      throw new AppError('EMAIL_ALREADY_REGISTERED');
     }
 
     const passwordHash = await hashPassword(input.password);
     const subject = localAuthSubject(email);
     const displayName = input.displayName.trim() || displayNameFromEmail(email);
 
-    await this.app.uow.transaction(async (tx) => {
-      const user = await this.app.repos.identity.upsertUser(tx, {
-        provider: 'local',
+    const challenge = await this.app.uow.transaction(async (tx) => {
+      const user = await this.app.repos.identity.createLocalAccount(tx, {
         subject,
         email,
         displayName,
+        passwordHash,
       });
-      await this.app.repos.identity.setPassword(tx, user.id, passwordHash);
+      // The preflight read is only an optimization. This INSERT is the
+      // authoritative claim: another registration may have committed while
+      // scrypt was running, and must not overwrite its password.
+      if (!user) return null;
+      // The account exists but cannot be signed into yet. Creating it now and
+      // gating sign-in — rather than holding the registration in limbo — means
+      // the address is claimed, so a second person cannot register it while the
+      // first is walking to their inbox.
+      return this.app.repos.identity.createAuthChallenge(tx, {
+        email,
+        purpose: 'VERIFY_EMAIL',
+        organizationId: null,
+        ttlMinutes: VERIFY_EMAIL_TTL_MINUTES,
+      });
+    });
+
+    if (!challenge) {
+      const verification = await this.app.repos.identity.findUserByEmailWithVerification(email);
+      if (verification?.emailVerifiedAt) throw new AppError('EMAIL_ALREADY_REGISTERED');
+      await this.resendVerification(email);
+      return { created: false };
+    }
+
+    await this.app.integrations.email.send({
+      to: { email, name: displayName },
+      subject: 'Confirm your ExtraWork email address',
+      body: [
+        `Hello ${displayName},`,
+        '',
+        'Confirm this address to finish setting up your ExtraWork account:',
+        // A POST the person clicks, never a GET on page load — mail scanners
+        // and link previewers routinely fetch every URL in a message, and a
+        // link that verified on load would let one of them consume this
+        // single-use token before the recipient ever saw it. Same reasoning as
+        // the sign-in link above.
+        `${this.app.env.WEB_PUBLIC_URL.replace(/\/+$/, '')}/verify-email?token=${challenge.token}`,
+        '',
+        `The link expires at ${challenge.expiresAt.toISOString()} and can be used once.`,
+        'If you did not create this account, you can ignore this message and nothing will happen.',
+      ].join('\n'),
+      purpose: 'REQUEST',
+      idempotencyKey: `verify:${email}:${challenge.expiresAt.getTime()}`,
+      organizationName: 'ExtraWork',
     });
 
     return { created: true };
@@ -180,9 +257,79 @@ export class AuthService {
    * same hashing cost: skipping the hash for an unknown user turns response
    * time into a way to enumerate accounts.
    */
+  /**
+   * Consumes a verification token and marks the address proved.
+   *
+   * The challenge row is single-use and time-bounded by `consumeAuthChallenge`,
+   * so a replayed link fails rather than re-verifying. Purpose is checked
+   * explicitly: a sign-in token and a verification token are both opaque
+   * strings in the same table, and accepting either here would let a sign-in
+   * link be redeemed as proof of control it was never issued for.
+   */
+  async verifyEmail(token: string): Promise<{ verified: boolean }> {
+    return this.app.uow.transaction(async (tx) => {
+      const challenge = await this.app.repos.identity.consumeAuthChallenge(
+        tx,
+        token,
+        'VERIFY_EMAIL',
+      );
+      if (!challenge) return { verified: false };
+
+      const user = await this.app.repos.identity.findUserByEmail(challenge.email);
+      if (!user) return { verified: false };
+
+      await this.app.repos.identity.markEmailVerified(tx, user.id, this.app.clock.now());
+      return { verified: true };
+    });
+  }
+
+  /**
+   * Reissues a confirmation link.
+   *
+   * Answers identically whether or not the address exists or is already
+   * verified, for the same account-enumeration reason as registration and
+   * sign-in (report §12.2).
+   */
+  async resendVerification(rawEmail: string): Promise<void> {
+    const email = normalizeEmail(rawEmail);
+    const found = await this.app.repos.identity.findUserByEmailWithVerification(email);
+    if (!found || found.emailVerifiedAt !== null) return;
+
+    const user = await this.app.repos.identity.findUserByEmail(email);
+    const challenge = await this.app.uow.transaction((tx) =>
+      this.app.repos.identity.createAuthChallenge(tx, {
+        email,
+        purpose: 'VERIFY_EMAIL',
+        organizationId: null,
+        ttlMinutes: VERIFY_EMAIL_TTL_MINUTES,
+      }),
+    );
+
+    await this.app.integrations.email.send({
+      to: { email, name: user?.displayName ?? 'there' },
+      subject: 'Confirm your ExtraWork email address',
+      body: [
+        `Hello ${user?.displayName ?? 'there'},`,
+        '',
+        'Confirm this address to finish setting up your ExtraWork account:',
+        `${this.app.env.WEB_PUBLIC_URL.replace(/\/+$/, '')}/verify-email?token=${challenge.token}`,
+        '',
+        `The link expires at ${challenge.expiresAt.toISOString()} and can be used once.`,
+      ].join('\n'),
+      purpose: 'REQUEST',
+      idempotencyKey: `verify:${email}:${challenge.expiresAt.getTime()}`,
+      organizationName: 'ExtraWork',
+    });
+  }
+
   async verifyPassword(email: string, password: string): Promise<AuthenticatedIdentity | null> {
     const normalized = normalizeEmail(email);
     const found = await this.app.repos.identity.findCredentialsByEmail(normalized);
+
+    // TEMPORARY dev-only test account: any password signs in as this address.
+    // Gated to non-production so it can never reach a real deployment; the
+    // account itself must already exist (created via normal sign-up).
+    const devBypass = this.app.env.APP_ENV !== 'production' && normalized === 'test@gmail.com';
 
     if (!found?.passwordHash) {
       // Hash against a throwaway value so an unknown address takes as long as
@@ -192,8 +339,37 @@ export class AuthService {
     }
     if (found.user.status !== 'ACTIVE') return null;
 
-    const ok = await verifyPasswordHash(password, found.passwordHash);
+    const ok = devBypass || (await verifyPasswordHash(password, found.passwordHash));
     if (!ok) return null;
+
+    // Password is correct, but control of the address is unproved.
+    //
+    // Thrown rather than returned as null, and deliberately distinguishable
+    // from a wrong password: the person holding the correct password is
+    // overwhelmingly the real owner, and telling them "that email and password
+    // do not match" would send them into a password reset that cannot help.
+    // This reveals nothing an attacker does not already have — they had to
+    // supply the correct password to reach this line.
+    const verification = await this.app.repos.identity.findUserByEmailWithVerification(normalized);
+    if (!devBypass && verification && verification.emailVerifiedAt === null) {
+      throw new AppError('EMAIL_NOT_VERIFIED', {
+        message:
+          'Confirm your email address before signing in. Check your inbox for the link we sent ' +
+          'when you registered, or request a new one.',
+      });
+    }
+
+    if (needsRehash(found.passwordHash)) {
+      const upgradedHash = await hashPassword(password);
+      await this.app.uow.transaction((tx) =>
+        this.app.repos.identity.upgradePasswordHash(
+          tx,
+          found.user.id,
+          found.passwordHash as string,
+          upgradedHash,
+        ),
+      );
+    }
 
     return {
       provider: 'local',
@@ -288,14 +464,21 @@ export class AuthService {
     };
 
     const session = await this.startSessionFor(identity, context);
-    await this.app.uow.transaction((tx) =>
-      this.app.repos.identity.linkIdentity(tx, {
+    await this.app.uow.transaction(async (tx) => {
+      await this.app.repos.identity.linkIdentity(tx, {
         userId: session.userId,
         provider: 'google',
         subject: profile.subject,
         email: profile.email,
-      }),
-    );
+      });
+      // Google already proved control of this address — `google-oauth.ts`
+      // refuses a profile whose `email_verified` claim is false, so reaching
+      // here means the claim was true. Sending our own confirmation email on
+      // top would ask the person to prove something a stronger party has
+      // already attested, and would strand every Google signup behind an inbox
+      // step for no gain.
+      await this.app.repos.identity.markEmailVerified(tx, session.userId, this.app.clock.now());
+    });
     return session;
   }
 
@@ -353,6 +536,92 @@ export class AuthService {
       ]);
 
       return { organizationId: organization.id };
+    });
+  }
+
+  /**
+   * Closes the account and starts the recovery countdown (report §9.8).
+   *
+   * Deliberately not an immediate delete. An account closure is the one
+   * irreversible act in the product, and the two ways it goes wrong — a
+   * misclick, and a departing employee with the owner's session — both look
+   * identical at the moment they happen and only become obvious days later.
+   * The grace window is what makes both recoverable.
+   *
+   * Evidence is *not* erased here or at purge: recorded decisions belong to the
+   * customer as much as to the contractor. See the erasure table in the privacy
+   * policy and the `data-subject-request` runbook.
+   */
+  async closeAccount(
+    ctx: RequestContext,
+    input: { reason: string | null },
+  ): Promise<{ closedAt: Date; purgeAfter: Date }> {
+    authorize(ctx.actor, 'organization:close', { organizationId: ctx.tenant.organizationId });
+
+    const closedAt = this.app.clock.now();
+    const purgeAfter = new Date(
+      closedAt.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    return this.app.uow.transaction(async (tx) => {
+      const closed = await this.app.repos.organizations.close(tx, ctx.tenant, {
+        closedAt,
+        purgeAfter,
+        reason: input.reason,
+      });
+      // Null means the row was already CLOSED — a double submit, or a second
+      // owner's tab. Reporting the existing dates is more useful than an error.
+      if (!closed) {
+        const existing = await this.app.repos.organizations.findById(ctx.tenant);
+        if (existing?.closedAt && existing.purgeAfter) {
+          return { closedAt: existing.closedAt, purgeAfter: existing.purgeAfter };
+        }
+        throw new AppError('ORGANIZATION_REQUIRED');
+      }
+
+      await this.app.repos.audit.append(tx, ctx.tenant, [
+        {
+          aggregateType: 'organization',
+          aggregateId: ctx.tenant.organizationId,
+          projectId: null,
+          eventType: DOMAIN_EVENTS.ORGANIZATION_CLOSURE_REQUESTED,
+          actorType: 'USER',
+          actorId: ctx.actor.userId,
+          occurredAt: closedAt,
+          // The reason is free text the owner typed; it is kept because a
+          // closure that is later disputed turns on why it was asked for.
+          payload: {
+            purgeAfter: purgeAfter.toISOString(),
+            graceDays: ACCOUNT_DELETION_GRACE_DAYS,
+            reason: input.reason,
+          },
+        },
+      ]);
+
+      return { closedAt, purgeAfter };
+    });
+  }
+
+  /** Cancels a pending closure while the account is still recoverable. */
+  async reopenAccount(ctx: RequestContext): Promise<void> {
+    authorize(ctx.actor, 'organization:close', { organizationId: ctx.tenant.organizationId });
+
+    await this.app.uow.transaction(async (tx) => {
+      const reopened = await this.app.repos.organizations.reopen(tx, ctx.tenant);
+      if (!reopened) throw new AppError('NOT_FOUND', { message: 'This account is not closed.' });
+
+      await this.app.repos.audit.append(tx, ctx.tenant, [
+        {
+          aggregateType: 'organization',
+          aggregateId: ctx.tenant.organizationId,
+          projectId: null,
+          eventType: DOMAIN_EVENTS.ORGANIZATION_CLOSURE_CANCELLED,
+          actorType: 'USER',
+          actorId: ctx.actor.userId,
+          occurredAt: this.app.clock.now(),
+          payload: {},
+        },
+      ]);
     });
   }
 }

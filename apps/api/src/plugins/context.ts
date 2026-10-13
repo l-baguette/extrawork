@@ -2,7 +2,13 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AppError, type MembershipRole } from '@extrawork/contracts';
 import type { RequestContext, PublicRequestContext, Services } from '@extrawork/application';
-import type { Repositories, UnitOfWork } from '@extrawork/db';
+import {
+  runUnscopedSync,
+  setScope,
+  tenantScope,
+  type Repositories,
+  type UnitOfWork,
+} from '@extrawork/db';
 import type { Env } from '@extrawork/config';
 import { assertWritableSubscription, privacyHash, type Action } from './authz-bridge.js';
 import { metrics, METRIC, newRequestId, sanitizeIncomingRequestId } from '@extrawork/observability';
@@ -63,6 +69,12 @@ async function contextPlugin(app: FastifyInstance, options: ContextPluginOptions
   app.decorateRequest('startedAt', 0);
 
   // 1. Request id and log context.
+  // Every request runs inside its own scope box. It starts empty — the tenant
+  // is not known until the session resolves — and `requireAuth` fills it in.
+  // A request that never authenticates therefore never gets a tenant, and any
+  // tenant table it touches returns nothing.
+  app.addHook('onRequest', (_request, _reply, done) => runUnscopedSync(done));
+
   app.addHook('onRequest', async (request) => {
     request.startedAt = Date.now();
     request.requestId =
@@ -163,9 +175,19 @@ async function contextPlugin(app: FastifyInstance, options: ContextPluginOptions
         sessionId: session.id,
         ipHash: request.publicCtx.ipHash,
         userAgent: request.publicCtx.userAgent,
-        readOnly: resolved.readOnly,
+        // A closed account keeps reading and exporting for the whole recovery
+        // window — report §9.8, and the deletion runbook is explicit that an
+        // export is offered before anything is purged. It just cannot create
+        // new records. Cancelling the closure deliberately does not go through
+        // `requireWrite`, so the owner can always undo this.
+        readOnly: resolved.readOnly || resolved.organizationStatus === 'CLOSED',
         organizationTimezone: resolved.organizationTimezone,
       };
+
+      // The tenant is known from here on, so hand it to the database layer for
+      // row-level security. Everything before this point deliberately reads only
+      // untenanted tables (sessions, memberships, organizations).
+      setScope(tenantScope(organizationId));
 
       request.auth = context;
       return context;

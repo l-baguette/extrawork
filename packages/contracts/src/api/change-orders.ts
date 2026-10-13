@@ -131,7 +131,7 @@ export const SendResultSchema = z.object({
   versionId: UuidSchema,
   versionNumber: z.number().int(),
   status: VersionStatusSchema,
-  /** Full approval URL. Returned exactly once; only the hash is stored. */
+  /** Full approval URL. Returned once; token record stores only its hash. */
   approvalUrl: z.string().url(),
   expiresAt: InstantSchema,
   canonicalSha256: z.string(),

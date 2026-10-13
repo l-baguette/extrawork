@@ -22,6 +22,7 @@ import {
 import {
   EVIDENCE_TEMPLATE_VERSION,
   affectsProjectTotals,
+  assertSignedDatePlausible,
   assertAssuranceSatisfied,
   assertTokenUsable,
   assertTransition,
@@ -165,11 +166,11 @@ export class DecisionService {
         throw new AppError('TOKEN_INVALID');
       }
       assertTokenUsable(token, now);
+      const tenant = systemTenantContext(token.organizationId, ctx.requestId);
 
       // 3. Lock the version and revalidate under the lock.
-      const version = await this.repos.changeOrders.lockVersion(tx, token.versionId);
+      const version = await this.repos.changeOrders.lockVersion(tx, tenant, token.versionId);
       if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
-      const tenant = systemTenantContext(version.organizationId, ctx.requestId);
 
       // Report §4.6: the first committed terminal decision wins; a second gets
       // 409 with the recorded state.
@@ -207,8 +208,16 @@ export class DecisionService {
       // confirmed the statement" — so a name that is not the recorded
       // approver's would make that claim untrue. Checked inside the transaction
       // and before the insert, so a mismatch records nothing at all.
+      // 4c. The asserted signing date. Bounded, then recorded exactly as typed —
+      // a divergence from the server's day is a fact about a real person in a
+      // real timezone, and normalising it would delete evidence rather than
+      // tidy it. Checked before the insert so a refusal records nothing.
+      const project0 = await this.repos.projects.lockById(tx, tenant, version.projectId);
+      const dateCheck = assertSignedDatePlausible(command.input.signedDate, now, project0.timezone);
+
       const approver = await this.repos.customers.findContact(tenant, version.approverContactId);
-      if (approver && !signerNameMatches(command.input.signerName, approver.name)) {
+      if (!approver) throw new AppError('CONTACT_NOT_FOUND');
+      if (!signerNameMatches(command.input.signerName, approver.name)) {
         throw new AppError('SIGNER_NAME_MISMATCH', {
           // The expected name is already on the page the customer is looking
           // at, so echoing it here tells them nothing they cannot see.
@@ -218,12 +227,14 @@ export class DecisionService {
 
       // 5. Insert the decision.
       const receiptToken = generateReceiptToken();
-      const project = await this.repos.projects.lockById(tx, tenant, version.projectId);
+      const project = project0;
       const decision = await this.repos.approvals.insertDecision(tx, tenant, {
         projectId: version.projectId,
         versionId: version.id,
         type: command.input.type,
         signerName: command.input.signerName.trim(),
+        signedDate: command.input.signedDate,
+        signedPlace: command.input.signedPlace?.trim() || null,
         comment: command.input.comment?.trim() ?? null,
         assuranceAchieved: session.assuranceAchieved,
         verifiedPhoneE164: session.verifiedPhoneE164,
@@ -238,9 +249,9 @@ export class DecisionService {
       });
 
       // 6. Terminal state and token revocation.
-      await this.repos.changeOrders.setStatus(tx, version.id, nextStatus, now);
-      await this.repos.approvals.revoke(tx, token.id, 'DECIDED');
-      await this.repos.reminders.cancelForVersion(tx, version.id, 'DECIDED');
+      await this.repos.changeOrders.setStatus(tx, tenant, version.id, nextStatus, now);
+      await this.repos.approvals.revoke(tx, tenant.organizationId, token.id, 'DECIDED');
+      await this.repos.reminders.cancelForVersion(tx, tenant.organizationId, version.id, 'DECIDED');
 
       // 7. Project projection, only on approve.
       let revisedTotalMinor = project.revisedTotalMinor;
@@ -281,6 +292,11 @@ export class DecisionService {
             type: command.input.type,
             versionNumber: version.versionNumber,
             signerName: decision.signerName,
+            signedDate: command.input.signedDate,
+            signedPlace: command.input.signedPlace?.trim() ?? null,
+            // Recorded rather than suppressed: if the signatory's calendar day
+            // differed from the server's, that is part of the record.
+            signedDateDriftDays: dateCheck.driftDays,
             assuranceAchieved: session.assuranceAchieved,
             verifiedPhoneMasked: maskPhone(session.verifiedPhoneE164),
             receiptId: decision.receiptDisplayId,

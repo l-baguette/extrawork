@@ -63,6 +63,37 @@ export const ComposerSchema = z
 
 export type ComposerValues = z.infer<typeof ComposerSchema>;
 
+/**
+ * Structural validation for an in-progress local draft.
+ *
+ * A draft is expected to be incomplete: empty prices, short scope text and no
+ * approver are all normal while someone is typing. This schema rejects stale
+ * shapes and wrong primitive types without applying the submit-time rules in
+ * `ComposerSchema`.
+ */
+export const StoredComposerSchema = z.object({
+  type: ChangeTypeSchema,
+  title: z.string(),
+  scope: z.string(),
+  reason: z.string().optional(),
+  attachmentIds: z.array(z.string()),
+  lineItems: z.array(
+    z.object({
+      key: z.string(),
+      description: z.string(),
+      quantity: z.string(),
+      unit: z.string().optional(),
+      unitPrice: z.string(),
+      taxRateBps: z.number().finite(),
+      direction: z.union([z.literal(1), z.literal(-1)]),
+    }),
+  ),
+  scheduleDeltaDays: z.number().finite(),
+  approverContactId: z.string(),
+  expiresAt: z.string().optional(),
+  assuranceRequired: AssuranceLevelSchema,
+});
+
 export const EMPTY_COMPOSER: ComposerValues = {
   type: 'ADDITION',
   title: '',

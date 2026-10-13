@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import type { ChangeRegisterDto, ProjectDto } from '@extrawork/contracts';
+import type { ChangeRegisterDto, EmployeeDto, ProjectDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
 import { formatDate, formatMoney, formatScheduleDelta } from '@/lib/format';
 import { StatusChip } from '@/components/status-chip';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
+import { ProjectTeam } from './project-team';
+import { DownloadContract } from './download-contract';
 
 /**
  * Project workspace — report §6.2: baseline, change register, revised total,
@@ -14,9 +16,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [projectResult, registerResult] = await Promise.all([
+  const [projectResult, registerResult, employeesResult] = await Promise.all([
     serverGet<ProjectDto>(`/v1/projects/${id}`),
     serverGet<ChangeRegisterDto>(`/v1/projects/${id}/change-register`),
+    serverGet<{ items: EmployeeDto[] }>('/v1/employees'),
   ]);
 
   if (!projectResult.ok && projectResult.status === 401) return <SignInPrompt />;
@@ -24,6 +27,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   const project = projectResult.data;
   const changes = registerResult.ok ? registerResult.data.changes : [];
+  const employees = employeesResult.ok ? employeesResult.data.items : [];
   const totals = project.totals;
 
   return (
@@ -44,13 +48,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             {project.siteAddress?.city ? ` · ${project.siteAddress.city}` : ''}
           </p>
         </div>
-        <Link
-          className="btn btn-primary"
-          href={`/app/projects/${project.id}/changes/new`}
-          aria-disabled={project.status === 'INTEGRITY_REVIEW'}
-        >
-          Record extra work
-        </Link>
+        <div className="actions">
+          <DownloadContract project={project} changes={changes} />
+          <Link
+            className="btn btn-primary"
+            href={`/app/projects/${project.id}/changes/new`}
+            aria-disabled={project.status === 'INTEGRITY_REVIEW'}
+          >
+            Record extra work
+          </Link>
+        </div>
       </div>
 
       <section className="card" aria-labelledby="contract-value">
@@ -160,6 +167,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
         )}
       </section>
+
+      <ProjectTeam projectId={project.id} initialEmployees={employees} />
     </main>
   );
 }

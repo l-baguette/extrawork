@@ -60,4 +60,5 @@ This emits `support.access_revoked.v1`.
   would destroy the product's central claim.
 - Edit a frozen version, a decision, or an audit event. Triggers and role
   privileges prevent it; attempting it raises an alert.
-- Read an approval token. Only the hash is stored.
+- Read an approval token. Its record contains only the hash; pending automated
+  delivery jobs contain authenticated ciphertext, never the plaintext link.

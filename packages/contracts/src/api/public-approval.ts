@@ -131,6 +131,21 @@ export const DecisionInputSchema = z
     type: DecisionTypeSchema,
     /** Typed name is the assent artefact at A0 (report §3.3). */
     signerName: z.string().trim().min(2).max(120),
+    /**
+     * The date the signatory asserts they are signing on.
+     *
+     * Collected rather than derived from the server clock: under the Indian
+     * Contract Act the date of acceptance is a term the parties state, and a
+     * signature block that the system fills in for them is the system's
+     * assertion, not theirs. Stored alongside `occurredAt`, never replacing it.
+     */
+    signedDate: LocalDateSchema,
+    /**
+     * Place of signing, if the signatory gives one. Indian stamp duty is a
+     * state subject and the place of execution decides which state's rate
+     * applies, so this is a fact a finance team cannot reconstruct later.
+     */
+    signedPlace: z.string().trim().max(120).optional(),
     comment: z.string().trim().max(2_000).optional(),
     /** Must be explicitly true — never pre-selected in the UI (report §6.7). */
     declarationAccepted: z.boolean(),

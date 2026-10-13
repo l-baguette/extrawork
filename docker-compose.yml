@@ -100,6 +100,7 @@ services:
       SESSION_SECRET: dev-session-secret-not-for-production-use
       PRIVACY_HASH_SECRET: dev-privacy-secret-not-for-production-use
       STORAGE_URL_SECRET: dev-storage-secret-not-for-production-use
+      APPROVAL_LINK_ENCRYPTION_SECRET: dev-approval-link-secret-not-for-production-use
       STORAGE_DRIVER: s3
       STORAGE_BUCKET: extrawork
       STORAGE_ENDPOINT: http://minio:9000

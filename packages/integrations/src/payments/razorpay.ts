@@ -80,8 +80,8 @@ export class RazorpayGateway implements PaymentGateway {
     }
 
     const payload = JSON.parse(raw.toString('utf8')) as RazorpayWebhook;
-    const entity = payload.payload?.payment?.entity ?? payload.payload?.order?.entity;
-    if (!entity) return [];
+    const normalized = normalizeRazorpayPaymentEvent(payload);
+    if (!normalized) return [];
 
     return [
       {
@@ -89,25 +89,56 @@ export class RazorpayGateway implements PaymentGateway {
         providerAccountId: this.options.keyId,
         // `x-razorpay-event-id` is the provider's own dedupe key; fall back to
         // the entity id plus event name so dedupe still works without it.
-        providerEventId: headers['x-razorpay-event-id'] ?? `${entity.id}:${payload.event}`,
+        providerEventId:
+          headers['x-razorpay-event-id'] ?? `${normalized.entityId}:${payload.event}`,
         kind: 'PAYMENT_STATUS',
         occurredAt: payload.created_at ? new Date(payload.created_at * 1000) : null,
-        normalized: {
-          event: payload.event,
-          providerOrderId: entity.order_id ?? entity.id,
-          providerPaymentId: entity.order_id ? entity.id : null,
-          status: mapPaymentStatus(payload.event),
-          // Reconciliation compares these against the stored intent (report §10.4).
-          amountMinor: entity.amount ?? null,
-          currency: entity.currency ?? null,
-        },
+        normalized,
         raw: payload,
       },
     ];
   }
 }
 
-function mapPaymentStatus(event: string | undefined): string {
+export interface NormalizedRazorpayPaymentEvent extends Record<string, unknown> {
+  event: string;
+  entityId: string;
+  providerOrderId: string;
+  providerPaymentId: string | null;
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  amountMinor: number | null;
+  currency: string | null;
+}
+
+/** Pure mapping shared by the verified adapter and asynchronous reconciler. */
+export function normalizeRazorpayPaymentEvent(
+  input: unknown,
+): NormalizedRazorpayPaymentEvent | null {
+  if (!input || typeof input !== 'object') return null;
+  const payload = input as RazorpayWebhook;
+  if (typeof payload.event !== 'string') return null;
+
+  const payment = payload.payload?.payment?.entity;
+  const order = payload.payload?.order?.entity;
+  const refund = payload.payload?.refund?.entity;
+  const entity = payment ?? order ?? refund;
+  if (!entity || typeof entity.id !== 'string') return null;
+
+  const providerOrderId = payment?.order_id ?? order?.id ?? null;
+  if (!providerOrderId) return null;
+
+  return {
+    event: payload.event,
+    entityId: entity.id,
+    providerOrderId,
+    providerPaymentId: payment?.id ?? null,
+    status: mapPaymentStatus(payload.event),
+    amountMinor: payment?.amount ?? order?.amount ?? refund?.amount ?? null,
+    currency: payment?.currency ?? order?.currency ?? refund?.currency ?? null,
+  };
+}
+
+function mapPaymentStatus(event: string | undefined): NormalizedRazorpayPaymentEvent['status'] {
   switch (event) {
     case 'payment.captured':
     case 'order.paid':
@@ -134,6 +165,9 @@ export function verifyPaymentMatchesIntent(
   if (event.amountMinor === null || event.currency === null) {
     return { ok: false, reason: 'Provider event did not include an amount or currency' };
   }
+  if (!Number.isSafeInteger(event.amountMinor) || event.amountMinor < 0) {
+    return { ok: false, reason: 'Provider event included an invalid amount' };
+  }
   if (BigInt(event.amountMinor) !== intent.amountMinor) {
     return {
       ok: false,
@@ -155,12 +189,14 @@ interface RazorpayWebhook {
   payload?: {
     payment?: { entity?: RazorpayEntity };
     order?: { entity?: RazorpayEntity };
+    refund?: { entity?: RazorpayEntity };
   };
 }
 
 interface RazorpayEntity {
   id: string;
   order_id?: string;
+  payment_id?: string;
   amount?: number;
   currency?: string;
   status?: string;

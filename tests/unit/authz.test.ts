@@ -7,6 +7,7 @@ import {
   assertWritableSubscription,
   authorize,
   isAllowed,
+  projectAccessFilter,
   roleAllows,
   type Action,
   type Actor,
@@ -41,9 +42,12 @@ describe('role capabilities', () => {
     for (const action of ACTIONS) expect(roleAllows('OWNER', action)).toBe(true);
   });
 
-  it('withholds only ownership transfer from ADMIN', () => {
+  // The two acts that dispose of the whole account rather than operate it:
+  // handing it to someone else, and destroying it. Both stay with the single
+  // owner, and an admin who needs either must be made owner first.
+  it('withholds ownership transfer and account closure from ADMIN', () => {
     const denied = ACTIONS.filter((a) => !roleAllows('ADMIN', a));
-    expect(denied).toEqual(['organization:transfer_ownership']);
+    expect(denied).toEqual(['organization:transfer_ownership', 'organization:close']);
   });
 
   it('lets FINANCE read and export but never change scope', () => {
@@ -145,6 +149,13 @@ describe('project grants', () => {
     } catch (error) {
       expect((error as AppError).code).toBe('FORBIDDEN');
     }
+  });
+
+  it('turns organization-wide access into null and scoped access into an exact filter', () => {
+    expect(projectAccessFilter(actor('OWNER', [PROJECT]))).toBeNull();
+    expect(projectAccessFilter(actor('FINANCE'))).toBeNull();
+    expect(projectAccessFilter(actor('PROJECT_MANAGER', [PROJECT]))).toEqual([PROJECT]);
+    expect(projectAccessFilter(actor('VIEWER'))).toEqual([]);
   });
 });
 

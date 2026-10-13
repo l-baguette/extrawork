@@ -11,6 +11,24 @@ describe('browser API URL resolution', () => {
     ).toBe('http://192.168.1.180:4000');
   });
 
+  it('replaces a compiled LAN host when the web app is opened on localhost', () => {
+    expect(
+      resolveBrowserApiUrl('http://192.168.1.180:4000', {
+        protocol: 'http:',
+        hostname: 'localhost',
+      }),
+    ).toBe('http://localhost:4000');
+  });
+
+  it('keeps loopback aliases on the same cookie host', () => {
+    expect(
+      resolveBrowserApiUrl('http://localhost:4000', {
+        protocol: 'http:',
+        hostname: '127.0.0.1',
+      }),
+    ).toBe('http://127.0.0.1:4000');
+  });
+
   it('preserves an explicitly configured remote API', () => {
     expect(
       resolveBrowserApiUrl('https://api.example.com/', {

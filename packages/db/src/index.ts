@@ -1,4 +1,6 @@
 export * from './client.js';
+export * from './tenant-scope.js';
+export * from './rls-check.js';
 export * from './ids.js';
 export * from './row-types.js';
 export * from './migrate.js';
@@ -18,6 +20,7 @@ export * from './repositories/files.js';
 export * from './repositories/documents.js';
 export * from './repositories/reporting.js';
 export * from './repositories/reminders.js';
+export * from './repositories/payments.js';
 export * from './repositories/employees.js';
 export * from './repositories/inbound-messages.js';
 export * from './repositories/request-templates.js';

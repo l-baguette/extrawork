@@ -10,16 +10,38 @@
  * never leak through a referrer, and `noindex` on the public approval routes.
  */
 const isDev = process.env.NODE_ENV !== 'production';
+const configuredApiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const developmentApiOrigins = isDev
+  ? ['http://localhost:4000', 'http://127.0.0.1:4000', 'http://[::1]:4000']
+  : [];
+const connectOrigins = [...new Set([configuredApiOrigin, ...developmentApiOrigins])].join(' ');
+
+/**
+ * Turnstile is the single third-party origin this app will ever load, and only
+ * when a site key is configured. It needs a script and an iframe; keeping both
+ * behind the same condition means a deployment without bot protection still
+ * ships the original "no third-party origins at all" policy.
+ */
+const turnstileOrigin = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  ? 'https://challenges.cloudflare.com'
+  : '';
+const turnstileScript = turnstileOrigin ? ` ${turnstileOrigin}` : '';
+const turnstileFrame = turnstileOrigin ? `frame-src ${turnstileOrigin}` : "frame-src 'none'";
 
 const csp = [
   "default-src 'self'",
   // Next injects inline bootstrap scripts; 'unsafe-inline' is scoped to scripts
   // we author and no third-party origin is allowed to load at all.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${turnstileScript}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}`,
+  // A LAN dev build may still be opened through localhost on the same Mac.
+  // The client deliberately aligns API requests with the page host so session
+  // cookies remain first-party; permit those loopback variants in development
+  // while production remains limited to its one configured API origin.
+  `connect-src 'self' ${connectOrigins}`,
+  turnstileFrame,
   "frame-ancestors 'none'",
   "form-action 'self'",
   "base-uri 'self'",
@@ -40,6 +62,13 @@ export default {
       ...(config.resolve.extensionAlias ?? {}),
       '.js': ['.ts', '.tsx', '.js'],
     };
+    if (isDev) {
+      // Add our workspace's source condition without replacing Webpack's
+      // dependency-specific defaults (`import`, `require`, `browser`, etc.).
+      // Replacing the array with only `development` makes packages such as Zod
+      // appear to have no exported root in the development server.
+      config.resolve.conditionNames = ['development', '...'];
+    }
     return config;
   },
   async headers() {

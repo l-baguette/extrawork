@@ -43,6 +43,14 @@ try {
       displayName: DISPLAY_NAME,
     });
     await container.repos.identity.setPassword(tx, created.id, passwordHash);
+    // This utility is the explicit, local-only verification exemption for the
+    // named test account. Production refuses to run the script above; normal
+    // registrations still have to prove control of their inbox.
+    await container.repos.identity.markEmailVerified(
+      tx,
+      created.id,
+      container.appContext.clock.now(),
+    );
     return created;
   });
 

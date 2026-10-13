@@ -17,6 +17,7 @@ export const ACTIONS = [
   'organization:read',
   'organization:update',
   'organization:transfer_ownership',
+  'organization:close',
   'organization:manage_billing',
   'organization:manage_retention',
   'organization:grant_support_access',
@@ -75,7 +76,12 @@ export type Action = (typeof ACTIONS)[number];
  */
 const ROLE_ACTIONS: Record<MembershipRole, ReadonlySet<Action>> = {
   OWNER: new Set(ACTIONS),
-  ADMIN: new Set<Action>(ACTIONS.filter((a) => a !== 'organization:transfer_ownership')),
+  // Closing the account destroys everyone's data, not just the actor's, so it
+  // stays with the single owner alongside transferring ownership. An admin who
+  // needs it can be made the owner first, which is itself an audited act.
+  ADMIN: new Set<Action>(
+    ACTIONS.filter((a) => a !== 'organization:transfer_ownership' && a !== 'organization:close'),
+  ),
   PROJECT_MANAGER: new Set<Action>([
     'organization:read',
     'member:read',
@@ -187,6 +193,14 @@ export function hasProjectAccess(actor: Actor, projectId: string | null | undefi
   if (!projectId) return true;
   if (ORG_WIDE_ROLES.has(actor.role)) return true;
   return actor.projectGrants.has(projectId);
+}
+
+/**
+ * Repository filter for collection/read-model queries. `null` means the actor
+ * is organization-wide; an empty array deliberately means "no projects".
+ */
+export function projectAccessFilter(actor: Actor): readonly string[] | null {
+  return ORG_WIDE_ROLES.has(actor.role) ? null : [...actor.projectGrants];
 }
 
 export function isAllowed(actor: Actor, action: Action, resource: ResourceRef): boolean {

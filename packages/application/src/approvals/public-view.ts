@@ -10,13 +10,16 @@ import {
   type PublicRequestDto,
 } from '@extrawork/contracts';
 import {
+  DECIDED_LINK_RETENTION_DAYS,
   assertTokenUsable,
+  decidedLinkStillVisible,
   isWellFormedToken,
   maskedContactLabel,
   systemTenantContext,
 } from '@extrawork/domain';
 import type { AppContext, PublicRequestContext } from '../context.js';
 import { publicDecisionEtag } from '../change-orders/build-lines.js';
+import { setScope, tenantScope } from '@extrawork/db';
 
 /**
  * Public approval read — report §4.5 and §6.7.
@@ -47,6 +50,11 @@ export class PublicApprovalService {
     const token = await this.app.repos.approvals.findByToken(plainToken);
     if (!token) throw new AppError('TOKEN_INVALID');
 
+    // The token named the tenant; everything from here is scoped to it, so the
+    // rest of this request is subject to the same row-level security as a
+    // signed-in one rather than continuing system-wide.
+    setScope(tenantScope(token.organizationId));
+
     const tenant = systemTenantContext(token.organizationId, ctx.requestId);
     const version = await this.app.repos.changeOrders.requireVersion(
       this.app.uow.db,
@@ -61,7 +69,19 @@ export class PublicApprovalService {
       tenant,
       version.id,
     );
-    if (!decision) {
+    if (decision) {
+      // The receipt outlives the decision, but not indefinitely. Without this
+      // the link rendered the customer's name, the scope and the amount to
+      // anyone holding the URL forever.
+      if (!decidedLinkStillVisible(decision.occurredAt, this.app.clock.now())) {
+        throw new AppError('REQUEST_EXPIRED', {
+          message:
+            `This link closed ${DECIDED_LINK_RETENTION_DAYS} days after the decision was ` +
+            'recorded. Contact the contractor for a copy of the approved request.',
+          details: { decidedAt: decision.occurredAt.toISOString(), closed: true },
+        });
+      }
+    } else {
       try {
         assertTokenUsable(token, this.app.clock.now());
       } catch (error) {
@@ -69,6 +89,7 @@ export class PublicApprovalService {
           // Report §4.6: explain the replacement, and offer the current link
           // only when the same approver holds a live one.
           const successor = await this.app.repos.approvals.findSuccessorToken(
+            token.organizationId,
             version.id,
             token.approverContactId,
           );
@@ -91,8 +112,8 @@ export class PublicApprovalService {
           tenant,
           version.changeOrderId,
         ),
-        this.app.repos.changeOrders.listLineItems(this.app.uow.db, version.id),
-        this.app.repos.changeOrders.listAttachments(this.app.uow.db, version.id),
+        this.app.repos.changeOrders.listLineItems(this.app.uow.db, tenant, version.id),
+        this.app.repos.changeOrders.listAttachments(this.app.uow.db, tenant, version.id),
         this.app.repos.customers.requireContact(tenant, version.approverContactId),
       ]);
     if (!organization) throw new AppError('NOT_FOUND');
@@ -103,11 +124,16 @@ export class PublicApprovalService {
     // rather than being narrowed to `null` at the point of use.
     let session: ResolvedPublicRequest['session'] = null as ResolvedPublicRequest['session'];
     await this.app.uow.transaction(async (tx) => {
-      const { firstView } = await this.app.repos.approvals.recordView(tx, token.id);
+      const { firstView } = await this.app.repos.approvals.recordView(
+        tx,
+        token.organizationId,
+        token.id,
+      );
 
       if (firstView && !decision) {
         await this.app.repos.changeOrders.setStatus(
           tx,
+          tenant,
           version.id,
           version.status === 'SENT' ? 'VIEWED' : version.status,
           this.app.clock.now(),

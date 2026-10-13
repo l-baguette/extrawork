@@ -18,6 +18,7 @@ import {
 } from './schema';
 import { useDraftStore } from './draft-store';
 import { SharePanel } from './share-panel';
+import { AttachmentPicker } from './attachment-picker';
 
 /**
  * The four-step mobile change composer — report §6.3.
@@ -60,14 +61,16 @@ export function Composer({
   const router = useRouter();
   const online = useOnlineStatus();
   const draftKey = existing ? existing.changeOrderId : `new:${projectId}`;
-  const store = useDraftStore();
+  const getDraft = useDraftStore((state) => state.getDraft);
+  const hydrateDraft = useDraftStore((state) => state.hydrate);
+  const setDraft = useDraftStore((state) => state.setDraft);
+  const markDraftSynced = useDraftStore((state) => state.markSynced);
+  const clearDraft = useDraftStore((state) => state.clearDraft);
 
   const [step, setStep] = useState(1);
   const [changeOrderId, setChangeOrderId] = useState<string | null>(
     existing?.changeOrderId ?? null,
   );
-  const [lockVersion, setLockVersion] = useState<number | null>(existing?.lockVersion ?? null);
-  const [etag, setEtag] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewDto | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -75,15 +78,23 @@ export function Composer({
   const [conflict, setConflict] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<SendResultDto | null>(null);
   const [sending, setSending] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState(0);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const sendKey = useRef<string>(newIdempotencyKey());
+  const changeOrderIdRef = useRef<string | null>(existing?.changeOrderId ?? null);
+  const lockVersionRef = useRef<number | null>(existing?.lockVersion ?? null);
+  const etagRef = useRef<string | null>(null);
+  const pendingSaveRef = useRef<ComposerValues | null>(null);
+  const saveLoopRef = useRef<Promise<string | null> | null>(null);
+  const lastSavedRef = useRef<string | null>(existing ? JSON.stringify(existing.values) : null);
+  const previewInputRef = useRef<string | null>(null);
 
   const form = useForm<ComposerValues>({
     // Shared Zod schema from packages/contracts-derived types (report §6.3).
     resolver: zodResolver(ComposerSchema),
     defaultValues: existing?.values ??
-      store.getDraft(draftKey) ?? {
+      getDraft(draftKey) ?? {
         ...EMPTY_COMPOSER,
         approverContactId: defaultApproverContactId ?? '',
       },
@@ -92,13 +103,25 @@ export function Composer({
 
   const lines = useFieldArray({ control: form.control, name: 'lineItems' });
   const values = form.watch();
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
 
   // Restore a locally persisted draft on first mount (report §6.8).
   useEffect(() => {
-    store.hydrate(draftKey);
-    // Intentionally once per draft key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey]);
+    if (existing) return;
+    const hydrated = hydrateDraft(draftKey);
+    if (!form.formState.isDirty) {
+      form.reset(
+        hydrated ?? {
+          ...EMPTY_COMPOSER,
+          approverContactId: defaultApproverContactId ?? '',
+        },
+      );
+      // A local draft may be newer than the server. It must be saved before a
+      // preview can represent it.
+      lastSavedRef.current = null;
+    }
+  }, [defaultApproverContactId, draftKey, existing, form, hydrateDraft]);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -106,89 +129,132 @@ export function Composer({
 
   // --- Autosave ------------------------------------------------------------
   const save = useCallback(
-    async (payload: ComposerValues): Promise<void> => {
-      if (!online) {
-        // Queue locally only. Report §6.8 forbids an offline send, not an
-        // offline draft edit.
-        store.setDraft(draftKey, payload, lockVersion);
-        setSaveState('idle');
-        return;
-      }
+    (payload: ComposerValues): Promise<string | null> => {
+      pendingSaveRef.current = payload;
+      if (saveLoopRef.current) return saveLoopRef.current;
 
-      setSaveState('saving');
-      try {
-        if (!changeOrderId) {
-          const created = await api<{ id: string; number: string; lockVersion: number }>(
-            `/v1/projects/${projectId}/change-orders`,
-            {
-              method: 'POST',
-              idempotencyKey: newIdempotencyKey(),
-              body: toApiPayload(payload, projectCurrency),
-            },
-          );
-          setChangeOrderId(created.id);
-          setLockVersion(created.lockVersion);
-        } else {
-          const { data, etag: nextEtag } = await apiRequest<{ lockVersion: number }>(
-            `/v1/change-orders/${changeOrderId}/draft`,
-            {
-              method: 'PATCH',
-              ifMatch: etag ?? `"${changeOrderId}:${lockVersion ?? 1}"`,
-              body: toApiPayload(payload, projectCurrency),
-            },
-          );
-          setLockVersion(data.lockVersion);
-          setEtag(nextEtag);
+      const loop = (async (): Promise<string | null> => {
+        while (pendingSaveRef.current) {
+          const current = pendingSaveRef.current;
+          pendingSaveRef.current = null;
+
+          if (!online) {
+            // Queue locally only. Report §6.8 forbids an offline send, not an
+            // offline draft edit.
+            setDraft(draftKey, current, lockVersionRef.current);
+            setSaveState('idle');
+            return null;
+          }
+
+          setSaveState('saving');
+          try {
+            let id = changeOrderIdRef.current;
+            if (!id) {
+              const created = await api<{ id: string; number: string; lockVersion: number }>(
+                `/v1/projects/${projectId}/change-orders`,
+                {
+                  method: 'POST',
+                  idempotencyKey: newIdempotencyKey(),
+                  body: toApiPayload(current, projectCurrency),
+                },
+              );
+              id = created.id;
+              changeOrderIdRef.current = created.id;
+              lockVersionRef.current = created.lockVersion;
+              setChangeOrderId(created.id);
+            } else {
+              const { data, etag: nextEtag } = await apiRequest<{ lockVersion: number }>(
+                `/v1/change-orders/${id}/draft`,
+                {
+                  method: 'PATCH',
+                  ifMatch: etagRef.current ?? `"${id}:${lockVersionRef.current ?? 1}"`,
+                  body: toApiPayload(current, projectCurrency),
+                },
+              );
+              lockVersionRef.current = data.lockVersion;
+              etagRef.current = nextEtag;
+            }
+            setDraft(draftKey, current, lockVersionRef.current);
+            markDraftSynced(draftKey);
+            lastSavedRef.current = JSON.stringify(current);
+            setSaveState('saved');
+            setConflict(null);
+          } catch (caught) {
+            if (
+              caught instanceof ApiError &&
+              (caught.code === 'LOCK_CONFLICT' || caught.code === 'ETAG_MISMATCH')
+            ) {
+              // Report §6.3: show a comparison instead of overwriting.
+              setConflict(
+                'This draft was changed somewhere else — another device, or a colleague. ' +
+                  'Your edits here have NOT been saved. Reload to see the current version before editing again.',
+              );
+            } else {
+              setError(caught instanceof ApiError ? caught.message : 'Could not save the draft.');
+            }
+            setSaveState('error');
+            pendingSaveRef.current = null;
+            // The local copy is still kept so nothing typed is lost.
+            setDraft(draftKey, current, lockVersionRef.current);
+            return null;
+          }
         }
-        store.setDraft(draftKey, payload, lockVersion);
-        store.markSynced(draftKey);
-        setSaveState('saved');
-        setConflict(null);
-      } catch (caught) {
-        if (
-          caught instanceof ApiError &&
-          (caught.code === 'LOCK_CONFLICT' || caught.code === 'ETAG_MISMATCH')
-        ) {
-          // Report §6.3: show a comparison instead of overwriting.
-          setConflict(
-            'This draft was changed somewhere else — another device, or a colleague. ' +
-              'Your edits here have NOT been saved. Reload to see the current version before editing again.',
-          );
-        } else {
-          setError(caught instanceof ApiError ? caught.message : 'Could not save the draft.');
-        }
-        setSaveState('error');
-        // The local copy is still kept so nothing typed is lost.
-        store.setDraft(draftKey, payload, lockVersion);
-      }
+        return changeOrderIdRef.current;
+      })();
+
+      saveLoopRef.current = loop;
+      const clearSaveLoop = () => {
+        if (saveLoopRef.current === loop) saveLoopRef.current = null;
+      };
+      void loop.then(clearSaveLoop, clearSaveLoop);
+      return loop;
     },
-    [changeOrderId, draftKey, etag, lockVersion, online, projectCurrency, projectId, store],
+    [draftKey, markDraftSynced, online, projectCurrency, projectId, setDraft],
   );
+
+  /**
+   * Forces the draft to exist on the server and resolves its id.
+   *
+   * The composer creates the change order lazily on first autosave, so a
+   * photograph chosen in the first few seconds has nothing to attach to yet.
+   * Delegates to `save`, so it returns null in every case `save` does: not
+   * just offline (report §6.8 allows an offline draft edit but forbids
+   * anything needing the network) but also a lock/etag conflict or any other
+   * API error — each of which `save` has already surfaced via `setConflict`
+   * or `setError` above this component's own banners.
+   */
+  const ensureChangeOrderId = useCallback(async (): Promise<string | null> => {
+    if (changeOrderIdRef.current) return changeOrderIdRef.current;
+    return save(form.getValues());
+  }, [form, save]);
 
   // Debounced so typing does not produce a request per keystroke.
   const serialized = JSON.stringify(values);
   useEffect(() => {
-    if (!form.formState.isDirty) return;
+    if (!form.formState.isDirty || serialized === lastSavedRef.current) return;
     const timer = setTimeout(() => {
-      void save(values);
+      void save(valuesRef.current);
     }, AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serialized]);
+  }, [form.formState.isDirty, save, serialized]);
 
   // --- Preview -------------------------------------------------------------
   const runPreview = useCallback(async (): Promise<void> => {
-    if (!changeOrderId) {
-      await save(form.getValues());
-    }
-    const id = changeOrderId;
+    const current = form.getValues();
+    const currentSerialized = JSON.stringify(current);
+    const id =
+      changeOrderIdRef.current && lastSavedRef.current === currentSerialized
+        ? changeOrderIdRef.current
+        : await save(current);
     if (!id) return;
 
     setPreviewing(true);
+    setPreview(null);
     setError(null);
     try {
       const result = await api<PreviewDto>(`/v1/change-orders/${id}/preview`, { method: 'POST' });
       setPreview(result);
+      previewInputRef.current = currentSerialized;
     } catch (caught) {
       setPreview(null);
       setError(
@@ -199,12 +265,11 @@ export function Composer({
     } finally {
       setPreviewing(false);
     }
-  }, [changeOrderId, form, save]);
+  }, [form, save]);
 
   useEffect(() => {
     if (step === 4) void runPreview();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [runPreview, step]);
 
   // --- Navigation ----------------------------------------------------------
   async function next(): Promise<void> {
@@ -223,7 +288,13 @@ export function Composer({
   // The gate the report asks for: the backend preview must have succeeded and
   // reported no blockers before a send is even possible.
   const canSend =
-    online && preview !== null && preview.blockers.length === 0 && !previewing && !conflict;
+    online &&
+    preview !== null &&
+    previewInputRef.current === serialized &&
+    preview.blockers.length === 0 &&
+    !previewing &&
+    !conflict &&
+    pendingAttachments === 0;
 
   async function send(): Promise<void> {
     if (!changeOrderId || !canSend || sending) return;
@@ -236,7 +307,7 @@ export function Composer({
         body: { channel: 'WHATSAPP_NATIVE_SHARE' },
       });
       setSendResult(result);
-      store.clearDraft(draftKey);
+      clearDraft(draftKey);
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -342,6 +413,30 @@ export function Composer({
             </div>
           </section>
         ) : null}
+
+        {/*
+         * Deliberately mounted for the composer's whole lifetime, not just
+         * while step === 1: an upload/scan started here has to keep running
+         * while the contractor moves on to cost and schedule, and unmounting
+         * this component would freeze `pendingAttachments` at whatever count
+         * it last reported (its `onPendingChange` effect can never fire
+         * again), locking the send button forever with no way out except an
+         * undiscoverable trip back to step 1. `hidden` removes it from
+         * layout, the accessibility tree, and tab order without tearing down
+         * its state or in-flight requests.
+         */}
+        <div className="card stack" hidden={step !== 1}>
+          <AttachmentPicker
+            projectId={projectId}
+            changeOrderId={changeOrderId}
+            ensureChangeOrderId={ensureChangeOrderId}
+            value={form.watch('attachmentIds')}
+            onChange={(ids) => form.setValue('attachmentIds', ids, { shouldDirty: true })}
+            onPendingChange={setPendingAttachments}
+            disabled={!online}
+            disabledReason="Photographs need a connection. You can keep typing — the draft is saved on this device."
+          />
+        </div>
 
         {step === 2 ? (
           <section className="card">
@@ -523,6 +618,16 @@ export function Composer({
         {step === 4 ? (
           <section className="card">
             <h2>What the customer will see</h2>
+
+            {form.watch('attachmentIds').length === 0 ? (
+              <div className="banner banner-warn" role="status">
+                <p style={{ marginBottom: 0 }}>
+                  No photograph attached. A change with a site photograph is far harder to dispute
+                  later. You can still send this.
+                </p>
+              </div>
+            ) : null}
+
             {previewing ? (
               <p className="muted" aria-live="polite">
                 <span className="spinner" aria-hidden="true" /> Calculating the totals…
@@ -620,9 +725,11 @@ export function Composer({
           <p id="send-help" className="small muted" style={{ marginTop: 'var(--space-3)' }}>
             {!online
               ? 'Sending needs a connection: the record has to be timestamped by the server.'
-              : previewing
-                ? 'Waiting for the server to confirm the totals.'
-                : 'The server must confirm the totals before this can be sent.'}
+              : pendingAttachments > 0
+                ? 'One or more photographs are still being checked. Send becomes available when they finish.'
+                : previewing
+                  ? 'Waiting for the server to confirm the totals.'
+                  : 'The server must confirm the totals before this can be sent.'}
           </p>
         ) : null}
       </form>

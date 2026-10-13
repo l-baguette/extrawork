@@ -3,16 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./seed": "./src/seed/seed.ts"
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./seed": {
+      "development": "./src/seed/seed.ts",
+      "types": "./dist/seed/seed.d.ts",
+      "default": "./dist/seed/seed.js"
+    }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "seed": "tsx src/seed/cli.ts"
+    "seed": "node --conditions=development --import tsx src/seed/cli.ts"
   },
   "dependencies": {
     "@extrawork/application": "workspace:*",

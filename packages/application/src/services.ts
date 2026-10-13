@@ -30,15 +30,15 @@ export interface Services {
 
 export function createAuthProvider(app: AppContext): AuthProvider {
   if (app.env.AUTH_DRIVER === 'supabase' || app.env.AUTH_DRIVER === 'clerk') {
-    if (!app.env.AUTH_JWKS_URL || !app.env.AUTH_JWT_ISSUER) {
+    if (!app.env.AUTH_JWKS_URL || !app.env.AUTH_JWT_ISSUER || !app.env.AUTH_JWT_AUDIENCE) {
       throw new Error(
-        `AUTH_DRIVER=${app.env.AUTH_DRIVER} requires AUTH_JWKS_URL and AUTH_JWT_ISSUER`,
+        `AUTH_DRIVER=${app.env.AUTH_DRIVER} requires AUTH_JWKS_URL, AUTH_JWT_ISSUER and AUTH_JWT_AUDIENCE`,
       );
     }
     return new ManagedJwtProvider({
       jwksUrl: app.env.AUTH_JWKS_URL,
       issuer: app.env.AUTH_JWT_ISSUER,
-      ...(app.env.AUTH_JWT_AUDIENCE ? { audience: app.env.AUTH_JWT_AUDIENCE } : {}),
+      audience: app.env.AUTH_JWT_AUDIENCE,
       providerName: app.env.AUTH_DRIVER,
     });
   }

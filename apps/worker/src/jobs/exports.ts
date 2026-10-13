@@ -1,10 +1,21 @@
 import { createHash } from 'node:crypto';
-import { DOMAIN_EVENTS } from '@extrawork/contracts';
+import {
+  buildEvidenceViewModel,
+  formatInTimezone,
+  type EvidenceViewModel,
+} from '@extrawork/application';
+import { AppError, DOMAIN_EVENTS } from '@extrawork/contracts';
 import type { JobRow } from '@extrawork/db';
 import { StorageKeys } from '@extrawork/files';
 import { canonicalize, formatMoney, systemTenantContext } from '@extrawork/domain';
 import type { WorkerContext } from '../context.js';
-import { PermanentJobError, requireTenant } from '../runner.js';
+import {
+  optionalPayloadString,
+  PermanentJobError,
+  requirePayloadUuid,
+  requireTenant,
+} from '../runner.js';
+import { renderProjectEvidencePackHtml } from '../pdf/template.js';
 
 /**
  * Export generation — report §10.5 (CSV/PDF first) and §16.3, which makes
@@ -16,19 +27,28 @@ import { PermanentJobError, requireTenant } from '../runner.js';
  */
 
 export const EXPORT_TEMPLATE_VERSION = 'accounting-csv-v1';
+export const PROJECT_EVIDENCE_PACK_TEMPLATE_VERSION = 'evidence-pack-v1';
+export const PROJECT_EVIDENCE_PACK_GENERATOR_VERSION = 'project-evidence-generator-v1';
 
 interface ExportPayload {
   exportId: string;
-  organizationId: string;
+  organizationId: string | undefined;
 }
 
 export async function generateExport(job: JobRow, ctx: WorkerContext): Promise<void> {
-  const payload = job.payload as unknown as ExportPayload;
+  const payload = parseExportPayload(job);
   const organizationId = requireTenant(job, payload.organizationId);
   const tenant = systemTenantContext(organizationId, `job:${job.id}`);
   const log = ctx.logger.child({ exportId: payload.exportId });
+  const leaseToken = `${job.id}:${job.attemptCount}`;
 
-  const claimed = await ctx.repos.documents.claimForGeneration(ctx.db, payload.exportId);
+  const claimed = await ctx.repos.documents.claimForGeneration(
+    ctx.db,
+    organizationId,
+    payload.exportId,
+    leaseToken,
+    ctx.env.WORKER_LEASE_SECONDS,
+  );
   if (!claimed) {
     log.info('export already generated or in flight');
     return;
@@ -41,41 +61,63 @@ export async function generateExport(job: JobRow, ctx: WorkerContext): Promise<v
     if (!document.projectId) {
       throw new PermanentJobError(
         'EXPORT_SCOPE_MISSING',
-        'Accounting exports are scoped to a project in this release',
+        'Project exports require a project scope in this release',
       );
     }
-    const rows = await ctx.repos.reporting.approvedChangesForExport(tenant, document.projectId);
 
-    const csv = toCsv(rows);
-    const bytes = Buffer.from(csv, 'utf8');
-    const key = StorageKeys.export(organizationId, payload.exportId);
-    const stored = await ctx.app.objectStore.put(key, bytes, 'text/csv; charset=utf-8');
+    const generated =
+      document.kind === 'PROJECT_EVIDENCE_PACK'
+        ? await generateProjectEvidencePack({
+            ctx,
+            exportId: payload.exportId,
+            organizationId,
+            projectId: document.projectId,
+            generationToken: leaseToken,
+          })
+        : document.kind === 'ACCOUNTING_CSV'
+          ? await generateAccountingCsv({
+              ctx,
+              exportId: payload.exportId,
+              organizationId,
+              projectId: document.projectId,
+              generationToken: leaseToken,
+            })
+          : null;
 
-    const manifest = {
-      schemaVersion: 1,
-      exportId: payload.exportId,
-      organizationId: organizationId,
-      projectId: document.projectId,
-      templateVersion: EXPORT_TEMPLATE_VERSION,
-      generatedAt: ctx.app.clock.now().toISOString(),
-      rowCount: rows.length,
-      changeNumbers: rows.map((r) => r.changeNumber).sort(),
-      csvSha256: createHash('sha256').update(bytes).digest('hex'),
-    };
-    const manifestSha256 = createHash('sha256')
-      .update(canonicalize(manifest as never), 'utf8')
-      .digest();
+    if (!generated) {
+      throw new PermanentJobError(
+        'EXPORT_KIND_UNSUPPORTED',
+        `Export kind ${document.kind} is not implemented`,
+      );
+    }
 
-    await ctx.repos.documents.markReady(ctx.db, payload.exportId, {
-      storageKey: key,
-      fileSha256: createHash('sha256').update(bytes).digest(),
-      byteSize: BigInt(bytes.byteLength),
-      rendererVersion: 'csv',
-      generatorVersion: EXPORT_TEMPLATE_VERSION,
-      storageObjectVersion: stored.versionId,
-      manifest,
-      manifestSha256,
-    });
+    const stored = await ctx.app.objectStore.put(
+      generated.key,
+      generated.bytes,
+      generated.contentType,
+    );
+
+    const recorded = await ctx.repos.documents.markReady(
+      ctx.db,
+      organizationId,
+      payload.exportId,
+      leaseToken,
+      {
+        storageKey: generated.key,
+        fileSha256: createHash('sha256').update(generated.bytes).digest(),
+        byteSize: BigInt(generated.bytes.byteLength),
+        rendererVersion: generated.rendererVersion,
+        generatorVersion: generated.generatorVersion,
+        storageObjectVersion: stored.versionId,
+        manifest: generated.manifest,
+        manifestSha256: generated.manifestSha256,
+      },
+    );
+    if (!recorded) {
+      await ctx.app.objectStore.delete(generated.key).catch(() => undefined);
+      log.warn('generated export discarded because this worker lost the document lease');
+      return;
+    }
 
     await ctx.app.uow.transaction(async (tx) => {
       await ctx.repos.audit.append(tx, tenant, [
@@ -87,18 +129,190 @@ export async function generateExport(job: JobRow, ctx: WorkerContext): Promise<v
           actorType: 'SYSTEM',
           actorId: null,
           occurredAt: ctx.app.clock.now(),
-          payload: { exportId: payload.exportId, rowCount: rows.length },
+          payload: {
+            exportId: payload.exportId,
+            kind: document.kind,
+            recordCount: generated.recordCount,
+          },
         },
       ]);
     });
 
-    log.info({ rows: rows.length, bytes: bytes.byteLength }, 'export generated');
+    log.info(
+      { kind: document.kind, records: generated.recordCount, bytes: generated.bytes.byteLength },
+      'export generated',
+    );
   } catch (error) {
     await ctx.repos.documents
-      .markFailed(ctx.db, payload.exportId, String((error as Error).message))
+      .markFailed(
+        ctx.db,
+        organizationId,
+        payload.exportId,
+        leaseToken,
+        String((error as Error).message),
+      )
       .catch(() => undefined);
+    if (
+      AppError.is(error) &&
+      (error.code === 'INVALID_STATE_TRANSITION' || error.code === 'PROJECT_INTEGRITY_REVIEW')
+    ) {
+      throw new PermanentJobError(error.code, error.message);
+    }
     throw error;
   }
+}
+
+interface GeneratedExport {
+  bytes: Buffer;
+  contentType: string;
+  key: string;
+  rendererVersion: string;
+  generatorVersion: string;
+  manifest: Record<string, unknown>;
+  manifestSha256: Buffer;
+  recordCount: number;
+}
+
+async function generateProjectEvidencePack(input: {
+  ctx: WorkerContext;
+  exportId: string;
+  organizationId: string;
+  projectId: string;
+  generationToken: string;
+}): Promise<GeneratedExport> {
+  const { ctx, exportId, organizationId, projectId, generationToken } = input;
+  const tenant = systemTenantContext(organizationId, `export:${exportId}`);
+  const generatedAt = ctx.app.clock.now();
+  const [project, organization, versions, rendererVersion] = await Promise.all([
+    ctx.repos.projects.requireById(tenant, projectId),
+    ctx.repos.organizations.findById(tenant),
+    ctx.repos.changeOrders.listFrozenVersionsForProject(ctx.db, tenant, projectId),
+    ctx.pdf.rendererVersion(),
+  ]);
+  if (!organization) {
+    throw new PermanentJobError('ORGANIZATION_MISSING', 'Export organization no longer exists');
+  }
+
+  // Build sequentially. Each model performs several integrity reads; an
+  // unbounded Promise.all would turn a large project export into a connection
+  // burst and could starve interactive API traffic.
+  const records: EvidenceViewModel[] = [];
+  for (const version of versions) {
+    records.push(
+      await buildEvidenceViewModel({
+        db: ctx.db,
+        repos: ctx.repos,
+        versionId: version.id,
+        organizationId,
+        requestId: `job:${exportId}`,
+        generatorVersion: PROJECT_EVIDENCE_PACK_GENERATOR_VERSION,
+        rendererVersion,
+        now: generatedAt,
+      }),
+    );
+  }
+
+  const manifest: Record<string, unknown> = {
+    schemaVersion: 1,
+    kind: 'PROJECT_EVIDENCE_PACK',
+    exportId,
+    organization: {
+      id: organizationId,
+      displayName: organization.displayName,
+      legalName: organization.legalName,
+    },
+    project: {
+      id: project.id,
+      number: project.projectNumber,
+      title: project.title,
+      currency: project.currency,
+      timezone: project.timezone,
+    },
+    generation: {
+      generatedAt: generatedAt.toISOString(),
+      templateVersion: PROJECT_EVIDENCE_PACK_TEMPLATE_VERSION,
+      rendererVersion,
+      generatorVersion: PROJECT_EVIDENCE_PACK_GENERATOR_VERSION,
+    },
+    records: versions.map((version, index) => ({
+      versionId: version.id,
+      changeOrderId: version.changeOrderId,
+      versionNumber: version.versionNumber,
+      status: version.status,
+      canonicalSha256: version.canonicalSha256?.toString('hex') ?? null,
+      manifestSha256: records[index]?.manifestSha256 ?? null,
+      manifest: records[index]?.manifest ?? null,
+    })),
+  };
+  const manifestSha256 = createHash('sha256')
+    .update(canonicalize(manifest as never), 'utf8')
+    .digest();
+  const html = renderProjectEvidencePackHtml({
+    organizationName: organization.displayName,
+    organizationLegalName: organization.legalName,
+    projectNumber: project.projectNumber,
+    projectTitle: project.title,
+    generatedAt: formatInTimezone(generatedAt, project.timezone),
+    templateVersion: PROJECT_EVIDENCE_PACK_TEMPLATE_VERSION,
+    manifestSha256: manifestSha256.toString('hex'),
+    records,
+  });
+  const bytes = await ctx.pdf.render(html, { timeoutMs: ctx.env.PDF_TIMEOUT_MS });
+
+  return {
+    bytes,
+    contentType: 'application/pdf',
+    key: StorageKeys.export(organizationId, exportId, 'pdf', generationToken),
+    rendererVersion,
+    generatorVersion: PROJECT_EVIDENCE_PACK_GENERATOR_VERSION,
+    manifest,
+    manifestSha256,
+    recordCount: records.length,
+  };
+}
+
+async function generateAccountingCsv(input: {
+  ctx: WorkerContext;
+  exportId: string;
+  organizationId: string;
+  projectId: string;
+  generationToken: string;
+}): Promise<GeneratedExport> {
+  const { ctx, exportId, organizationId, projectId, generationToken } = input;
+  const tenant = systemTenantContext(organizationId, `export:${exportId}`);
+  const rows = await ctx.repos.reporting.approvedChangesForExport(tenant, projectId);
+  const bytes = Buffer.from(toCsv(rows), 'utf8');
+  const manifest: Record<string, unknown> = {
+    schemaVersion: 1,
+    kind: 'ACCOUNTING_CSV',
+    exportId,
+    organizationId,
+    projectId,
+    templateVersion: EXPORT_TEMPLATE_VERSION,
+    generatedAt: ctx.app.clock.now().toISOString(),
+    rowCount: rows.length,
+    changeNumbers: rows.map((row) => row.changeNumber).sort(),
+    csvSha256: createHash('sha256').update(bytes).digest('hex'),
+  };
+  return {
+    bytes,
+    contentType: 'text/csv; charset=utf-8',
+    key: StorageKeys.export(organizationId, exportId, 'csv', generationToken),
+    rendererVersion: 'csv',
+    generatorVersion: EXPORT_TEMPLATE_VERSION,
+    manifest,
+    manifestSha256: createHash('sha256')
+      .update(canonicalize(manifest as never), 'utf8')
+      .digest(),
+    recordCount: rows.length,
+  };
+}
+
+function parseExportPayload(job: JobRow): ExportPayload {
+  return {
+    exportId: requirePayloadUuid(job, 'exportId'),
+    organizationId: optionalPayloadString(job, 'organizationId'),
+  };
 }
 
 const HEADERS = [

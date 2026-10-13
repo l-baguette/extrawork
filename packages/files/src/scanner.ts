@@ -147,12 +147,13 @@ export async function processUploadedFile(
 
   try {
     const { default: sharp } = await import('sharp');
-    const image = sharp(bytes, { failOn: 'error' });
+    const sharpOptions = { failOn: 'error' as const, limitInputPixels: 40_000_000 };
+    const image = sharp(bytes, sharpOptions);
     const metadata = await image.metadata();
 
     // Re-encoding through sharp both proves decodability and drops every
     // metadata block, GPS included, because we do not call `.withMetadata()`.
-    const derivativeBytes = await sharp(bytes)
+    const derivativeBytes = await sharp(bytes, sharpOptions)
       .rotate() // apply EXIF orientation before the tag is discarded
       .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 82 })

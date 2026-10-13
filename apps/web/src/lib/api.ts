@@ -17,8 +17,11 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000
 /**
  * Public Next variables are compiled into the browser bundle. If a dev server
  * was started on localhost and then opened from a phone over the LAN, that
- * stale value points the phone back at itself. In local/LAN development only,
- * replace a compiled loopback host with the host serving the current page.
+ * stale value points the phone back at itself. The inverse is just as harmful:
+ * a LAN build opened at localhost sets its cookies on the LAN address, so the
+ * subsequent localhost server render looks signed out. In either local-host
+ * mismatch, use the host serving the page so the web and API origins share the
+ * same cookie host.
  */
 export function browserApiUrl(): string {
   if (typeof window === 'undefined') return API_URL;
@@ -35,10 +38,14 @@ export function resolveBrowserApiUrl(
   try {
     const configured = new URL(configuredUrl);
     const loopback = new Set(['localhost', '127.0.0.1', '::1']);
-    if (loopback.has(configured.hostname) && !loopback.has(location.hostname)) {
+    const hostsDiffer = configured.hostname !== location.hostname;
+    const eitherHostIsLoopback =
+      loopback.has(configured.hostname) || loopback.has(location.hostname);
+
+    if (hostsDiffer && eitherHostIsLoopback) {
       configured.protocol = location.protocol;
       configured.hostname = location.hostname;
-      configured.port = '4000';
+      configured.port ||= '4000';
       return configured.toString().replace(/\/$/, '');
     }
   } catch {

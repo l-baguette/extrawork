@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CreateEvidencePackSchema, JOB_KINDS, ReportQuerySchema } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
 import { enqueueJob } from '@extrawork/db';
-import { authorize, formatMoney } from '@extrawork/domain';
+import { authorize, formatMoney, projectAccessFilter } from '@extrawork/domain';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 
 /**
@@ -24,7 +24,11 @@ export async function registerReportRoutes(
     authorize(auth.actor, 'report:read', { organizationId: auth.actor.organizationId });
 
     const query = ReportQuerySchema.parse(request.query);
-    const rows = await app.repos.reporting.extraWorkReport(auth.tenant, query);
+    const rows = await app.repos.reporting.extraWorkReport(
+      auth.tenant,
+      query,
+      projectAccessFilter(auth.actor),
+    );
 
     const totals = rows.reduce(
       (acc, row) => ({
@@ -62,7 +66,11 @@ export async function registerReportRoutes(
     authorize(auth.actor, 'report:export', { organizationId: auth.actor.organizationId });
 
     const query = ReportQuerySchema.parse(request.query);
-    const rows = await app.repos.reporting.extraWorkReport(auth.tenant, query);
+    const rows = await app.repos.reporting.extraWorkReport(
+      auth.tenant,
+      query,
+      projectAccessFilter(auth.actor),
+    );
 
     const header = [
       'change_number',
@@ -169,7 +177,7 @@ export async function registerReportRoutes(
         kind: JOB_KINDS.GENERATE_EXPORT,
         organizationId: auth.actor.organizationId,
         dedupeKey: `export:${docId}`,
-        payload: { documentId: docId, projectId: id, kind: 'PROJECT_EVIDENCE_PACK' },
+        payload: { exportId: docId, organizationId: auth.actor.organizationId },
       });
       return docId;
     });
@@ -182,13 +190,17 @@ export async function registerReportRoutes(
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const document = await app.repos.documents.findById(auth.tenant, id);
     if (!document) return reply.status(404).send({ error: { code: 'NOT_FOUND' } });
+    authorize(auth.actor, document.projectId ? 'project:export' : 'report:export', {
+      organizationId: document.organizationId,
+      projectId: document.projectId,
+    });
 
     const downloadUrl =
       document.status === 'READY' && document.storageKey
         ? await appContext.objectStore.createDownload(
             document.storageKey,
             app.env.SIGNED_URL_TTL_SECONDS,
-            `export-${document.id}.zip`,
+            exportFilename(document),
           )
         : null;
 
@@ -203,6 +215,17 @@ export async function registerReportRoutes(
       error: document.error,
     });
   });
+}
+
+function exportFilename(document: { id: string; kind: string; projectId: string | null }): string {
+  switch (document.kind) {
+    case 'PROJECT_EVIDENCE_PACK':
+      return `project-evidence-${document.projectId ?? document.id}.pdf`;
+    case 'ACCOUNTING_CSV':
+      return `accounting-export-${document.projectId ?? document.id}.csv`;
+    default:
+      return `export-${document.id}.bin`;
+  }
 }
 
 function csvCell(value: unknown): string {

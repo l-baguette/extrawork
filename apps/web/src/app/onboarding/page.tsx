@@ -36,7 +36,11 @@ export default function OnboardingPage() {
           defaultCurrency: 'INR',
         },
       });
-      router.push('/app/projects/new');
+      // Straight to settings: the business now exists but holds only a name.
+      // GSTIN, contact number, timezone and retention are all still blank, and
+      // the contact number in particular is printed in every customer message
+      // as the channel they can verify the request through.
+      router.push('/app/settings');
       router.refresh();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Setup could not be completed.');

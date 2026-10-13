@@ -4,32 +4,29 @@ import { serverGet } from '@/lib/server-fetch';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { formatRelative } from '@/lib/format';
+import { Empty, SheetTop } from '@/components/sheet';
 
 /**
- * Every request ever filed, including the ones that were turned away.
+ * Every message ever received, including the ones that were turned away.
  *
  * Showing rejections is the point of this page, not a side effect. When an
  * employee says "I sent it and nothing happened", this is where the answer is:
  * the message arrived, why it was refused, and exactly what they were told.
+ * That is why the refusals carry the same weight as the successes here rather
+ * than being filtered out of the default view.
  */
 export const dynamic = 'force-dynamic';
 
-const STATUS_LABELS: Record<InboundMessageDto['status'], string> = {
-  RECEIVED: 'Received',
-  REJECTED_UNKNOWN_SENDER: 'Unknown number',
-  REJECTED_NOT_AUTHORIZED: 'Not authorised',
-  REJECTED_UNPARSEABLE: 'Could not read',
-  REJECTED_POLICY: 'Over limit',
-  ACCEPTED: 'Sent to customer',
-};
-
-const STATUS_TONES: Record<InboundMessageDto['status'], string> = {
-  RECEIVED: 'chip-pending',
-  REJECTED_UNKNOWN_SENDER: 'chip-declined',
-  REJECTED_NOT_AUTHORIZED: 'chip-declined',
-  REJECTED_UNPARSEABLE: 'chip-draft',
-  REJECTED_POLICY: 'chip-declined',
-  ACCEPTED: 'chip-approved',
+const OUTCOMES: Record<
+  InboundMessageDto['status'],
+  { letter: string; label: string; tone: string }
+> = {
+  RECEIVED: { letter: 'W', label: 'Received', tone: 'waiting' },
+  ACCEPTED: { letter: 'A', label: 'Sent to customer', tone: 'approved' },
+  REJECTED_UNKNOWN_SENDER: { letter: 'U', label: 'Unknown number', tone: 'declined' },
+  REJECTED_NOT_AUTHORIZED: { letter: 'N', label: 'Not authorised', tone: 'declined' },
+  REJECTED_UNPARSEABLE: { letter: 'R', label: 'Could not read', tone: 'neutral' },
+  REJECTED_POLICY: { letter: 'L', label: 'Over limit', tone: 'declined' },
 };
 
 export default async function RequestsPage({
@@ -48,107 +45,134 @@ export default async function RequestsPage({
   if (!result.ok) return <ErrorPanel message={result.message} />;
 
   const messages = result.data.items;
+  const refused = messages.filter((m) => m.status !== 'ACCEPTED').length;
 
   return (
-    <main className="page page-wide">
-      <h1 style={{ marginBottom: 'var(--space-2)' }}>Requests</h1>
-      <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>
-        Every message received on the ExtraWork number, and what happened to it.
-      </p>
+    <>
+      <SheetTop
+        title="Requests"
+        meta="Every message received on the ExtraWork number, and what happened to it"
+        actions={
+          <div className="segmented" role="group" aria-label="Filter requests">
+            <Link
+              href="/app/requests"
+              className="segmented-item"
+              aria-current={unresolvedOnly ? undefined : 'true'}
+            >
+              All
+            </Link>
+            <Link
+              href="/app/requests?unresolved=1"
+              className="segmented-item"
+              aria-current={unresolvedOnly ? 'true' : undefined}
+            >
+              Needs attention{refused > 0 && !unresolvedOnly ? ` · ${refused}` : ''}
+            </Link>
+          </div>
+        }
+      />
 
-      <div className="actions" style={{ marginBottom: 'var(--space-4)' }}>
-        <Link
-          href="/app/requests"
-          className={`button ${unresolvedOnly ? 'button-secondary' : ''}`}
-          aria-current={unresolvedOnly ? undefined : 'page'}
-        >
-          All
-        </Link>
-        <p></p>
-        <Link
-          href="/app/requests?unresolved=1"
-          className={`button ${unresolvedOnly ? '' : 'button-secondary'}`}
-          aria-current={unresolvedOnly ? 'page' : undefined}
-        >
-          Needs attention
-        </Link>
-      </div>
-
-      {messages.length === 0 ? (
-        <div className="card">
-          <h2>{unresolvedOnly ? 'Nothing needs attention' : 'No requests yet'}</h2>
-          <p className="muted">
-            {unresolvedOnly
-              ? 'Every message received so far became a request sent to a customer.'
-              : 'When someone on your team messages the ExtraWork number, it will appear here — including messages that could not be processed.'}
-          </p>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Received</th>
-                  <th scope="col">From</th>
-                  <th scope="col">Project</th>
-                  <th scope="col">Message</th>
-                  <th scope="col">Outcome</th>
-                </tr>
-              </thead>
-              <tbody>
-                {messages.map((message) => (
-                  <tr key={message.id}>
-                    <td className="small">{formatRelative(message.receivedAt)}</td>
-                    <td>
-                      {message.employeeName ? (
-                        <strong>{message.employeeName}</strong>
-                      ) : (
-                        <span className="muted">Not recognised</span>
-                      )}
-                      <div className="small muted tabular">{message.fromPhoneMasked}</div>
-                    </td>
-                    <td className="small">
-                      {message.projectTitle ?? <span className="muted">—</span>}
-                    </td>
-                    <td className="small">
-                      {message.body ? (
-                        <span title={message.body}>{truncate(message.body, 90)}</span>
-                      ) : (
-                        <span className="muted">No text</span>
-                      )}
-                      {message.mediaCount > 0 ? (
-                        <div className="small muted">
-                          {message.mediaCount} photo{message.mediaCount === 1 ? '' : 's'}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td>
-                      <span className={`chip ${STATUS_TONES[message.status]}`}>
-                        {STATUS_LABELS[message.status]}
-                      </span>
-                      {message.rejectionReason ? (
-                        <div className="small muted">{message.rejectionReason}</div>
-                      ) : null}
-                      {message.changeOrderId ? (
-                        <div className="small">
-                          <Link href={`/app/changes/${message.changeOrderId}`}>View request</Link>
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <main className="sheet rule-in">
+        {/*
+          These letters are a different vocabulary from the change-order status
+          codes in the rail: this column answers "what happened to the message",
+          not "where is the request". Without its own legend a reader who has
+          learnt the rail would read A here as APPROVED, when it means the
+          message was accepted and a request went out.
+        */}
+        <div className="panel panel-pad" style={{ marginBottom: 'var(--s4)' }}>
+          <div className="legend-title" style={{ marginBottom: 'var(--s2)' }}>
+            Message outcomes
+          </div>
+          <div className="row row-wrap" style={{ gap: 'var(--s2) var(--s4)' }}>
+            {Object.values(OUTCOMES).map((o) => (
+              <span key={o.letter} className={`code code-${o.tone}`} data-code={o.letter}>
+                {o.label}
+              </span>
+            ))}
           </div>
         </div>
-      )}
 
-      <p className="small muted">
-        Numbers are partly hidden here. Manage who can send requests on{' '}
-        <Link href="/app/employees">Employees</Link>.
-      </p>
-    </main>
+        {messages.length === 0 ? (
+          <div className="panel">
+            <Empty title={unresolvedOnly ? 'Nothing needs attention' : 'No messages yet'}>
+              {unresolvedOnly
+                ? 'Every message received so far became a request sent to a customer.'
+                : 'When someone on your team messages the ExtraWork number it appears here — including messages that could not be processed, and the exact reply they were sent.'}
+            </Empty>
+          </div>
+        ) : (
+          <div className="panel">
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Received</th>
+                    <th scope="col">From</th>
+                    <th scope="col">Message</th>
+                    <th scope="col">Project</th>
+                    <th scope="col">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {messages.map((message) => {
+                    const outcome = OUTCOMES[message.status];
+                    return (
+                      <tr key={message.id}>
+                        <td className="small nowrap muted">{formatRelative(message.receivedAt)}</td>
+                        <td>
+                          {message.employeeName ? (
+                            <strong>{message.employeeName}</strong>
+                          ) : (
+                            <span className="muted">Not recognised</span>
+                          )}
+                          <div className="small muted mono">{message.fromPhoneMasked}</div>
+                        </td>
+                        <td className="small">
+                          {message.body ? (
+                            <span title={message.body}>{truncate(message.body, 88)}</span>
+                          ) : (
+                            <span className="muted">No text</span>
+                          )}
+                          {message.mediaCount > 0 ? (
+                            <div className="small muted">
+                              {message.mediaCount} photo{message.mediaCount === 1 ? '' : 's'}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="small">
+                          {message.projectTitle ?? <span className="muted">—</span>}
+                        </td>
+                        <td>
+                          <span className={`code code-${outcome.tone}`} data-code={outcome.letter}>
+                            {outcome.label}
+                          </span>
+                          {message.rejectionReason ? (
+                            <div className="small muted">{message.rejectionReason}</div>
+                          ) : null}
+                          {message.changeOrderId ? (
+                            <div className="small">
+                              <Link href={`/app/changes/${message.changeOrderId}`}>
+                                View request
+                              </Link>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <p className="hint">
+          Numbers are partly hidden here. Manage who may send requests, and their spending ceiling,
+          on <Link href="/app/employees">Employees</Link>.
+        </p>
+      </main>
+    </>
   );
 }
 
