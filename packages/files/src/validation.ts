@@ -5,6 +5,7 @@ import {
   MAX_FILE_BYTES,
   type AllowedMimeType,
 } from '@extrawork/contracts';
+import { inspectOfficePackage, isZip } from './office.js';
 
 /**
  * Upload validation — report §12.1 ("file type/size allowlist, malware scan,
@@ -60,10 +61,136 @@ const SIGNATURES: MagicSignature[] = [
 ];
 
 export function detectMimeType(bytes: Buffer): AllowedMimeType | null {
-  for (const signature of SIGNATURES) {
-    if (signature.test(bytes)) return signature.mime;
-  }
+  const sniffed = sniffContent(bytes);
+  if (sniffed.kind === 'type') return sniffed.mime;
+  if (sniffed.kind === 'text') return sniffed.dxf ? 'application/dxf' : 'text/plain';
   return null;
+}
+
+/** OLE2 compound file: legacy .xls/.doc/.ppt, which can carry VBA. */
+const OLE2_SIGNATURE = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
+export const LEGACY_OFFICE_REASON =
+  'Older .xls/.doc files can carry macros. Save it as .xlsx or .docx and upload it again.';
+
+/** The types whose bytes are plain text, where content cannot tell them apart. */
+const TEXT_TYPES: ReadonlySet<AllowedMimeType> = new Set<AllowedMimeType>([
+  'text/csv',
+  'text/plain',
+]);
+
+/**
+ * What the bytes are, before the declared type is consulted.
+ *
+ *  - `type`    a binary format with a decisive signature
+ *  - `text`    valid UTF-8 with no NUL bytes; CSV and TXT are indistinguishable
+ *              here, so the declared type decides between them (spec D10)
+ *  - `refuse`  a format we recognise and refuse, with the reason to show
+ *  - `unknown` nothing on the allowlist
+ */
+type Sniffed =
+  | { kind: 'type'; mime: AllowedMimeType }
+  | { kind: 'text'; dxf: boolean }
+  | { kind: 'refuse'; reason: string; mime: AllowedMimeType | null }
+  | { kind: 'unknown' };
+
+function sniffContent(bytes: Buffer): Sniffed {
+  for (const signature of SIGNATURES) {
+    if (signature.test(bytes)) return { kind: 'type', mime: signature.mime };
+  }
+  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(OLE2_SIGNATURE)) {
+    return { kind: 'refuse', reason: LEGACY_OFFICE_REASON, mime: null };
+  }
+  if (isZip(bytes)) {
+    const office = inspectOfficePackage(bytes);
+    return office.ok
+      ? { kind: 'type', mime: office.mime }
+      : { kind: 'refuse', reason: office.reason, mime: null };
+  }
+  // AutoCAD DWG: "AC10xx" version magic (AC1009 … AC1032).
+  if (bytes.length >= 6 && /^AC1\d/.test(bytes.subarray(0, 4).toString('latin1'))) {
+    return { kind: 'type', mime: 'application/acad' };
+  }
+  if (isUtf8Text(bytes)) return { kind: 'text', dxf: looksLikeDxf(bytes) };
+  return { kind: 'unknown' };
+}
+
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+
+/** Valid UTF-8 (a BOM is allowed) with no NUL byte anywhere. */
+export function isUtf8Text(bytes: Buffer): boolean {
+  if (bytes.includes(0)) return false;
+  const body = bytes.subarray(0, 3).equals(UTF8_BOM) ? bytes.subarray(3) : bytes;
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(body);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const DXF_SECTIONS = new Set(['HEADER', 'CLASSES', 'TABLES', 'BLOCKS', 'ENTITIES', 'OBJECTS']);
+
+/**
+ * ASCII DXF is pairs of lines: a group code, then a value. A real file opens
+ * with `0 / SECTION / 2 / <name>` within its first few KB; free text does not.
+ */
+export function looksLikeDxf(bytes: Buffer): boolean {
+  const lines = bytes
+    .subarray(0, 8 * 1024)
+    .toString('utf8')
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map((line) => line.trim());
+  for (let i = 0; i + 3 < lines.length; i += 1) {
+    if (
+      lines[i] === '0' &&
+      lines[i + 1]?.toUpperCase() === 'SECTION' &&
+      lines[i + 2] === '2' &&
+      DXF_SECTIONS.has(lines[i + 3]?.toUpperCase() ?? '')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolves the content against the declared type. Text is the one place the
+ * declared type is believed — between CSV and TXT, which the bytes cannot
+ * distinguish — and only once the bytes are proven to be text.
+ */
+function resolveDetected(
+  sniffed: Sniffed,
+  declared: AllowedMimeType,
+): { detected: AllowedMimeType | null; reason: string | null } {
+  switch (sniffed.kind) {
+    case 'type':
+      return sniffed.mime === declared
+        ? { detected: sniffed.mime, reason: null }
+        : {
+            detected: sniffed.mime,
+            reason: `File contents are ${sniffed.mime} but ${declared} was declared`,
+          };
+    case 'refuse':
+      return { detected: sniffed.mime, reason: sniffed.reason };
+    case 'text':
+      if (TEXT_TYPES.has(declared)) return { detected: declared, reason: null };
+      if (declared === 'application/dxf') {
+        return sniffed.dxf
+          ? { detected: 'application/dxf', reason: null }
+          : {
+              detected: 'text/plain',
+              reason: 'File is text but not a DXF drawing (no SECTION structure found)',
+            };
+      }
+      return {
+        detected: sniffed.dxf ? 'application/dxf' : 'text/plain',
+        reason: `File contents are text but ${declared} was declared`,
+      };
+    case 'unknown':
+      return { detected: null, reason: 'File contents do not match any allowed format' };
+  }
 }
 
 export interface ValidationVerdict {
@@ -103,21 +230,14 @@ export function validateBytes(
     };
   }
 
-  const detected = detectMimeType(bytes);
-  if (!detected) {
-    return {
-      ...base,
-      ok: false,
-      detectedMimeType: null,
-      reason: 'File contents do not match any allowed format',
-    };
-  }
-  if (detected !== declaredMimeType) {
+  const resolved = resolveDetected(sniffContent(bytes), declaredMimeType as AllowedMimeType);
+  const detected = resolved.detected;
+  if (resolved.reason || !detected) {
     return {
       ...base,
       ok: false,
       detectedMimeType: detected,
-      reason: `File contents are ${detected} but ${declaredMimeType} was declared`,
+      reason: resolved.reason ?? 'File contents do not match any allowed format',
     };
   }
   if (bytes.length > MAX_FILE_BYTES[detected]) {

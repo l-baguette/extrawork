@@ -4,6 +4,7 @@ import path from 'node:path';
 import { AppError } from '@extrawork/contracts';
 import {
   assertSafeKey,
+  type DownloadOptions,
   type ObjectMetadata,
   type ObjectStore,
   type PresignedUpload,
@@ -97,7 +98,17 @@ export class LocalObjectStore implements ObjectStore {
     };
   }
 
-  async createDownload(key: string, ttlSeconds: number, filename?: string): Promise<string> {
+  /**
+   * The local serve route always answers with `application/octet-stream`, an
+   * attachment disposition and `nosniff`, so `forceDownload` needs no extra
+   * handling here.
+   */
+  async createDownload(
+    key: string,
+    ttlSeconds: number,
+    filename?: string,
+    _options?: DownloadOptions,
+  ): Promise<string> {
     assertSafeKey(key);
     const token = this.sign({
       key,

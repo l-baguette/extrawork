@@ -1,6 +1,8 @@
 import {
   ALLOWED_UPLOAD_MIME_TYPES,
+  CHANGE_ATTACHMENT_MIME_TYPES,
   MAX_FILE_BYTES,
+  UPLOAD_EXTENSION_TYPES,
   type AllowedMimeType,
 } from '@extrawork/contracts';
 
@@ -12,7 +14,10 @@ import {
  * photograph before spending their data on it, rather than after.
  */
 
-const ALLOWED = new Set<string>(ALLOWED_UPLOAD_MIME_TYPES);
+/** Everything a project folder accepts (spec 2026-10-12, D10). */
+export const PROJECT_FILE_TYPES: ReadonlySet<AllowedMimeType> = new Set<AllowedMimeType>(
+  ALLOWED_UPLOAD_MIME_TYPES,
+);
 
 /**
  * Extension fallback.
@@ -26,15 +31,45 @@ const ALLOWED = new Set<string>(ALLOWED_UPLOAD_MIME_TYPES);
  * The server still decides from the magic bytes, so a wrong guess here is caught
  * one step later and never reaches storage.
  */
-const BY_EXTENSION: Record<string, AllowedMimeType> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-  heic: 'image/heic',
-  heif: 'image/heic',
-  pdf: 'application/pdf',
+const BY_EXTENSION: Readonly<Record<string, AllowedMimeType>> = UPLOAD_EXTENSION_TYPES;
+
+/**
+ * Types browsers report for files we accept under another name. Windows labels
+ * every .csv as an Excel file, and CAD files arrive under half a dozen
+ * unofficial names. Each alias only applies when the extension agrees, so a
+ * real legacy .xls is never waved through as a CSV.
+ */
+const TYPE_ALIASES: Readonly<
+  Record<string, { extensions: readonly string[]; type: AllowedMimeType }>
+> = {
+  'application/vnd.ms-excel': { extensions: ['csv'], type: 'text/csv' },
+  'application/csv': { extensions: ['csv'], type: 'text/csv' },
+  'application/x-csv': { extensions: ['csv'], type: 'text/csv' },
+  'text/x-csv': { extensions: ['csv'], type: 'text/csv' },
+  'text/comma-separated-values': { extensions: ['csv'], type: 'text/csv' },
+  'image/vnd.dwg': { extensions: ['dwg'], type: 'application/acad' },
+  'image/x-dwg': { extensions: ['dwg'], type: 'application/acad' },
+  'application/x-dwg': { extensions: ['dwg'], type: 'application/acad' },
+  'application/dwg': { extensions: ['dwg'], type: 'application/acad' },
+  'image/vnd.dxf': { extensions: ['dxf'], type: 'application/dxf' },
+  'image/x-dxf': { extensions: ['dxf'], type: 'application/dxf' },
+  'application/x-dxf': { extensions: ['dxf'], type: 'application/dxf' },
 };
+
+/** Formats refused outright, with the reason the server would give. */
+const REFUSED_EXTENSIONS: Readonly<Record<string, string>> = {
+  xls: 'Older .xls/.doc files can carry macros. Save it as .xlsx or .docx and upload it again.',
+  doc: 'Older .xls/.doc files can carry macros. Save it as .xlsx or .docx and upload it again.',
+  ppt: 'Older .ppt files can carry macros. Save it as .pptx and upload it again.',
+  xlsm: 'This file contains macros. Save it as .xlsx (without macros) and upload it again.',
+  docm: 'This file contains macros. Save it as .docx (without macros) and upload it again.',
+  pptm: 'This file contains macros. Save it as .pptx (without macros) and upload it again.',
+};
+
+function extensionOf(name: string): string {
+  const parts = name.split('.');
+  return parts.length > 1 ? (parts.pop()?.toLowerCase() ?? '') : '';
+}
 
 /** A type is uninformative if the browser provided no meaningful classification. */
 function isUninformativeType(type: string): boolean {
@@ -57,11 +92,26 @@ export function sanitizeFilename(raw: string): string {
   return cleaned.length > 0 ? cleaned : 'upload';
 }
 
-export function resolveContentType(file: { name: string; type: string }): AllowedMimeType | null {
-  if (ALLOWED.has(file.type)) return file.type as AllowedMimeType;
-  if (!isUninformativeType(file.type)) return null;
-  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-  return BY_EXTENSION[extension] ?? null;
+/**
+ * The upload type for a picked file, or null when it is not one `allowed`
+ * accepts. Defaults to the change-request attachment list, which is what the
+ * composer offers; project folders pass `PROJECT_FILE_TYPES`.
+ */
+export function resolveContentType(
+  file: { name: string; type: string },
+  allowed: ReadonlySet<AllowedMimeType> = CHANGE_ATTACHMENT_MIME_TYPES,
+): AllowedMimeType | null {
+  const extension = extensionOf(file.name);
+  let resolved: AllowedMimeType | null = null;
+  if ((ALLOWED_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type)) {
+    resolved = file.type as AllowedMimeType;
+  } else if (isUninformativeType(file.type)) {
+    resolved = BY_EXTENSION[extension] ?? null;
+  } else {
+    const alias = TYPE_ALIASES[file.type];
+    if (alias && alias.extensions.includes(extension)) resolved = alias.type;
+  }
+  return resolved && allowed.has(resolved) ? resolved : null;
 }
 
 export type PreflightResult =
@@ -72,14 +122,25 @@ function megabytes(bytes: number): string {
   return `${Math.floor(bytes / (1024 * 1024))} MB`;
 }
 
-export function preflightUpload(file: {
-  name: string;
-  type: string;
-  size: number;
-}): PreflightResult {
-  const contentType = resolveContentType(file);
+const ATTACHMENT_TYPES_REASON =
+  'Photographs and PDFs only (JPEG, PNG, WebP, HEIC or PDF), or an Excel sheet (.xlsx).';
+const PROJECT_TYPES_REASON =
+  'That type of file cannot be added. Use photos, PDFs, Excel, Word or PowerPoint (.xlsx, .docx, .pptx), CSV, TXT, or DWG/DXF drawings.';
+
+export function preflightUpload(
+  file: { name: string; type: string; size: number },
+  options: { allowed?: ReadonlySet<AllowedMimeType> } = {},
+): PreflightResult {
+  const allowed = options.allowed ?? CHANGE_ATTACHMENT_MIME_TYPES;
+  const refused = REFUSED_EXTENSIONS[extensionOf(file.name)];
+  if (refused) return { ok: false, reason: refused };
+  const contentType = resolveContentType(file, allowed);
   if (!contentType) {
-    return { ok: false, reason: 'Photographs and PDFs only (JPEG, PNG, WebP, HEIC or PDF).' };
+    return {
+      ok: false,
+      reason:
+        allowed === CHANGE_ATTACHMENT_MIME_TYPES ? ATTACHMENT_TYPES_REASON : PROJECT_TYPES_REASON,
+    };
   }
   if (file.size <= 0) {
     return { ok: false, reason: 'That file is empty.' };
@@ -89,6 +150,14 @@ export function preflightUpload(file: {
     return { ok: false, reason: `That file is larger than ${megabytes(cap)}.` };
   }
   return { ok: true, contentType, filename: sanitizeFilename(file.name) };
+}
+
+/** The `accept` attribute for a file input offering `types`. */
+export function acceptAttribute(types: ReadonlySet<AllowedMimeType>): string {
+  const extensions = Object.entries(UPLOAD_EXTENSION_TYPES)
+    .filter(([, type]) => types.has(type))
+    .map(([extension]) => `.${extension}`);
+  return [...types, ...extensions].join(',');
 }
 
 /** Lowercase hex SHA-256, sent with the upload so the server can re-verify it. */

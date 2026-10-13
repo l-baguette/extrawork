@@ -22,6 +22,10 @@ export async function registerFileRoutes(
     subject: authenticatedSubject,
   });
   const read = rateLimit(limiter, { name: 'AUTHENTICATED_READ', subject: authenticatedSubject });
+  const write = rateLimit(limiter, {
+    name: 'AUTHENTICATED_MUTATION',
+    subject: authenticatedSubject,
+  });
 
   app.post('/v1/uploads', { preHandler: uploadLimit }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
@@ -31,7 +35,10 @@ export async function registerFileRoutes(
     return reply.status(201).send(result);
   });
 
-  app.post('/v1/uploads/complete', { preHandler: uploadLimit }, async (request, reply) => {
+  // Completing an upload mints nothing; only creating one issues a signed URL,
+  // which is what report §7.7's upload limit meters. Counting both against it
+  // halved how many files a designer could add from one project's drawings.
+  app.post('/v1/uploads/complete', { preHandler: write }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
     const { fileObjectId } = CompleteUploadSchema.parse(request.body);
     const file = await app.services.files.completeUpload(auth, fileObjectId);
@@ -84,22 +91,29 @@ export async function registerFileRoutes(
   if (appContext.objectStore instanceof LocalObjectStore) {
     const store = appContext.objectStore;
 
-    app.put('/v1/files/local/:token', async (request, reply) => {
-      const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
-      const payload = store.verify(token);
-      if (payload.op !== 'put') throw new AppError('NOT_FOUND');
+    // The global body limit is 1 MiB; a signed local PUT carries a whole file,
+    // up to the upload ceiling (spec 2026-10-12, D11), and its token already
+    // pins the exact byte count it may write.
+    app.put(
+      '/v1/files/local/:token',
+      { bodyLimit: appContext.env.MAX_UPLOAD_BYTES },
+      async (request, reply) => {
+        const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
+        const payload = store.verify(token);
+        if (payload.op !== 'put') throw new AppError('NOT_FOUND');
 
-      const body = request.body;
-      const bytes = Buffer.isBuffer(body)
-        ? body
-        : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body ?? ''));
+        const body = request.body;
+        const bytes = Buffer.isBuffer(body)
+          ? body
+          : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body ?? ''));
 
-      if (payload.maxBytes !== undefined && bytes.byteLength > payload.maxBytes) {
-        throw new AppError('FILE_TOO_LARGE');
-      }
-      await store.put(payload.key, bytes);
-      return reply.status(200).send({ ok: true, byteSize: bytes.byteLength });
-    });
+        if (payload.maxBytes !== undefined && bytes.byteLength > payload.maxBytes) {
+          throw new AppError('FILE_TOO_LARGE');
+        }
+        await store.put(payload.key, bytes);
+        return reply.status(200).send({ ok: true, byteSize: bytes.byteLength });
+      },
+    );
 
     app.get('/v1/files/local/:token', async (request, reply) => {
       const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
