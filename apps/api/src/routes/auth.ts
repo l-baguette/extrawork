@@ -327,6 +327,7 @@ export async function registerAuthRoutes(
         organizationId: m.organizationId,
         organizationName: m.organizationName,
         role: m.role,
+        collaboratorParty: m.collaboratorParty,
       })),
       activeOrganizationId: session.activeOrganizationId,
     });
@@ -402,6 +403,7 @@ export async function registerAuthRoutes(
       gstin: input.gstin ?? null,
       timezone: input.timezone,
       defaultCurrency: input.defaultCurrency,
+      businessType: input.businessType ?? null,
     });
 
     await appContext.uow.transaction(async (tx) => {

@@ -271,16 +271,20 @@ export class OrganizationRepository {
     `);
     const row = existing.rows[0];
     if (row && row.status === 'ACTIVE') return { role: row.role, created: false };
+    // Anyone not currently active — never a member, removed, or a staff
+    // invitation never taken up — joins as a collaborator. Reviving a revoked
+    // or unaccepted staff role here would let a project invitation, which a
+    // designer may send, restore an admin the owner removed.
     await this.addMembership(tx, {
       organizationId: input.organizationId,
       userId: input.userId,
-      role: row && row.role !== 'COLLABORATOR' ? row.role : 'COLLABORATOR',
+      role: 'COLLABORATOR',
       status: 'ACTIVE',
       invitedByUserId: input.invitedByUserId,
       collaboratorParty: input.collaboratorParty,
       companyName: input.companyName,
     });
-    return { role: row && row.role !== 'COLLABORATOR' ? row.role : 'COLLABORATOR', created: true };
+    return { role: 'COLLABORATOR', created: true };
   }
 
   async listMembers(ctx: TenantContext): Promise<

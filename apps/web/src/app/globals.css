@@ -2813,3 +2813,104 @@ a.feed-title:hover {
     flex: 1 1 100%;
   }
 }
+
+/* --- Slice A: collaborators, invitations, team and RACI --- */
+
+/* A ruled list of people: name and detail, a code, an action. Wraps on a phone
+ * so the action drops under the name instead of squeezing it. */
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.people-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--rule);
+}
+.people-row:first-child {
+  border-top: 0;
+}
+.panel-pad .people-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+.people-main {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* Invitations waiting on onboarding. */
+.invite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.invite-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.invite-card > div {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* The shell's pending-invitations banner, above every page. */
+.invite-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin: var(--s3) var(--s4) 0;
+}
+.invite-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+.invite-banner-list {
+  list-style: none;
+  margin: var(--s2) 0 0;
+  padding: 0;
+}
+.invite-banner-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s1) 0;
+}
+
+/* RACI: the letters are a code like the status codes, centred under each party. */
+.raci-col {
+  vertical-align: bottom;
+}
+.raci-col > span {
+  display: block;
+}
+.raci-names {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  max-width: 16rem;
+}
+.raci-cell {
+  text-align: center;
+}
+
+/* Request routing radios: the explanation sits under its label. */
+.routing-option + .routing-option {
+  margin-top: var(--s3);
+}
+.routing-help {
+  display: block;
+  margin-top: 2px;
+}

@@ -88,9 +88,18 @@ export async function registerOrganizationRoutes(app: FastifyInstance): Promise<
   app.get('/v1/memberships', { preHandler: read }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
     authorize(auth.actor, 'member:read', { organizationId: auth.actor.organizationId });
-    const members = await app.repos.organizations.listMembers(auth.tenant);
+    const [members, grants] = await Promise.all([
+      app.repos.organizations.listMembers(auth.tenant),
+      app.repos.collaboration.collaboratorProjects(auth.tenant),
+    ]);
     return reply.send({
-      items: members.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
+      items: members.map((m) => ({
+        ...m,
+        createdAt: m.createdAt.toISOString(),
+        // Slice A: a collaborator's reach is their project grants, so the
+        // People & roles list shows them; staff reach is their role.
+        ...(m.role === 'COLLABORATOR' ? { projects: grants.get(m.userId) ?? [] } : {}),
+      })),
     });
   });
 

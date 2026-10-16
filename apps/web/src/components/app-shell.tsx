@@ -24,6 +24,7 @@ import {
   IconUser,
 } from './icons';
 import { LEGEND } from './status-chip';
+import { PendingInvitationsBanner } from './pending-invitations-banner';
 
 /**
  * The authenticated shell — a fixed legend rail and a scrolling sheet.
@@ -178,7 +179,11 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         </div>
       </div>
 
-      <div id="main">{children}</div>
+      <div id="main">
+        {/* Slice A: invitations to other firms' projects, above every page. */}
+        <PendingInvitationsBanner />
+        {children}
+      </div>
     </div>
   );
 }

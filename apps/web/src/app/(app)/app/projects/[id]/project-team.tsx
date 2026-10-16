@@ -2,24 +2,30 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { EmployeeDto } from '@extrawork/contracts';
+import { TEAM_ROLE_LABELS, type EmployeeDto } from '@extrawork/contracts';
 import { ApiError, api } from '@/lib/api';
+import { TEAM_PARTY_LABELS } from '@/components/team-labels';
 
 /**
- * The team on a single project.
+ * The site team on a single project — spec 2026-10-12, D2: people identified
+ * only by their WhatsApp number, from the firm or from the construction
+ * company, who send requests and photos by message.
  *
- * Assignment lives on the employee (their `projectIds`), so adding or removing
- * someone here is the same PATCH the Employees tab makes — no separate endpoint.
- * People set to "all projects" already cover this one; they are shown as covered
- * but managed from the Employees tab, because narrowing them to a single project
- * here would silently drop every other assignment they have.
+ * Assignment lives on the team member (their `projectIds`), so adding or
+ * removing someone here is the same PATCH the Site team page makes — no
+ * separate endpoint. People set to "all projects" already cover this one; they
+ * are shown as covered but managed from the Site team page, because narrowing
+ * them to a single project here would silently drop every other assignment.
  */
 export function ProjectTeam({
   projectId,
   initialEmployees,
+  canEdit,
 }: {
   projectId: string;
   initialEmployees: EmployeeDto[];
+  /** Roster writes are owner/admin only; everyone else sees the list. */
+  canEdit: boolean;
 }) {
   const [employees, setEmployees] = useState(initialEmployees);
   const [selectedId, setSelectedId] = useState('');
@@ -38,18 +44,11 @@ export function ProjectTeam({
     setBusy(true);
     setError(null);
     try {
-      // Send the whole employee so the PATCH validates the same way the roster
-      // form does; only the project set changes.
+      // Only the project set changes. The update is partial, so the person's
+      // name, number, party and limit are left exactly as they are.
       const updated = await api<EmployeeDto>(`/v1/employees/${employee.id}`, {
         method: 'PATCH',
-        body: {
-          name: employee.name,
-          phone: employee.phoneE164,
-          roleNote: employee.roleNote ?? null,
-          allProjects: false,
-          projectIds,
-          maxRequestMinor: employee.maxRequestMinor,
-        },
+        body: { allProjects: false, projectIds },
       });
       setEmployees((current) => current.map((e) => (e.id === updated.id ? updated : e)));
     } catch (cause) {
@@ -76,98 +75,112 @@ export function ProjectTeam({
   }
 
   return (
-    <section className="card" aria-labelledby="team">
-      <div className="row-between">
-        <h2 id="team">Team on this project</h2>
-        <Link className="small" href="/app/employees">
-          Manage employees
-        </Link>
+    <section className="block" aria-labelledby="site-team">
+      <div className="block-head">
+        <h2 className="section-title" id="site-team">
+          Site team on WhatsApp
+        </h2>
+        <div className="block-head-action">
+          <Link className="btn btn-sm" href="/app/employees">
+            Manage site team
+          </Link>
+        </div>
       </div>
 
-      {employees.length === 0 ? (
-        <p className="muted">
-          No employees yet. <Link href="/app/employees">Add your site team</Link> so they can raise
-          requests for this project by WhatsApp.
-        </p>
-      ) : (
-        <>
-          {assigned.length === 0 ? (
-            <p className="muted">
-              No one is assigned to this project yet. Add someone below so they can raise requests
-              for it.
-            </p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {assigned.map((employee) => (
-                <li key={employee.id} className="line-item">
-                  <div className="row-between">
-                    <div>
+      <div className="panel panel-pad">
+        {employees.length === 0 ? (
+          <p className="muted" style={{ marginBottom: 0 }}>
+            No one on your site team yet.{' '}
+            <Link href="/app/employees">Add people by WhatsApp number</Link> so they can send
+            requests and photos for this project by message.
+          </p>
+        ) : (
+          <>
+            {assigned.length === 0 ? (
+              <p className="muted">
+                No one on the site team is on this project yet.
+                {canEdit ? ' Add someone below so they can message in about it.' : ''}
+              </p>
+            ) : (
+              <ul className="people-list">
+                {assigned.map((employee) => (
+                  <li key={employee.id} className="people-row">
+                    <div className="people-main">
                       <strong>{employee.name}</strong>
-                      {employee.roleNote ? (
-                        <div className="small muted">{employee.roleNote}</div>
-                      ) : null}
+                      <div className="small muted">
+                        {[
+                          TEAM_ROLE_LABELS[employee.teamRole],
+                          employee.party === 'INTERNAL'
+                            ? null
+                            : (employee.companyName ?? TEAM_PARTY_LABELS[employee.party]),
+                          employee.roleNote,
+                          employee.phoneMasked,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
                     </div>
+                    <span className="code code-neutral">
+                      {employee.party === 'INTERNAL'
+                        ? 'Our firm'
+                        : TEAM_PARTY_LABELS[employee.party]}
+                    </span>
                     {employee.allProjects ? (
-                      <span className="chip chip-neutral">All projects</span>
-                    ) : (
+                      <span className="small muted">All projects</span>
+                    ) : canEdit ? (
                       <button
                         type="button"
-                        className="btn btn-secondary"
+                        className="btn btn-sm btn-quiet"
                         onClick={() => remove(employee)}
                         disabled={busy}
                       >
                         Remove
                       </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {addable.length > 0 ? (
-            <div className="row" style={{ marginTop: 'var(--space-4)' }}>
-              <label htmlFor="add-employee" className="visually-hidden">
-                Add an employee to this project
-              </label>
-              <select
-                id="add-employee"
-                value={selectedId}
-                onChange={(e) => setSelectedId(e.target.value)}
-                disabled={busy}
-                style={{ flex: 1 }}
-              >
-                <option value="">Add an employee…</option>
-                {addable.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name}
-                    {employee.roleNote ? ` — ${employee.roleNote}` : ''}
-                  </option>
+                    ) : null}
+                  </li>
                 ))}
-              </select>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => void add()}
-                disabled={busy || selectedId === ''}
-              >
-                {busy ? 'Saving…' : 'Add'}
-              </button>
-            </div>
-          ) : assigned.length > 0 ? (
-            <p className="small muted" style={{ marginTop: 'var(--space-3)' }}>
-              Everyone available is already on this project. People set to “all projects” are
-              managed from the <Link href="/app/employees">Employees</Link> tab.
-            </p>
-          ) : null}
+              </ul>
+            )}
 
-          {error ? (
-            <p role="alert" className="error-text">
-              {error}
-            </p>
-          ) : null}
-        </>
-      )}
+            {canEdit && addable.length > 0 ? (
+              <div className="row" style={{ marginTop: 'var(--s4)' }}>
+                <label htmlFor="add-employee" className="visually-hidden">
+                  Add someone from the site team to this project
+                </label>
+                <select
+                  id="add-employee"
+                  value={selectedId}
+                  onChange={(e) => setSelectedId(e.target.value)}
+                  disabled={busy}
+                  style={{ flex: 1 }}
+                >
+                  <option value="">Add someone from the site team…</option>
+                  {addable.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name}
+                      {employee.companyName ? ` — ${employee.companyName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void add()}
+                  disabled={busy || selectedId === ''}
+                >
+                  {busy ? 'Saving…' : 'Add'}
+                </button>
+              </div>
+            ) : null}
+
+            {error ? (
+              <p role="alert" className="field-error">
+                {error}
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
     </section>
   );
 }
