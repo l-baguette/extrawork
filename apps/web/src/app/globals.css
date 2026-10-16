@@ -2073,3 +2073,33 @@ a.feed-title:hover {
   --space-4: var(--s4);
   --space-5: var(--s5);
 }
+
+/* Paste a WhatsApp message (/app/requests, Needs review). */
+.paste-card {
+  margin-bottom: var(--s5);
+}
+.paste-card-title {
+  margin-bottom: var(--s2);
+}
+.paste-reading {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule-2);
+}
+
+/* Type-of-work filter: one line on a phone, the label above the select. */
+.request-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2) var(--s3);
+  margin: 0 0 var(--s4);
+}
+.request-filter label {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+.request-filter select {
+  flex: 1 1 12rem;
+  max-width: 20rem;
+}
