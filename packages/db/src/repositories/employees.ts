@@ -4,6 +4,7 @@ import type { TenantContext } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
 import { newId } from '../ids.js';
 import { toBigIntOrNull, toDate } from '../row-types.js';
+import { runInScope, SYSTEM_SCOPE } from '../tenant-scope.js';
 
 /**
  * Employees: the people allowed to raise a change request by WhatsApp.
@@ -12,15 +13,15 @@ import { toBigIntOrNull, toDate } from '../row-types.js';
  *
  *   1. **No login.** An employee is identified by the phone number the owner
  *      registered, nothing else. There is no user row, no password, no session.
- *   2. **One phone, one employee, system-wide.** `employees_phone_global_idx`
- *      enforces uniqueness across every organization for any non-REMOVED row.
- *      An inbound message from a number registered at two companies cannot be
- *      attributed to a tenant, and picking one is exactly the cross-tenant
- *      guess report §3.2 forbids.
+ *   2. **One phone, one employee, per organization.** Until October the
+ *      number was unique system-wide; spec 2026-10-12 D7 dropped that, because
+ *      the same foreman routinely works with two design firms. An inbound
+ *      message from a number on two rosters is resolved by asking the sender
+ *      which project it is for, never by picking a tenant.
  *
- * Every method here takes a `TenantContext` except `findByPhoneGlobal`, which
- * is the one place that cannot: it is what *resolves* the tenant from an
- * inbound message. See the comment on that method.
+ * Every method here takes a `TenantContext` except `findByPhoneGlobal` and
+ * `findAllByPhone`, which cannot: they are what *resolve* the tenant from an
+ * inbound message. See the comments on those methods.
  */
 
 export type EmployeeStatus = 'ACTIVE' | 'SUSPENDED' | 'REMOVED';
@@ -144,6 +145,48 @@ export class EmployeeRepository {
     const row = result.rows[0];
     if (!row) return null;
     return mapEmployeeWithAssignments(row);
+  }
+
+  /**
+   * Every ACTIVE roster entry for a phone number, across organizations — the
+   * WhatsApp channel's sender resolution (spec 2026-10-12, D6/D7).
+   *
+   * System-scoped, and the second deliberate exception to "every method takes
+   * a TenantContext": an inbound message carries only a phone number, and this
+   * is what turns it into the workspaces the sender belongs to. Returning all
+   * of them rather than one is the point — the intake then offers the sender
+   * their projects across those workspaces instead of guessing a tenant.
+   * Workspaces that are closed or suspended are left out: nobody can file
+   * into them.
+   */
+  async findAllByPhone(phoneE164: string): Promise<EmployeeWithAssignments[]> {
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<EmployeeRecord>(sql`
+        SELECT ${EMPLOYEE_WITH_ASSIGNMENTS_COLUMNS}
+        FROM employees e
+        JOIN organizations o ON o.id = e.organization_id
+        WHERE e.phone_e164 = ${phoneE164}
+          AND e.status = 'ACTIVE'
+          AND o.status = 'ACTIVE'
+        ORDER BY e.created_at, e.id
+      `),
+    );
+    return result.rows.map(mapEmployeeWithAssignments);
+  }
+
+  /**
+   * Whether the number is on any roster in a non-ACTIVE state, for the
+   * operator-facing rejection reason only. System-scoped like the above.
+   */
+  async inactiveStatusForPhone(phoneE164: string): Promise<EmployeeStatus | null> {
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<{ status: EmployeeStatus }>(sql`
+        SELECT status FROM employees
+        WHERE phone_e164 = ${phoneE164} AND status <> 'ACTIVE' AND status <> 'REMOVED'
+        LIMIT 1
+      `),
+    );
+    return result.rows[0]?.status ?? null;
   }
 
   async list(

@@ -6,7 +6,12 @@ import {
   type ContractHistoryDto,
   type CreateProjectInput,
 } from '@extrawork/contracts';
-import { allocateNumber, type CustomerRow, type ProjectRow } from '@extrawork/db';
+import {
+  allocateNumber,
+  type ContractHistorySource,
+  type CustomerRow,
+  type ProjectRow,
+} from '@extrawork/db';
 import {
   assertBaselineEditable,
   assertQuota,
@@ -358,48 +363,7 @@ export class ProjectService {
     authorize(ctx.actor, 'project:read', { organizationId: project.organizationId, projectId });
 
     const sources = await this.app.repos.projects.contractHistorySources(ctx.tenant, projectId);
-    // Stable by time; on a tie the baseline row comes first, because an
-    // amendment and a decision in the same instant cannot have been ordered
-    // the other way by the person who recorded the amendment.
-    const ordered = sources
-      .map((source, index) => ({ source, index }))
-      .sort(
-        (a, b) =>
-          a.source.occurredAt.getTime() - b.source.occurredAt.getTime() ||
-          kindRank(a.source.kind) - kindRank(b.source.kind) ||
-          a.index - b.index,
-      )
-      .map((entry) => entry.source);
-
-    let baseline = 0n;
-    let approved = 0n;
-    const entries = ordered.map((source) => {
-      let delta: bigint;
-      if (source.kind === 'APPROVED_CHANGE') {
-        delta = source.amountMinor;
-        approved += delta;
-      } else {
-        delta = source.amountMinor - baseline;
-        baseline = source.amountMinor;
-      }
-      return {
-        kind: source.kind,
-        occurredAt: source.occurredAt.toISOString(),
-        label: source.label,
-        deltaMinor: Number(delta),
-        runningTotalMinor: Number(baseline + approved),
-        scheduleDeltaDays: source.scheduleDeltaDays,
-        changeOrderId: source.changeOrderId,
-        number: source.number,
-        reason: source.reason,
-      };
-    });
-
-    return {
-      currency: project.currency,
-      entries,
-      currentTotalMinor: Number(project.revisedTotalMinor),
-    };
+    return buildContractHistory(project, sources);
   }
 
   /** Read used by the project workspace, including the pending-delta preview. */
@@ -416,6 +380,59 @@ export class ProjectService {
     const pending = await this.app.repos.projects.pendingTotals(tenant, projectId);
     return { project, ...pending };
   }
+}
+
+/**
+ * The contract value over time from its sources (see `contractHistory`).
+ * Exported so the homeowner portal shows exactly the history the designer
+ * sees, computed once rather than twice (spec 2026-10-12, D5).
+ */
+export function buildContractHistory(
+  project: Pick<ProjectRow, 'currency' | 'revisedTotalMinor'>,
+  sources: ContractHistorySource[],
+): ContractHistoryDto {
+  // Stable by time; on a tie the baseline row comes first, because an
+  // amendment and a decision in the same instant cannot have been ordered
+  // the other way by the person who recorded the amendment.
+  const ordered = sources
+    .map((source, index) => ({ source, index }))
+    .sort(
+      (a, b) =>
+        a.source.occurredAt.getTime() - b.source.occurredAt.getTime() ||
+        kindRank(a.source.kind) - kindRank(b.source.kind) ||
+        a.index - b.index,
+    )
+    .map((entry) => entry.source);
+
+  let baseline = 0n;
+  let approved = 0n;
+  const entries = ordered.map((source) => {
+    let delta: bigint;
+    if (source.kind === 'APPROVED_CHANGE') {
+      delta = source.amountMinor;
+      approved += delta;
+    } else {
+      delta = source.amountMinor - baseline;
+      baseline = source.amountMinor;
+    }
+    return {
+      kind: source.kind,
+      occurredAt: source.occurredAt.toISOString(),
+      label: source.label,
+      deltaMinor: Number(delta),
+      runningTotalMinor: Number(baseline + approved),
+      scheduleDeltaDays: source.scheduleDeltaDays,
+      changeOrderId: source.changeOrderId,
+      number: source.number,
+      reason: source.reason,
+    };
+  });
+
+  return {
+    currency: project.currency,
+    entries,
+    currentTotalMinor: Number(project.revisedTotalMinor),
+  };
 }
 
 function kindRank(kind: 'BASELINE' | 'BASELINE_AMENDMENT' | 'APPROVED_CHANGE'): number {

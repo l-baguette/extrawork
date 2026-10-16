@@ -78,7 +78,7 @@ export function createServices(app: AppContext): Services {
     collaboration: new CollaborationService(app),
     workspace: new WorkspaceService(app),
     timeline: new TimelineService(app),
-    portal: new PortalService(app),
+    portal: new PortalService(app, changeOrders),
     google:
       app.env.GOOGLE_CLIENT_ID && app.env.GOOGLE_CLIENT_SECRET
         ? new GoogleOAuthProvider({

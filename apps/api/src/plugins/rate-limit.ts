@@ -64,6 +64,12 @@ export function publicTokenSubject(request: FastifyRequest): string {
   return `${hashForBucket(token)}:${request.publicCtx.ipForRateLimit}`;
 }
 
+/** token alone, hashed like the above — a budget per link, whatever the network. */
+export function publicTokenOnlySubject(request: FastifyRequest): string {
+  const params = request.params as { token?: string } | undefined;
+  return `token:${hashForBucket(params?.token ?? 'none')}`;
+}
+
 export function ipSubject(request: FastifyRequest): string {
   return request.publicCtx.ipForRateLimit;
 }

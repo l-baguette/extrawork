@@ -5,6 +5,7 @@ import type { Database, TransactionContext } from '../client.js';
 import { newId } from '../ids.js';
 import { requireRow } from './organizations.js';
 import { toDate, toDateOrNull } from '../row-types.js';
+import { runInScope, SYSTEM_SCOPE } from '../tenant-scope.js';
 
 /**
  * Customers and contacts. Report §7.1 (Customers module), §9.5 (normalization,
@@ -259,6 +260,30 @@ export class CustomerRepository {
     return result.rows.map(mapContact);
   }
 
+  /**
+   * Every contact with this phone number, across organizations, with whatever
+   * workspace it belongs to — the homeowner half of WhatsApp sender
+   * resolution (spec 2026-10-12, D6).
+   *
+   * System-scoped and without a TenantContext for the same reason as
+   * `employees.findAllByPhone`: the phone number is what derives the tenant.
+   * Erased contacts carry no phone and so never match; closed or suspended
+   * workspaces are left out.
+   */
+  async findContactsByPhoneGlobal(phoneE164: string): Promise<ContactRow[]> {
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<ContactRecord>(sql`
+        SELECT ${CONTACT_COLUMNS_QUALIFIED} FROM contacts c
+        JOIN organizations o ON o.id = c.organization_id
+        WHERE c.phone_e164 = ${phoneE164}
+          AND c.erased_at IS NULL
+          AND o.status = 'ACTIVE'
+        ORDER BY c.created_at, c.id
+      `),
+    );
+    return result.rows.map(mapContact);
+  }
+
   async findContact(ctx: TenantContext, contactId: string): Promise<ContactRow | null> {
     return this.findContactIn(this.db, ctx, contactId);
   }
@@ -486,6 +511,12 @@ const CUSTOMER_COLUMNS_C = sql`
 const CONTACT_COLUMNS = sql`
   id, organization_id, customer_id, name, phone_e164, email_normalized,
   is_default_approver, authority_note, whatsapp_opt_in_status, whatsapp_opt_in_at, created_at
+`;
+
+const CONTACT_COLUMNS_QUALIFIED = sql`
+  c.id, c.organization_id, c.customer_id, c.name, c.phone_e164, c.email_normalized,
+  c.is_default_approver, c.authority_note, c.whatsapp_opt_in_status, c.whatsapp_opt_in_at,
+  c.created_at
 `;
 
 type CustomerRecord = {
