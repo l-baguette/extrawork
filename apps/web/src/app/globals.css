@@ -2059,3 +2059,757 @@ a.feed-title:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Slice E: landing ------------------------------------------------------
+ *
+ * The public front page at `/`, written for designers and architects (spec
+ * 2026-10-12). It is the console's own sheet language at a larger scale, not a
+ * separate marketing style: a drawing frame, ruled cells, graphite, square
+ * corners, colour only where it is a status code.
+ *
+ * One bold move, the hero, set as a drawing's title block with its revision
+ * schedule; everything below it is quiet ruled sections.
+ *
+ * Mobile first. Every block is a single column at 360px and none of them
+ * scrolls sideways: the revision schedule restacks into rows below 640px
+ * rather than shrinking its type.
+ * ------------------------------------------------------------------------- */
+
+/* The font variables from next/font are set on this element, so the stacks
+ * are re-declared here: `--sans` on :root has already resolved its
+ * `var(--font-sans, ...)` to the fallback by the time it is inherited. */
+.lp {
+  --sans: var(--font-sans, -apple-system), BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: var(--font-mono, ui-monospace), 'SF Mono', Menlo, monospace;
+  --lp-display: clamp(1.875rem, 1.1rem + 3.6vw, 3.5rem);
+  --lp-width: 1120px;
+  font-family: var(--sans);
+}
+
+.lp-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  max-width: var(--lp-width);
+  margin: 0 auto;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.lp-main {
+  max-width: var(--lp-width);
+  margin: 0 auto;
+  padding: var(--s5) var(--s4) var(--s6);
+}
+
+/* --- Hero: the title block --------------------------------------------- */
+
+.lp-tb {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'for'
+    'title'
+    'fields'
+    'rev';
+  background: var(--sheet);
+  border: 2px solid var(--ink);
+  border-radius: var(--r);
+}
+
+.lp-field-label {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.lp-tb-for {
+  grid-area: for;
+  margin: 0;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--ink);
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.lp-tb-title {
+  grid-area: title;
+  padding: var(--s6) var(--s4) var(--s5);
+}
+
+.lp-display {
+  font-size: var(--lp-display);
+  font-weight: 800;
+  font-stretch: 104%;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  max-width: 16em;
+}
+.lp-display span {
+  display: block;
+}
+.lp-display span + span {
+  margin-top: 0.12em;
+}
+
+.lp-standfirst {
+  margin-top: var(--s4);
+  max-width: 34em;
+  font-size: var(--t-lead);
+  color: var(--ink-2);
+}
+
+.lp-ctas {
+  margin-top: var(--s5);
+}
+
+/* Title-block fields: ruled cells drawn as a 1px gap over a rule-coloured
+ * ground, so the rules stay right whether there are two columns or four. */
+.lp-tb-fields {
+  grid-area: fields;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--rule-2);
+  border-top: 1px solid var(--ink);
+}
+.lp-tb-fields > div {
+  padding: var(--s3) var(--s4);
+  background: var(--sheet);
+}
+.lp-tb-fields dd {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.lp-you {
+  color: var(--ink);
+}
+
+.lp-tb-rev {
+  grid-area: rev;
+  min-width: 0;
+  border-top: 1px solid var(--ink);
+}
+
+/* The revision schedule. */
+.lp-rev {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-small);
+}
+.lp-rev caption {
+  caption-side: top;
+  padding: var(--s3) var(--s4);
+  text-align: left;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule);
+}
+.lp-rev thead th {
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  background: var(--sheet-3);
+  border-bottom: 1px solid var(--rule-2);
+}
+.lp-rev td {
+  padding: var(--s3);
+  vertical-align: top;
+  border-bottom: 1px solid var(--rule);
+}
+.lp-rev .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.lp-rev-no {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lp-rev-change {
+  color: var(--ink);
+}
+.lp-rev-room {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-micro);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+.lp-rev-amount {
+  font-weight: 650;
+}
+.lp-rev-unpriced {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+/* Time sits under the amount rather than in a column of its own: the two are
+ * read together ("₹15,000, two days"), and a fifth column left the change
+ * description one word wide in the hero's half of the sheet. */
+.lp-rev-time {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+/* The grand-total rule, as on a schedule: a heavy line above the total. */
+.lp-rev-total th,
+.lp-rev-total td {
+  padding: var(--s3);
+  border-top: 2px solid var(--rule-3);
+  border-bottom: 0;
+}
+.lp-rev-total th {
+  text-align: left;
+  font-size: var(--t-small);
+  font-weight: 700;
+  font-stretch: 100%;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+.lp-rev-total td.num {
+  font-size: var(--t-lead);
+  font-weight: 800;
+  font-stretch: 110%;
+}
+
+@media (max-width: 639px) {
+  /* Below 640px the schedule restacks: number and status on one line, the
+   * change under them, amount and time last. The column heads stay for
+   * assistive technology and are hidden visually, since each cell now has
+   * its own fixed position. */
+  .lp-rev,
+  .lp-rev tbody,
+  .lp-rev tfoot,
+  .lp-rev caption {
+    display: block;
+  }
+  .lp-rev thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .lp-rev tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'no status'
+      'change change'
+      'amount amount';
+    gap: var(--s1) var(--s3);
+    padding: var(--s3) var(--s4);
+    border-bottom: 1px solid var(--rule);
+  }
+  .lp-rev tbody td {
+    padding: 0;
+    border: 0;
+  }
+  .lp-rev-no {
+    grid-area: no;
+  }
+  .lp-rev-status {
+    grid-area: status;
+  }
+  .lp-rev-change {
+    grid-area: change;
+  }
+  .lp-rev tbody .lp-rev-amount {
+    grid-area: amount;
+    text-align: left;
+  }
+  /* On one line under the change: "₹15,000  +2 days". */
+  .lp-rev tbody .lp-rev-time {
+    display: inline;
+    margin: 0 0 0 var(--s3);
+  }
+  .lp-rev-total {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    border-top: 2px solid var(--rule-3);
+  }
+  .lp-rev-total th,
+  .lp-rev-total td {
+    padding: var(--s3) var(--s4);
+    border-top: 0;
+  }
+  .lp-rev-total td[aria-hidden='true'] {
+    display: none;
+  }
+}
+
+@media (min-width: 960px) {
+  .lp-main {
+    padding: var(--s6) var(--s6) var(--s7);
+  }
+  .lp-masthead {
+    padding: var(--s3) var(--s6);
+  }
+  .lp-tb {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-areas:
+      'for for'
+      'title rev'
+      'fields fields';
+  }
+  .lp-tb-title {
+    padding: var(--s7) var(--s6) var(--s6);
+  }
+  .lp-tb-for {
+    padding: var(--s3) var(--s6);
+  }
+  .lp-tb-rev {
+    border-top: 0;
+    border-left: 1px solid var(--ink);
+  }
+  .lp-tb-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .lp-tb-fields > div {
+    padding: var(--s3) var(--s4) var(--s4);
+  }
+}
+
+/* --- Sections ----------------------------------------------------------- */
+
+.lp-section {
+  margin-top: var(--s7);
+  padding-top: var(--s4);
+  border-top: 2px solid var(--ink);
+}
+.lp-section-head {
+  max-width: 40rem;
+  margin-bottom: var(--s5);
+}
+.lp-section-head h2,
+.lp-beta h2 {
+  margin-bottom: var(--s3);
+  font-size: var(--t-head);
+  font-weight: 800;
+  font-stretch: 104%;
+  letter-spacing: -0.02em;
+}
+.lp-section-head p {
+  font-size: var(--t-lead);
+  color: var(--ink-2);
+}
+
+/* --- The three parties --------------------------------------------------- */
+
+.lp-flow {
+  margin: 0;
+}
+.lp-flow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.lp-node {
+  padding: var(--s4);
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+}
+/* The designer: the one ink block in the figure, because the record runs
+ * through them (spec D3, D4). */
+.lp-node-centre {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.lp-node-centre h3 {
+  color: #fff;
+}
+.lp-node-head h3 {
+  font-size: var(--t-lead);
+  font-stretch: 104%;
+}
+.lp-node-who {
+  margin: 2px 0 var(--s3);
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.lp-node-centre .lp-node-who {
+  color: #c3cad0;
+}
+.lp-node-body p {
+  font-size: var(--t-small);
+}
+.lp-node-channel {
+  margin-top: var(--s3);
+  padding-top: var(--s2);
+  border-top: 1px dashed var(--rule-2);
+  color: var(--ink-2);
+}
+.lp-node-centre .lp-node-channel {
+  border-top-color: #5b6670;
+  color: #dfe4e8;
+}
+
+/* Between two parties: a ruled line, with what travels forward on one side
+ * and what comes back on the other. Vertical on a phone, horizontal on a
+ * desk; the arrowheads turn with it. */
+.lp-link {
+  position: relative;
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4) 0 var(--s4) calc(var(--s5) + var(--s4));
+}
+.lp-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--s5);
+  border-left: 1px solid var(--ink);
+}
+.lp-lane {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  margin: 0;
+  font-size: var(--t-small);
+}
+.lp-arrow {
+  flex: none;
+  width: 10px;
+  height: 9px;
+  background: var(--ink);
+}
+.lp-lane-forward .lp-arrow {
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.lp-lane-back .lp-arrow {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.lp-lane-what {
+  display: block;
+  font-weight: 650;
+  color: var(--ink);
+}
+.lp-lane-via {
+  display: block;
+  color: var(--ink-3);
+}
+.lp-flow-caption {
+  margin-top: var(--s4);
+  max-width: 44rem;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+
+@media (min-width: 960px) {
+  .lp-flow-grid {
+    grid-template-columns:
+      minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 0.85fr)
+      minmax(0, 1fr);
+    align-items: center;
+  }
+  .lp-node {
+    align-self: stretch;
+  }
+  .lp-link {
+    gap: var(--s5);
+    padding: 0 var(--s3);
+  }
+  .lp-link::before {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    border-left: 0;
+    border-top: 1px solid var(--ink);
+  }
+  .lp-lane {
+    align-items: center;
+  }
+  .lp-arrow {
+    width: 9px;
+    height: 10px;
+  }
+  .lp-lane-forward .lp-arrow {
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+  .lp-lane-back .lp-arrow {
+    clip-path: polygon(100% 0, 100% 100%, 0 50%);
+  }
+}
+
+/* --- Inside a project: the drawing register ------------------------------ */
+
+.lp-index {
+  display: grid;
+  gap: var(--s5);
+}
+.lp-register-wrap {
+  min-width: 0;
+}
+.lp-register {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+}
+.lp-register caption {
+  caption-side: bottom;
+  padding-top: var(--s2);
+  text-align: left;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.lp-register thead th {
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  background: var(--sheet-3);
+  border-bottom: 1px solid var(--rule-2);
+}
+.lp-register th.lp-mark-head {
+  width: 4.25rem;
+  padding: var(--s2) var(--s1);
+  text-align: center;
+}
+.lp-register tbody th {
+  padding: var(--s3);
+  text-align: left;
+  font-size: var(--t-body);
+  font-weight: 650;
+  font-stretch: 100%;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule);
+}
+.lp-register-name,
+.lp-register-holds {
+  display: block;
+}
+.lp-register-holds {
+  margin-top: 2px;
+  font-size: var(--t-small);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.lp-mark {
+  padding: var(--s3) var(--s1);
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+}
+.lp-mark-no {
+  color: var(--ink-3);
+}
+/* On a phone the three mark columns narrow so the folder name keeps most of
+ * the row instead of wrapping a word to a line. */
+@media (max-width: 559px) {
+  .lp-register th.lp-mark-head {
+    width: 3.25rem;
+  }
+}
+/* A filled square, the register's "issued" mark. Square, as every mark in
+ * this system is. */
+.lp-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: var(--ink);
+}
+.lp-mark-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--ink-3);
+}
+
+.lp-also {
+  display: grid;
+  gap: var(--s4);
+  margin: 0;
+}
+.lp-also > div {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule-2);
+}
+.lp-also dt {
+  font-weight: 700;
+}
+.lp-also dd {
+  margin: var(--s1) 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+
+@media (min-width: 960px) {
+  .lp-index {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--s6);
+    align-items: start;
+  }
+}
+
+/* --- WhatsApp ------------------------------------------------------------ */
+
+.lp-split {
+  display: grid;
+  gap: var(--s5);
+}
+.lp-thread {
+  margin: 0;
+  min-width: 0;
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+}
+.lp-thread-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-turn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--rule);
+}
+.lp-turn-reply {
+  background: var(--sheet-2);
+}
+.lp-turn-who {
+  font-size: var(--t-small);
+  font-weight: 650;
+  color: var(--ink-3);
+}
+.lp-turn-reply .lp-turn-who {
+  color: var(--ink);
+}
+.lp-turn-text p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.lp-turn-attach {
+  display: inline-block;
+  margin-bottom: var(--s1);
+  padding: 0 var(--s2);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  background: var(--sheet-3);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+}
+.lp-thread-caption {
+  padding: var(--s2) var(--s4) var(--s3);
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+
+.lp-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-points li {
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--rule-2);
+  color: var(--ink-2);
+}
+.lp-points li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.lp-points strong {
+  color: var(--ink);
+}
+
+@media (min-width: 560px) {
+  .lp-turn {
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    gap: var(--s3);
+  }
+}
+@media (min-width: 960px) {
+  .lp-split {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: var(--s6);
+    align-items: start;
+  }
+}
+
+/* --- The approval record ------------------------------------------------- */
+
+.lp-record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  background: var(--rule-2);
+  border: 1px solid var(--rule-2);
+}
+.lp-record > div {
+  padding: var(--s4);
+  background: var(--sheet);
+}
+.lp-record dt {
+  font-size: var(--t-lead);
+  font-weight: 700;
+}
+.lp-record dd {
+  margin: var(--s2) 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.lp-honest {
+  margin-top: var(--s4);
+  max-width: 44rem;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+@media (min-width: 760px) {
+  .lp-record {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* --- Beta and the way in -------------------------------------------------- */
+
+/* Framed like the title block, so the page closes on the sheet it opened
+ * with. */
+.lp-beta {
+  margin-top: var(--s7);
+  padding: var(--s5) var(--s4);
+  background: var(--sheet);
+  border: 2px solid var(--ink);
+  border-radius: var(--r);
+}
+.lp-beta p {
+  max-width: 40rem;
+  font-size: var(--t-lead);
+  color: var(--ink-2);
+}
+.lp-client-note {
+  margin-top: var(--s5);
+  max-width: 44rem;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+@media (min-width: 960px) {
+  .lp-beta {
+    padding: var(--s6);
+  }
+}
+
+/* The calls to action fill the width on a phone, where a thumb reaches for
+ * them. */
+@media (max-width: 479px) {
+  .lp-ctas .btn {
+    flex: 1 1 100%;
+  }
+}

@@ -15,7 +15,7 @@ Rules:
 
 ## What this is
 
-ExtraWork is a WhatsApp-first contract-change and approval ledger for small Indian project businesses (interior fit-out, construction, etc). A contractor records out-of-scope work with a price and schedule impact, sends a secure link, and the customer approves/declines/requests revision **without creating an account**. Built to a specific internal spec — "the report" — referenced throughout code comments and docs as section numbers (e.g. "report §14.2"); that document is `docs/ExtraWork_Technical_Design_Report_v2.0.docx`. `docs/HANDOFF.md` and dated `docs/HANDOFF_*.md` files are point-in-time engineering handoffs — check dates against current work before trusting their claims of what's "done."
+ExtraWork (working name) is a WhatsApp-first project organisation and change-approval system for India's residential interiors and construction work. The primary user is the **interior designer or architect**, whose workspace each project lives in; the **construction company** collaborates on it, and the **homeowner** sees the record and decides through links **without creating an account**. A project is a shared folder (customer, contract value and its history, timeline, people, files) plus one record of every change request. Site staff and homeowners raise requests and send files over WhatsApp; everything goes through the designer, who reviews, prices and sends each request before the homeowner approves/declines/requests revision. Organisation comes first; the evidence trail is a side benefit and its guarantees are unchanged. The current direction is set by `docs/superpowers/specs/2026-10-12-three-party-workspace-design.md` (decisions D1–D15); `docs/ExtraWork_Product_Brief_v3.md` and `docs/workflows.md` describe it for humans. The evidence machinery was built to a specific internal spec — "the report" — referenced throughout code comments and docs as section numbers (e.g. "report §14.2"); that document is `docs/ExtraWork_Technical_Design_Report_v2.0.docx`. `docs/HANDOFF.md` and dated `docs/HANDOFF_*.md` files are point-in-time engineering handoffs — check dates against current work before trusting their claims of what's "done."
 
 ## Commands
 
@@ -81,6 +81,16 @@ Modular monolith, TypeScript monorepo (pnpm workspaces: `apps/*`, `packages/*`).
 | `apps/web`               | Next.js App Router — `/app/*` contractor dashboard, `/r/*` public approval page                            |
 
 **Dependency direction is lint-enforced** (`eslint.config.mjs`), not just convention: `domain` must never import `db`/`integrations`/`files`/`runtime`; `apps/web` must only import `@extrawork/contracts`, never server-side packages (`domain`, `application`, `db`, `runtime`, `integrations`). Tests, `testkit`, `scripts/`, and `cli/` directories are exempted from this rule since they legitimately cross layers.
+
+### Three-party invariants (spec 2026-10-12)
+
+- **A shared project lives in the designer's workspace.** People from other firms join it with the `COLLABORATOR` role plus a `project_members` grant; there is no cross-tenant sharing, so RLS and tenant-bound keys stay as they are (D1). `COLLABORATOR` is never in `ORG_WIDE_ROLES` and sees only granted projects.
+- **Only the designer changes the record.** Collaborators, the site team and the homeowner can only _propose_. A proposal is a DRAFT version with `submitted_for_review_at` set and `reviewed_at` null, not a new status: the state machine, freeze guard and transition trigger are untouched (D4). `DESIGNER_REVIEW` is the default routing; `AUTO_SEND` keeps the old direct path (D3).
+- **Folder visibility decides who sees a file.** `INTERNAL` is the firm only, `PROJECT` adds collaborators, `CLIENT` adds the homeowner portal. The portal shows only `CLIENT` folders and requests that were actually sent, never proposals.
+- **New frozen terms only when present.** Room and type of work enter the snapshot's `scope` only when set, so existing snapshots and digests are unchanged (D9). Review provenance and the invoiced mark sit outside the freeze guard.
+- **WhatsApp never guesses between projects or firms.** Phone numbers are no longer globally unique (D7); an ambiguous sender is asked once, the answer sticks for two hours, and every reply offers a one-word correction (D6).
+- **Files are an allowlist, private, and downloaded as attachments, never rendered** (D10). New tokens (portal links, invitations, calendar feeds) are stored as SHA-256 hashes only, like approval tokens.
+- **Notify inside the write transaction, deliver outside it.** Use `NotificationService.notifyProject`/`notifyUsers` within the command's transaction; email and WhatsApp still go through jobs or the outbox.
 
 ### Non-obvious invariants worth knowing before touching money, evidence, or delivery code
 
