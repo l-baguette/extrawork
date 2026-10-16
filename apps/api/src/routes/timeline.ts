@@ -8,7 +8,9 @@ import {
   type CalendarDto,
   type CalendarFeedDto,
   type MilestoneDto,
+  type MilestoneListDto,
 } from '@extrawork/contracts';
+import { roleAllows } from '@extrawork/domain';
 import type { AppContext } from '@extrawork/application';
 import type { MilestoneRow } from '@extrawork/db';
 import { authenticatedSubject, publicTokenSubject, rateLimit } from '../plugins/rate-limit.js';
@@ -41,7 +43,11 @@ export async function registerTimelineRoutes(
     const auth = await app.requireAuth(request, reply);
     const { id } = IdParams.parse(request.params);
     const items = await app.services.timeline.listMilestones(auth, id);
-    return reply.send({ items: items.map(toMilestoneDto) });
+    const body: MilestoneListDto = {
+      items: items.map(toMilestoneDto),
+      canManage: roleAllows(auth.actor.role, 'milestone:manage'),
+    };
+    return reply.send(body);
   });
 
   app.post('/v1/projects/:id/milestones', { preHandler: write }, async (request, reply) => {

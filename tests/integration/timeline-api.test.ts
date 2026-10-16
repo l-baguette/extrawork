@@ -149,7 +149,10 @@ describe('milestones', () => {
 
     const listed = await call('GET', `/v1/projects/${alpha.projectId}/milestones`, collaborator);
     expect(listed.statusCode).toBe(200);
-    expect((listed.json() as { items: unknown[] }).items).toHaveLength(1);
+    expect(listed.json()).toMatchObject({ items: [expect.anything()], canManage: false });
+    expect(
+      (await call('GET', `/v1/projects/${alpha.projectId}/milestones`, owner)).json(),
+    ).toMatchObject({ canManage: true });
 
     const done = await call('PATCH', `/v1/milestones/${created.id}`, owner, { completed: true });
     expect(done.statusCode).toBe(200);
