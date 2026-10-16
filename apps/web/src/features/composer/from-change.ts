@@ -1,5 +1,6 @@
 import type { ChangeOrderDto, RequestOrigin } from '@extrawork/contracts';
-import { minorToInput } from '@/lib/format';
+// Relative, not `@/lib/format`, so the unit project can load this file.
+import { minorToInput } from '../../lib/format';
 import type { ComposerValues } from './schema';
 import type { ReviewContext } from './composer';
 

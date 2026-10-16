@@ -24,22 +24,4 @@ export async function activeMembership(): Promise<ActiveMembership | null> {
   return { userId: me.data.user.id, role: active.role };
 }
 
-/** Review, price, send and dismiss requests: the designer's firm (spec D4). */
-export function isDesigner(role: MembershipRole | null | undefined): boolean {
-  return role === 'OWNER' || role === 'ADMIN' || role === 'PROJECT_MANAGER';
-}
-
-/** Raise a request for review (`change_order:propose`). */
-export function canPropose(role: MembershipRole | null | undefined): boolean {
-  return isDesigner(role) || role === 'COLLABORATOR';
-}
-
-/** Tier 1 B: mark approved changes as billed (`change_order:invoice`). */
-export function canInvoice(role: MembershipRole | null | undefined): boolean {
-  return role === 'OWNER' || role === 'ADMIN' || role === 'FINANCE';
-}
-
-/** Close and reopen a project (`project:close`, which the policy gives owner and admin). */
-export function canCloseProject(role: MembershipRole | null | undefined): boolean {
-  return role === 'OWNER' || role === 'ADMIN';
-}
+export { canCloseProject, canInvoice, canPropose, isDesigner } from './role-hints';
