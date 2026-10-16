@@ -4,6 +4,7 @@ import { serverGet } from '@/lib/server-fetch';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { Empty, SheetTop } from '@/components/sheet';
+import { NewCustomer } from './new-customer';
 
 /** Customer directory — report §6.2 `/app/customers`. */
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export default async function CustomersPage() {
       />
 
       <main className="sheet rule-in">
+        <NewCustomer />
         {customers.length === 0 ? (
           <div className="panel">
             <Empty title="No customers yet">
@@ -51,7 +53,9 @@ export default async function CustomersPage() {
                     return (
                       <tr key={customer.id}>
                         <td>
-                          <strong>{customer.displayName}</strong>
+                          <Link href={`/app/customers/${customer.id}`}>
+                            <strong>{customer.displayName}</strong>
+                          </Link>
                           {customer.legalName ? (
                             <div className="small muted">{customer.legalName}</div>
                           ) : null}
