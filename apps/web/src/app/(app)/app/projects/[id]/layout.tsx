@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ChangeRegisterDto, ProjectDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
+import { activeMembership, canPropose, isDesigner } from '@/lib/active-role';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { DownloadContract } from './download-contract';
@@ -21,9 +22,10 @@ export default async function ProjectLayout({
   children: React.ReactNode;
 }) {
   const { id } = await params;
-  const [projectResult, registerResult] = await Promise.all([
+  const [projectResult, registerResult, membership] = await Promise.all([
     serverGet<ProjectDto>(`/v1/projects/${id}`),
     serverGet<ChangeRegisterDto>(`/v1/projects/${id}/change-register`),
+    activeMembership(),
   ]);
 
   if (!projectResult.ok && projectResult.status === 401) return <SignInPrompt />;
@@ -59,7 +61,12 @@ export default async function ProjectLayout({
         </div>
         <div className="actions">
           <DownloadContract project={project} changes={changes} />
-          {closed ? null : (
+          {/*
+           * Everything goes through the designer (spec 2026-10-12, D4): the
+           * design team opens the composer, a collaborator raises a request
+           * for them to review, and accounts or viewers get neither.
+           */}
+          {closed ? null : isDesigner(membership?.role) ? (
             <Link
               className="btn btn-primary"
               href={`/app/projects/${project.id}/changes/new`}
@@ -67,7 +74,11 @@ export default async function ProjectLayout({
             >
               New change request
             </Link>
-          )}
+          ) : canPropose(membership?.role) ? (
+            <Link className="btn btn-primary" href={`/app/projects/${project.id}/requests/new`}>
+              Raise a request
+            </Link>
+          ) : null}
         </div>
       </div>
 

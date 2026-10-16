@@ -197,6 +197,12 @@ export const ContractHistorySchema = z.object({
 export type ContractHistoryDto = z.infer<typeof ContractHistorySchema>;
 
 export const DashboardSchema = z.object({
+  /**
+   * Who the figures were scoped for. A collaborator sees only queue figures:
+   * their own requests awaiting review and decisions on their projects; the
+   * firm's money figures are zero for them (spec 2026-10-12).
+   */
+  audience: z.enum(['TEAM', 'COLLABORATOR']),
   currency: CurrencySchema,
   pendingDecisions: z.number().int(),
   overdueOrExpiring: z.number().int(),

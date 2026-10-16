@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFieldArray, useForm, type Resolver } from 'react-hook-form';
-import type { ContactDto, PreviewDto, SendResultDto } from '@extrawork/contracts';
+import {
+  ROOM_SUGGESTIONS,
+  WORK_CATEGORY_LABELS,
+  type ContactDto,
+  type PreviewDto,
+  type SendResultDto,
+  type WorkCategory,
+} from '@extrawork/contracts';
 import { ApiError, api, apiRequest, newIdempotencyKey } from '@/lib/api';
 import { formatMoney, formatScheduleDelta, parseMoneyToMinor } from '@/lib/format';
 import { useOnlineStatus } from '@/components/offline-banner';
@@ -47,6 +54,21 @@ interface Props {
     lockVersion: number;
     values: ComposerValues;
   };
+  /**
+   * Present when the draft is a request somebody else raised for review (spec
+   * 2026-10-12, D4): who raised it, how, and what they said, so the designer
+   * prices it knowing where it came from.
+   */
+  review?: ReviewContext;
+}
+
+export interface ReviewContext {
+  number: string;
+  raisedBy: string | null;
+  how: string;
+  note: string | null;
+  /** Files the raiser attached; the picker below only lists files added here. */
+  attachments: Array<{ id: string; filename: string }>;
 }
 
 const AUTOSAVE_DEBOUNCE_MS = 1200;
@@ -57,6 +79,7 @@ export function Composer({
   contacts,
   defaultApproverContactId,
   existing,
+  review,
 }: Props) {
   const router = useRouter();
   const online = useOnlineStatus();
@@ -155,7 +178,7 @@ export function Composer({
                 {
                   method: 'POST',
                   idempotencyKey: newIdempotencyKey(),
-                  body: toApiPayload(current, projectCurrency),
+                  body: toApiPayload(current, projectCurrency, 'create'),
                 },
               );
               id = created.id;
@@ -168,7 +191,7 @@ export function Composer({
                 {
                   method: 'PATCH',
                   ifMatch: etagRef.current ?? `"${id}:${lockVersionRef.current ?? 1}"`,
-                  body: toApiPayload(current, projectCurrency),
+                  body: toApiPayload(current, projectCurrency, 'update'),
                 },
               );
               lockVersionRef.current = data.lockVersion;
@@ -371,6 +394,34 @@ export function Composer({
         </div>
       ) : null}
 
+      {review ? (
+        <div className="banner banner-info" role="status">
+          <p
+            style={{
+              marginBottom: review.note || review.attachments.length ? 'var(--space-2)' : 0,
+            }}
+          >
+            <strong>{review.number}</strong> was raised{' '}
+            {review.raisedBy ? (
+              <>
+                by <strong>{review.raisedBy}</strong>{' '}
+              </>
+            ) : null}
+            {review.how}. Check it, price it and send it — or dismiss it from the request page.
+          </p>
+          {review.note ? (
+            <p style={{ marginBottom: review.attachments.length ? 'var(--space-2)' : 0 }}>
+              <strong>Their note:</strong> {review.note}
+            </p>
+          ) : null}
+          {review.attachments.length ? (
+            <p className="small" style={{ marginBottom: 0 }}>
+              Attached: {review.attachments.map((a) => a.filename).join(', ')}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <form onSubmit={(event) => event.preventDefault()}>
         {step === 1 ? (
           <section className="card stack">
@@ -402,14 +453,51 @@ export function Composer({
               <FieldError message={form.formState.errors.scope?.message} />
             </div>
 
+            <div className="grid-2">
+              <div>
+                <label htmlFor="room">Room or area</label>
+                <input
+                  id="room"
+                  type="text"
+                  list="composer-room-suggestions"
+                  autoComplete="off"
+                  {...form.register('room')}
+                  aria-invalid={form.formState.errors.room ? 'true' : undefined}
+                  placeholder="Master bedroom"
+                />
+                <datalist id="composer-room-suggestions">
+                  {ROOM_SUGGESTIONS.map((room) => (
+                    <option key={room} value={room} />
+                  ))}
+                </datalist>
+                <FieldError message={form.formState.errors.room?.message} />
+              </div>
+              <div>
+                <label htmlFor="workCategory">Type of work</label>
+                <select id="workCategory" {...form.register('workCategory')}>
+                  <option value="">Not set</option>
+                  {(Object.entries(WORK_CATEGORY_LABELS) as Array<[WorkCategory, string]>).map(
+                    ([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            </div>
+
             <div>
-              <label htmlFor="reason">Why is it needed? (optional)</label>
+              <label htmlFor="reason">Justification — why is it needed? (optional)</label>
               <input
                 id="reason"
                 type="text"
                 {...form.register('reason')}
                 placeholder="Requested by the customer on site on 12 August"
               />
+              <p className="hint">
+                The homeowner reads this next to the price, so say what made the change necessary.
+              </p>
             </div>
           </section>
         ) : null}
@@ -770,13 +858,22 @@ function estimateLine(
   return formatMoney(subtotal + tax, currency);
 }
 
-/** Converts form values into the API contract: integer paise, decimal strings. */
-function toApiPayload(values: ComposerValues, currency: string) {
+/**
+ * Converts form values into the API contract: integer paise, decimal strings.
+ * Room and type of work are omitted on create when empty, and sent as null on
+ * an update so clearing the field clears it on the server.
+ */
+function toApiPayload(values: ComposerValues, currency: string, mode: 'create' | 'update') {
+  const room = values.room?.trim() || null;
+  const workCategory = values.workCategory || null;
   return {
     type: values.type,
     title: values.title,
     scope: values.scope,
     ...(values.reason ? { reason: values.reason } : {}),
+    ...(mode === 'update'
+      ? { room, workCategory }
+      : { ...(room ? { room } : {}), ...(workCategory ? { workCategory } : {}) }),
     lineItems: values.lineItems.map((line) => ({
       description: line.description,
       quantity: Number(line.quantity).toFixed(3),

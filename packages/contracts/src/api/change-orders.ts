@@ -55,25 +55,25 @@ export type CreateChangeOrderInput = z.infer<typeof CreateChangeOrderSchema>;
  * Draft update replaces the whole editable payload. Partial patching of line
  * arrays is ambiguous under concurrent edits, so the client always sends the
  * full intended state together with `If-Match`.
+ *
+ * No substance refine here, unlike create: a proposal raised for review may be
+ * saved while still unpriced (spec 2026-10-12, D4), and only the server knows
+ * whether this draft is one. The service applies the rule (`EMPTY_CHANGE`)
+ * to every other draft, and send gating applies it to all of them.
  */
-export const UpdateDraftSchema = z
-  .object({
-    type: ChangeTypeSchema,
-    title: ShortTextSchema,
-    scope: LongTextSchema,
-    reason: MediumTextSchema.nullable().optional(),
-    room: RoomSchema.nullable().optional(),
-    workCategory: WorkCategorySchema.nullable().optional(),
-    lineItems: z.array(LineItemInputSchema).max(100),
-    scheduleDeltaDays: z.number().int().min(-365).max(365),
-    approverContactId: UuidSchema,
-    expiresAt: InstantSchema.nullable().optional(),
-    assuranceRequired: AssuranceLevelSchema,
-  })
-  .refine(hasSubstance, {
-    message: 'Add at least one line item or a schedule impact',
-    path: ['lineItems'],
-  });
+export const UpdateDraftSchema = z.object({
+  type: ChangeTypeSchema,
+  title: ShortTextSchema,
+  scope: LongTextSchema,
+  reason: MediumTextSchema.nullable().optional(),
+  room: RoomSchema.nullable().optional(),
+  workCategory: WorkCategorySchema.nullable().optional(),
+  lineItems: z.array(LineItemInputSchema).max(100),
+  scheduleDeltaDays: z.number().int().min(-365).max(365),
+  approverContactId: UuidSchema,
+  expiresAt: InstantSchema.nullable().optional(),
+  assuranceRequired: AssuranceLevelSchema,
+});
 export type UpdateDraftInput = z.infer<typeof UpdateDraftSchema>;
 
 /**

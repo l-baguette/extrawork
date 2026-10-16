@@ -369,13 +369,14 @@ describe('numbering', () => {
     // Report §8.2: numbers are identifiers, not accounting sequences.
     const first = await createDraftChangeOrder(container, tenant, { title: 'One' });
     const second = await createDraftChangeOrder(container, tenant, { title: 'Two' });
-    expect(first.number).toBe('EW-001');
-    expect(second.number).toBe('EW-002');
+    // Spec 2026-10-12, D8: the number says which project and how many came before.
+    expect(first.number).toBe(`${tenant.projectNumber}-R01`);
+    expect(second.number).toBe(`${tenant.projectNumber}-R02`);
 
     const otherProject = await createTenant(container);
     const elsewhere = await createDraftChangeOrder(container, otherProject, { title: 'Other' });
     // A different project restarts its own sequence.
-    expect(elsewhere.number).toBe('EW-001');
+    expect(elsewhere.number).toBe(`${otherProject.projectNumber}-R01`);
   });
 
   it('never reuses a number after a cancellation', async () => {
@@ -383,7 +384,7 @@ describe('numbering', () => {
     await container.services.changeOrders.cancel(tenant.owner, first.changeOrderId, 'Not needed');
     const second = await createDraftChangeOrder(container, tenant);
     expect(second.number).not.toBe(first.number);
-    expect(second.number).toBe('EW-002');
+    expect(second.number).toBe(`${tenant.projectNumber}-R02`);
   });
 });
 

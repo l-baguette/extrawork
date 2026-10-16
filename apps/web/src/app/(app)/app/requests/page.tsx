@@ -1,12 +1,20 @@
 import Link from 'next/link';
-import type { ChangeOrderSummaryDto } from '@extrawork/contracts';
-import { WORK_CATEGORY_LABELS } from '@extrawork/contracts';
+import {
+  WORK_CATEGORY_LABELS,
+  WorkCategorySchema,
+  type ChangeOrderSummaryDto,
+  type EmployeeDto,
+  type ProjectSummaryDto,
+  type WorkCategory,
+} from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
+import { activeMembership, isDesigner } from '@/lib/active-role';
 import { formatMoney, formatRelative } from '@/lib/format';
 import { RequestStatusChip } from '@/components/status-chip';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { Empty, Schedule, ScheduleRow, SheetTop } from '@/components/sheet';
+import { PasteMessageCard } from './paste-message-card';
 
 /**
  * Every request across every project — notes: "this tab shows an overview of
@@ -15,6 +23,11 @@ import { Empty, Schedule, ScheduleRow, SheetTop } from '@/components/sheet';
  * Tabs follow the statuses the notes name (pending, approved, denied, change
  * requested) plus the one that only exists because everything goes through the
  * designer: requests waiting for review.
+ *
+ * The Needs review tab also carries the paste card (Tier 1 C), for the
+ * contractor who messaged the designer directly instead of the ExtraWork
+ * number; it lands the request in the same queue. A type-of-work filter
+ * narrows any tab ("show me every electrical change").
  */
 export const dynamic = 'force-dynamic';
 
@@ -33,17 +46,38 @@ type TabKey = (typeof TABS)[number]['key'];
 export default async function RequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; workCategory?: string }>;
 }) {
   const params = await searchParams;
   const tab = TABS.find((t) => t.key === params.tab) ?? TABS[0];
-  const result = await serverGet<{ items: ChangeOrderSummaryDto[]; nextCursor: string | null }>(
-    `/v1/change-orders?limit=100${tab.query ? `&${tab.query}` : ''}`,
+  const parsedCategory = WorkCategorySchema.safeParse(params.workCategory);
+  const workCategory: WorkCategory | null = parsedCategory.success ? parsedCategory.data : null;
+  const query = ['limit=100', tab.query, workCategory ? `workCategory=${workCategory}` : ''].filter(
+    Boolean,
   );
+
+  const [result, membership] = await Promise.all([
+    serverGet<{ items: ChangeOrderSummaryDto[]; nextCursor: string | null }>(
+      `/v1/change-orders?${query.join('&')}`,
+    ),
+    activeMembership(),
+  ]);
 
   if (!result.ok && result.status === 401) return <SignInPrompt />;
   if (!result.ok) return <ErrorPanel message={result.message} />;
   const items = result.data.items;
+
+  // The paste card attributes a request to a site-team member, which only the
+  // design team may do (and only they can read the roster).
+  const showPaste = tab.key === 'review' && isDesigner(membership?.role);
+  const [projectsResult, employeesResult] = showPaste
+    ? await Promise.all([
+        serverGet<{ items: ProjectSummaryDto[] }>('/v1/projects?status=ACTIVE&limit=100'),
+        serverGet<{ items: EmployeeDto[] }>('/v1/employees?status=ACTIVE'),
+      ])
+    : [null, null];
+  const projects = projectsResult?.ok ? projectsResult.data.items : [];
+  const employees = employeesResult?.ok ? employeesResult.data.items : [];
 
   return (
     <>
@@ -54,7 +88,7 @@ export default async function RequestsPage({
             <Link
               key={t.key}
               className="tab"
-              href={t.key === 'review' ? '/app/requests' : `/app/requests?tab=${t.key}`}
+              href={tabHref(t.key, workCategory)}
               aria-current={t.key === tab.key ? 'page' : undefined}
             >
               {t.label}
@@ -62,8 +96,39 @@ export default async function RequestsPage({
           ))}
         </nav>
 
+        {showPaste ? <PasteMessageCard projects={projects} employees={employees} /> : null}
+
+        <form className="request-filter" method="get" aria-label="Filter requests">
+          {tab.key === 'review' ? null : <input type="hidden" name="tab" value={tab.key} />}
+          <label htmlFor="filter-work-category">Type of work</label>
+          <select id="filter-work-category" name="workCategory" defaultValue={workCategory ?? ''}>
+            <option value="">Every type</option>
+            {(Object.entries(WORK_CATEGORY_LABELS) as Array<[WorkCategory, string]>).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ),
+            )}
+          </select>
+          <button type="submit" className="btn btn-sm">
+            Filter
+          </button>
+          {workCategory ? (
+            <Link className="small" href={tabHref(tab.key, null)}>
+              Clear
+            </Link>
+          ) : null}
+        </form>
+
         {items.length === 0 ? (
-          <Empty title={emptyTitle(tab.key)}>{emptyBody(tab.key)}</Empty>
+          workCategory ? (
+            <Empty title={`No ${WORK_CATEGORY_LABELS[workCategory].toLowerCase()} requests here`}>
+              Clear the filter to see every type of work.
+            </Empty>
+          ) : (
+            <Empty title={emptyTitle(tab.key)}>{emptyBody(tab.key)}</Empty>
+          )
         ) : (
           <Schedule columns={['Request', 'Status', 'Project', 'Value', 'Updated']}>
             {items.map((row) => (
@@ -94,6 +159,14 @@ export default async function RequestsPage({
       </main>
     </>
   );
+}
+
+function tabHref(tab: TabKey, workCategory: WorkCategory | null): string {
+  const query = new URLSearchParams();
+  if (tab !== 'review') query.set('tab', tab);
+  if (workCategory) query.set('workCategory', workCategory);
+  const search = query.toString();
+  return search ? `/app/requests?${search}` : '/app/requests';
 }
 
 function emptyTitle(tab: TabKey): string {

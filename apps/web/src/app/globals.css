@@ -2914,3 +2914,96 @@ a.feed-title:hover {
   display: block;
   margin-top: 2px;
 }
+
+/* --- Slice B: requests through the designer --------------------------------
+ * `--space-1`…`--space-5` are used by inline styles across the app (the
+ * composer, the change page, the project pages, settings) but were never
+ * defined, so every one of those margins silently resolved to nothing. They
+ * alias the spacing scale above rather than introducing a second one.
+ */
+:root {
+  --space-1: var(--s1);
+  --space-2: var(--s2);
+  --space-3: var(--s3);
+  --space-4: var(--s4);
+  --space-5: var(--s5);
+}
+
+/* Paste a WhatsApp message (/app/requests, Needs review). */
+.paste-card {
+  margin-bottom: var(--s5);
+}
+.paste-card-title {
+  margin-bottom: var(--s2);
+}
+.paste-reading {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule-2);
+}
+
+/* Type-of-work filter: one line on a phone, the label above the select. */
+.request-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2) var(--s3);
+  margin: 0 0 var(--s4);
+}
+.request-filter label {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+.request-filter select {
+  flex: 1 1 12rem;
+  max-width: 20rem;
+}
+
+/* Unbilled ledger (/app/reports): a list, not a table, so the inline
+ * "Mark invoiced" control fits a phone. */
+.ledger {
+  margin-bottom: var(--s6);
+}
+.ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ledger-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s2) var(--s4);
+  align-items: center;
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--rule);
+}
+.ledger-what {
+  min-width: 0;
+}
+.ledger-amount {
+  text-align: right;
+  font-weight: 650;
+}
+.ledger-action {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+.ledger-action input {
+  flex: 1 1 10rem;
+  max-width: 16rem;
+}
+.ledger-subhead {
+  margin: var(--s5) 0 var(--s2);
+}
+@media (min-width: 900px) {
+  .ledger-row {
+    grid-template-columns: 1fr auto auto;
+  }
+  .ledger-action {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+}

@@ -18,7 +18,11 @@ export interface DashboardData {
   overdueOrExpiring: number;
   approvedValueThisMonthMinor: bigint;
   averageHoursToDecision: number | null;
-  projectsWithUnbilledApprovedExtras: number;
+  /** Tier 1 B: approved and not yet marked invoiced. */
+  unbilledApprovedTotalMinor: bigint;
+  unbilledApprovedCount: number;
+  /** Spec D4: proposals waiting for the designer. */
+  awaitingReviewCount: number;
 }
 
 export class ReportingRepository {
@@ -28,6 +32,13 @@ export class ReportingRepository {
     ctx: TenantContext,
     timezone: string,
     projectGrants?: readonly string[] | null,
+    options: {
+      /**
+       * Count only the proposals this user raised. A collaborator's queue is
+       * what they are waiting on, not the designer's review backlog.
+       */
+      submittedByUserId?: string | null;
+    } = {},
   ): Promise<DashboardData> {
     const grantFilter = projectGrants
       ? projectGrants.length > 0
@@ -43,7 +54,9 @@ export class ReportingRepository {
       overdue_or_expiring: string;
       approved_value_month: string;
       average_hours: string | null;
-      projects_unbilled: string;
+      unbilled_total: string;
+      unbilled_count: string;
+      awaiting_review: string;
     }>(sql`
       SELECT
         (SELECT default_currency FROM organizations WHERE id = ${ctx.organizationId}::uuid) AS currency,
@@ -67,10 +80,27 @@ export class ReportingRepository {
           WHERE organization_id = ${ctx.organizationId}::uuid
             ${grantFilter}
             AND decided_at IS NOT NULL AND sent_at IS NOT NULL) AS average_hours,
-        (SELECT count(DISTINCT project_id) FROM change_order_versions
+        -- Tier 1 B: the old figure counted every project that had ever had an
+        -- approval and could never go down. This one falls as changes are billed.
+        (SELECT COALESCE(sum(total_delta_minor), 0) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
             ${grantFilter}
-            AND status = 'APPROVED')::text AS projects_unbilled
+            AND status = 'APPROVED' AND invoiced_at IS NULL)::text AS unbilled_total,
+        (SELECT count(*) FROM change_order_versions
+          WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
+            AND status = 'APPROVED' AND invoiced_at IS NULL)::text AS unbilled_count,
+        (SELECT count(*) FROM change_order_versions
+          WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
+            AND status = 'DRAFT'
+            AND submitted_for_review_at IS NOT NULL
+            AND reviewed_at IS NULL
+            ${
+              options.submittedByUserId
+                ? sql`AND submitted_by_user_id = ${options.submittedByUserId}::uuid`
+                : sql``
+            })::text AS awaiting_review
     `);
 
     const row = result.rows[0];
@@ -80,7 +110,9 @@ export class ReportingRepository {
       overdueOrExpiring: Number.parseInt(row?.overdue_or_expiring ?? '0', 10),
       approvedValueThisMonthMinor: BigInt(row?.approved_value_month ?? '0'),
       averageHoursToDecision: row?.average_hours ? Number.parseFloat(row.average_hours) : null,
-      projectsWithUnbilledApprovedExtras: Number.parseInt(row?.projects_unbilled ?? '0', 10),
+      unbilledApprovedTotalMinor: BigInt(row?.unbilled_total ?? '0'),
+      unbilledApprovedCount: Number.parseInt(row?.unbilled_count ?? '0', 10),
+      awaitingReviewCount: Number.parseInt(row?.awaiting_review ?? '0', 10),
     };
   }
 
