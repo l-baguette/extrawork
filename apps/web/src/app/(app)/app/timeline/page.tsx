@@ -80,94 +80,95 @@ export default async function TimelinePage({
   const monthEvents = events.filter((e) => e.date >= month && e.date <= endOfMonth(month));
 
   return (
-    <main className="page page-wide">
+    <>
       <SheetTop
         title="Timeline"
         meta="Completion dates, milestones and approval deadlines across your projects."
       />
-
-      <div className="cal-toolbar">
-        <div className="cal-nav">
-          <Link
-            className="btn btn-sm"
-            href={href({ month: addMonths(month, -1) })}
-            aria-label="Previous month"
-          >
-            ←
-          </Link>
-          <Link className="btn btn-sm" href={href({ month: startOfMonth(today) })}>
-            Today
-          </Link>
-          <Link
-            className="btn btn-sm"
-            href={href({ month: addMonths(month, 1) })}
-            aria-label="Next month"
-          >
-            →
-          </Link>
-          <h2 className="cal-month">{formatMonth(month)}</h2>
-        </div>
-        <div className="cal-controls">
-          <nav className="segmented" aria-label="View">
+      <main className="sheet rule-in">
+        <div className="cal-toolbar">
+          <div className="cal-nav">
             <Link
-              className="segmented-item"
-              href={href({ view: 'month' })}
-              aria-current={view === 'month' ? 'true' : undefined}
+              className="btn btn-sm"
+              href={href({ month: addMonths(month, -1) })}
+              aria-label="Previous month"
             >
-              Month
+              ←
+            </Link>
+            <Link className="btn btn-sm" href={href({ month: startOfMonth(today) })}>
+              Today
             </Link>
             <Link
-              className="segmented-item"
-              href={href({ view: 'agenda' })}
-              aria-current={view === 'agenda' ? 'true' : undefined}
+              className="btn btn-sm"
+              href={href({ month: addMonths(month, 1) })}
+              aria-label="Next month"
             >
-              Agenda
+              →
             </Link>
-          </nav>
-          <ProjectFilter
-            projects={projects.ok ? projects.data.items : []}
-            value={projectId}
-            hrefFor={Object.fromEntries(
-              [null, ...(projects.ok ? projects.data.items.map((p) => p.id) : [])].map((id) => [
-                id ?? '',
-                href({ project: id }),
-              ]),
-            )}
-          />
+            <h2 className="cal-month">{formatMonth(month)}</h2>
+          </div>
+          <div className="cal-controls">
+            <nav className="segmented" aria-label="View">
+              <Link
+                className="segmented-item"
+                href={href({ view: 'month' })}
+                aria-current={view === 'month' ? 'true' : undefined}
+              >
+                Month
+              </Link>
+              <Link
+                className="segmented-item"
+                href={href({ view: 'agenda' })}
+                aria-current={view === 'agenda' ? 'true' : undefined}
+              >
+                Agenda
+              </Link>
+            </nav>
+            <ProjectFilter
+              projects={projects.ok ? projects.data.items : []}
+              value={projectId}
+              hrefFor={Object.fromEntries(
+                [null, ...(projects.ok ? projects.data.items.map((p) => p.id) : [])].map((id) => [
+                  id ?? '',
+                  href({ project: id }),
+                ]),
+              )}
+            />
+          </div>
         </div>
-      </div>
 
-      {!calendar.ok ? (
-        <div className="banner banner-error" role="alert">
-          The calendar could not be loaded: {calendar.message} Your records are unaffected.
-        </div>
-      ) : view === 'month' ? (
-        <>
-          <MonthGrid weeks={weeks} month={month} today={today} events={events} />
-          {/* On a phone the grid shows marks only; the month's events follow as a list. */}
-          <section className="cal-month-list" aria-label={`Events in ${formatMonth(month)}`}>
+        {!calendar.ok ? (
+          <div className="banner banner-error" role="alert">
+            The calendar could not be loaded: {calendar.message} Your records are unaffected.
+          </div>
+        ) : view === 'month' ? (
+          <>
+            <MonthGrid weeks={weeks} month={month} today={today} events={events} />
+            {/* On a phone the grid shows marks only; the month's events follow as a list. */}
+            <section className="cal-month-list" aria-label={`Events in ${formatMonth(month)}`}>
+              {monthEvents.length === 0 ? (
+                <p className="small muted">Nothing dated this month.</p>
+              ) : (
+                <Agenda events={monthEvents} today={today} showProject={!projectId} anchors />
+              )}
+            </section>
+          </>
+        ) : (
+          <section className="card">
             {monthEvents.length === 0 ? (
-              <p className="small muted">Nothing dated this month.</p>
+              <p className="small muted" style={{ marginBottom: 0 }}>
+                Nothing dated in {formatMonth(month)}.{' '}
+                <Link href={href({ month: addMonths(month, 1) })}>Next month</Link>
+              </p>
             ) : (
-              <Agenda events={monthEvents} today={today} showProject={!projectId} anchors />
+              <Agenda events={monthEvents} today={today} showProject={!projectId} />
             )}
           </section>
-        </>
-      ) : (
-        <section className="card">
-          {monthEvents.length === 0 ? (
-            <p className="small muted" style={{ marginBottom: 0 }}>
-              Nothing dated in {formatMonth(month)}.{' '}
-              <Link href={href({ month: addMonths(month, 1) })}>Next month</Link>
-            </p>
-          ) : (
-            <Agenda events={monthEvents} today={today} showProject={!projectId} />
-          )}
-        </section>
-      )}
+        )}
 
-      <CalendarFeedCard initial={feed.ok ? feed.data : null} />
-    </main>
+        <CalendarFeedCard initial={feed.ok ? feed.data : null} />
+      </main>
+    </>
   );
 }
 
