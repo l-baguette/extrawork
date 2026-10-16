@@ -2103,3 +2103,52 @@ a.feed-title:hover {
   flex: 1 1 12rem;
   max-width: 20rem;
 }
+
+/* Unbilled ledger (/app/reports): a list, not a table, so the inline
+ * "Mark invoiced" control fits a phone. */
+.ledger {
+  margin-bottom: var(--s6);
+}
+.ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ledger-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s2) var(--s4);
+  align-items: center;
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--rule);
+}
+.ledger-what {
+  min-width: 0;
+}
+.ledger-amount {
+  text-align: right;
+  font-weight: 650;
+}
+.ledger-action {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+.ledger-action input {
+  flex: 1 1 10rem;
+  max-width: 16rem;
+}
+.ledger-subhead {
+  margin: var(--s5) 0 var(--s2);
+}
+@media (min-width: 900px) {
+  .ledger-row {
+    grid-template-columns: 1fr auto auto;
+  }
+  .ledger-action {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+}

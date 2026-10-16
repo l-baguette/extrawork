@@ -1,17 +1,24 @@
 import Link from 'next/link';
-import type { ExtraWorkReportDto } from '@extrawork/contracts';
+import type { ChangeOrderSummaryDto, ExtraWorkReportDto } from '@extrawork/contracts';
 import { API_URL } from '@/lib/api';
 import { serverGet } from '@/lib/server-fetch';
+import { activeMembership, canInvoice } from '@/lib/active-role';
 import { formatDate, formatMoney } from '@/lib/format';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
 import { Figure, SheetTop } from '@/components/sheet';
+import { UnbilledLedger } from './unbilled-ledger';
+
+type SummaryPage = { items: ChangeOrderSummaryDto[]; nextCursor: string | null };
 
 /**
  * Documented extra-work summary — report §6.2 `/app/reports`, with CSV export.
  *
  * Report §16.3 makes export-after-lapse a launch blocker, so this page and its
  * CSV stay reachable in read-only mode.
+ *
+ * Tier 1 B: the unbilled ledger sits first, because it is the part of this
+ * page somebody acts on — approved extras that have not been billed yet.
  */
 export const dynamic = 'force-dynamic';
 
@@ -26,12 +33,24 @@ export default async function ReportsPage({
   if (params.from) query.set('from', params.from);
   if (params.to) query.set('to', params.to);
 
-  const result = await serverGet<ExtraWorkReportDto>(`/v1/reports/extra-work?${query.toString()}`);
+  const scope = params.projectId ? `&projectId=${encodeURIComponent(params.projectId)}` : '';
+  const [result, unbilledResult, approvedResult, membership] = await Promise.all([
+    serverGet<ExtraWorkReportDto>(`/v1/reports/extra-work?${query.toString()}`),
+    serverGet<SummaryPage>(`/v1/change-orders?bucket=UNBILLED&limit=100${scope}`),
+    serverGet<SummaryPage>(`/v1/change-orders?status=APPROVED&limit=100${scope}`),
+    activeMembership(),
+  ]);
 
   if (!result.ok && result.status === 401) return <SignInPrompt />;
   if (!result.ok) return <ErrorPanel message={result.message} />;
 
   const report = result.data;
+  const unbilled = unbilledResult.ok ? unbilledResult.data.items : [];
+  // The most recent marks, so one made by mistake can be cleared from here.
+  const invoiced = (approvedResult.ok ? approvedResult.data.items : [])
+    .filter((row) => row.invoicedAt !== null)
+    .sort((a, b) => (b.invoicedAt ?? '').localeCompare(a.invoicedAt ?? ''))
+    .slice(0, 10);
 
   return (
     <>
@@ -46,7 +65,18 @@ export default async function ReportsPage({
       />
 
       <main className="sheet rule-in">
+        {unbilledResult.ok ? (
+          <UnbilledLedger
+            unbilled={unbilled}
+            invoiced={invoiced}
+            canInvoice={canInvoice(membership?.role)}
+          />
+        ) : null}
+
         <form className="panel panel-pad" method="get" style={{ marginBottom: 'var(--s6)' }}>
+          {params.projectId ? (
+            <input type="hidden" name="projectId" value={params.projectId} />
+          ) : null}
           <div className="grid-2">
             <div>
               <label htmlFor="status">Status</label>
