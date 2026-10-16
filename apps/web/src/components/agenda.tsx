@@ -7,16 +7,24 @@ export function Agenda({
   events,
   today,
   showProject = false,
+  anchors = false,
 }: {
   events: CalendarEventDto[];
   today: string;
   showProject?: boolean;
+  /** Give each day an `id` so a month-grid day can link to it. */
+  anchors?: boolean;
 }) {
   const groups = groupByDate(events);
   return (
     <ol className="agenda">
       {[...groups.entries()].map(([date, items]) => (
-        <li key={date} className="agenda-day" data-today={date === today ? 'true' : undefined}>
+        <li
+          key={date}
+          id={anchors ? `day-${date}` : undefined}
+          className="agenda-day"
+          data-today={date === today ? 'true' : undefined}
+        >
           <div className="agenda-date">
             <span>{formatDay(date)}</span>
             <span className="small muted">{relativeDay(date, today)}</span>
