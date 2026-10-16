@@ -58,6 +58,30 @@
     {
       "name": "ops",
       "description": "Health and metrics"
+    },
+    {
+      "name": "collaboration",
+      "description": "Collaborators from other firms and invitations"
+    },
+    {
+      "name": "requests",
+      "description": "Designer review, invoiced marks, paste-to-draft"
+    },
+    {
+      "name": "workspace",
+      "description": "Project folders, files, links and notes"
+    },
+    {
+      "name": "timeline",
+      "description": "Milestones, calendar and the private feed"
+    },
+    {
+      "name": "portal",
+      "description": "The no-account homeowner portal"
+    },
+    {
+      "name": "notifications",
+      "description": "The signed-in user’s inbox and preferences"
     }
   ],
   "components": {
@@ -123,6 +147,18 @@
                   "ATTACHMENT_IMMUTABLE",
                   "DUPLICATE_NUMBER",
                   "EMPLOYEE_PHONE_TAKEN",
+                  "NOT_AWAITING_REVIEW",
+                  "FOLDER_NOT_FOUND",
+                  "FOLDER_NOT_EMPTY",
+                  "FOLDER_NAME_TAKEN",
+                  "FOLDER_PROTECTED",
+                  "DOCUMENT_NOT_FOUND",
+                  "MILESTONE_NOT_FOUND",
+                  "INVITATION_NOT_FOUND",
+                  "INVITATION_EXPIRED",
+                  "INVITATION_EMAIL_MISMATCH",
+                  "ALREADY_COLLABORATING",
+                  "PORTAL_LINK_INVALID",
                   "ASSURANCE_REQUIRED",
                   "ASSURANCE_UNAVAILABLE",
                   "OTP_INVALID",
@@ -135,6 +171,7 @@
                   "FILE_TOO_LARGE",
                   "FILE_SCAN_FAILED",
                   "FILE_CONTENT_MISMATCH",
+                  "STORAGE_QUOTA_EXCEEDED",
                   "RATE_LIMITED",
                   "WEBHOOK_SIGNATURE_INVALID",
                   "PROVIDER_UNAVAILABLE",
@@ -186,6 +223,17 @@
             "maxLength": 3,
             "pattern": "^[A-Z]{3}$",
             "default": "INR"
+          },
+          "businessType": {
+            "type": "string",
+            "enum": [
+              "DESIGN_FIRM",
+              "ARCHITECTURE_FIRM",
+              "DESIGN_AND_BUILD",
+              "CONSTRUCTION",
+              "SPECIALIST_CONTRACTOR",
+              "OTHER"
+            ]
           }
         },
         "required": [
@@ -261,6 +309,41 @@
               "type": "integer"
             }
           },
+          "businessType": {
+            "type": "string",
+            "enum": [
+              "DESIGN_FIRM",
+              "ARCHITECTURE_FIRM",
+              "DESIGN_AND_BUILD",
+              "CONSTRUCTION",
+              "SPECIALIST_CONTRACTOR",
+              "OTHER"
+            ],
+            "nullable": true
+          },
+          "requestRouting": {
+            "type": "string",
+            "enum": [
+              "DESIGNER_REVIEW",
+              "AUTO_SEND"
+            ]
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "quotaBytes": {
+                "type": "integer"
+              },
+              "usedBytes": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "quotaBytes",
+              "usedBytes"
+            ],
+            "additionalProperties": false
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -275,7 +358,8 @@
                   "TRIAL",
                   "STARTER_MONTHLY",
                   "PROJECT_PASS",
-                  "PRO_MONTHLY"
+                  "PRO_MONTHLY",
+                  "BETA"
                 ]
               },
               "status": {
@@ -392,6 +476,9 @@
           "contactPhone",
           "contactEmail",
           "reminderPolicyHours",
+          "businessType",
+          "requestRouting",
+          "storage",
           "createdAt",
           "subscription"
         ],
@@ -692,6 +779,10 @@
             "minLength": 1,
             "maxLength": 200
           },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
           "siteAddress": {
             "type": "object",
             "properties": {
@@ -809,6 +900,10 @@
           "title": {
             "type": "string"
           },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
           "siteAddress": {
             "type": "object",
             "properties": {
@@ -912,6 +1007,9 @@
             ],
             "additionalProperties": false
           },
+          "awaitingReviewCount": {
+            "type": "integer"
+          },
           "startDate": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
@@ -970,11 +1068,13 @@
           "customerName",
           "projectNumber",
           "title",
+          "description",
           "siteAddress",
           "status",
           "currency",
           "timezone",
           "totals",
+          "awaitingReviewCount",
           "startDate",
           "expectedCompletionDate",
           "revisedCompletionDate",
@@ -1015,6 +1115,33 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2000
+          },
+          "room": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "workCategory": {
+            "type": "string",
+            "enum": [
+              "CIVIL",
+              "DEMOLITION",
+              "PLUMBING",
+              "ELECTRICAL",
+              "CARPENTRY",
+              "MODULAR_KITCHEN",
+              "FALSE_CEILING",
+              "FLOORING",
+              "PAINTING",
+              "WATERPROOFING",
+              "HVAC",
+              "FABRICATION",
+              "GLASS_ALUMINIUM",
+              "FURNITURE",
+              "RENOVATION",
+              "DESIGN_CHANGE",
+              "OTHER"
+            ]
           },
           "lineItems": {
             "type": "array",
@@ -1131,6 +1258,35 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2000,
+            "nullable": true
+          },
+          "room": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "nullable": true
+          },
+          "workCategory": {
+            "type": "string",
+            "enum": [
+              "CIVIL",
+              "DEMOLITION",
+              "PLUMBING",
+              "ELECTRICAL",
+              "CARPENTRY",
+              "MODULAR_KITCHEN",
+              "FALSE_CEILING",
+              "FLOORING",
+              "PAINTING",
+              "WATERPROOFING",
+              "HVAC",
+              "FABRICATION",
+              "GLASS_ALUMINIUM",
+              "FURNITURE",
+              "RENOVATION",
+              "DESIGN_CHANGE",
+              "OTHER"
+            ],
             "nullable": true
           },
           "lineItems": {
@@ -1296,6 +1452,101 @@
               },
               "reason": {
                 "type": "string",
+                "nullable": true
+              },
+              "room": {
+                "type": "string",
+                "nullable": true
+              },
+              "workCategory": {
+                "type": "string",
+                "enum": [
+                  "CIVIL",
+                  "DEMOLITION",
+                  "PLUMBING",
+                  "ELECTRICAL",
+                  "CARPENTRY",
+                  "MODULAR_KITCHEN",
+                  "FALSE_CEILING",
+                  "FLOORING",
+                  "PAINTING",
+                  "WATERPROOFING",
+                  "HVAC",
+                  "FABRICATION",
+                  "GLASS_ALUMINIUM",
+                  "FURNITURE",
+                  "RENOVATION",
+                  "DESIGN_CHANGE",
+                  "OTHER"
+                ],
+                "nullable": true
+              },
+              "submission": {
+                "type": "object",
+                "properties": {
+                  "origin": {
+                    "type": "string",
+                    "enum": [
+                      "WEB",
+                      "WHATSAPP",
+                      "IMPORT",
+                      "PASTED",
+                      "COLLABORATOR",
+                      "PORTAL"
+                    ]
+                  },
+                  "submittedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 instant in UTC",
+                    "nullable": true
+                  },
+                  "label": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "awaitingReview": {
+                    "type": "boolean"
+                  },
+                  "reviewedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 instant in UTC",
+                    "nullable": true
+                  },
+                  "note": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "origin",
+                  "submittedAt",
+                  "label",
+                  "awaitingReview",
+                  "reviewedAt",
+                  "note"
+                ],
+                "additionalProperties": false
+              },
+              "invoicing": {
+                "type": "object",
+                "properties": {
+                  "invoicedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 instant in UTC"
+                  },
+                  "invoiceReference": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "invoicedAt",
+                  "invoiceReference"
+                ],
+                "additionalProperties": false,
                 "nullable": true
               },
               "type": {
@@ -1610,6 +1861,10 @@
               "title",
               "scopeDescription",
               "reason",
+              "room",
+              "workCategory",
+              "submission",
+              "invoicing",
               "type",
               "currency",
               "totals",
@@ -2605,7 +2860,14 @@
               "image/png",
               "image/webp",
               "image/heic",
-              "application/pdf"
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "text/csv",
+              "text/plain",
+              "application/acad",
+              "application/dxf"
             ]
           },
           "byteSize": {
@@ -2617,7 +2879,8 @@
             "enum": [
               "CHANGE_ATTACHMENT",
               "BASELINE_DOCUMENT",
-              "ORGANIZATION_LOGO"
+              "ORGANIZATION_LOGO",
+              "PROJECT_DOCUMENT"
             ]
           },
           "projectId": {
@@ -2683,6 +2946,13 @@
       "Dashboard": {
         "type": "object",
         "properties": {
+          "audience": {
+            "type": "string",
+            "enum": [
+              "TEAM",
+              "COLLABORATOR"
+            ]
+          },
           "currency": {
             "type": "string",
             "minLength": 3,
@@ -2702,8 +2972,183 @@
             "type": "number",
             "nullable": true
           },
-          "projectsWithUnbilledApprovedExtras": {
+          "unbilledApprovedTotalMinor": {
             "type": "integer"
+          },
+          "unbilledApprovedCount": {
+            "type": "integer"
+          },
+          "awaitingReviewCount": {
+            "type": "integer"
+          },
+          "awaitingReview": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "projectId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "projectTitle": {
+                  "type": "string"
+                },
+                "customerName": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "ADDITION",
+                    "DEDUCTION",
+                    "SUBSTITUTION",
+                    "TIME_ONLY"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "SENT",
+                    "VIEWED",
+                    "REVISION_REQUESTED",
+                    "APPROVED",
+                    "DECLINED",
+                    "EXPIRED",
+                    "CANCELLED",
+                    "SUPERSEDED"
+                  ]
+                },
+                "versionNumber": {
+                  "type": "integer"
+                },
+                "totalDeltaMinor": {
+                  "type": "integer"
+                },
+                "currency": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3,
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "scheduleDeltaDays": {
+                  "type": "integer"
+                },
+                "sentAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
+                },
+                "decidedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC"
+                },
+                "room": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "workCategory": {
+                  "type": "string",
+                  "enum": [
+                    "CIVIL",
+                    "DEMOLITION",
+                    "PLUMBING",
+                    "ELECTRICAL",
+                    "CARPENTRY",
+                    "MODULAR_KITCHEN",
+                    "FALSE_CEILING",
+                    "FLOORING",
+                    "PAINTING",
+                    "WATERPROOFING",
+                    "HVAC",
+                    "FABRICATION",
+                    "GLASS_ALUMINIUM",
+                    "FURNITURE",
+                    "RENOVATION",
+                    "DESIGN_CHANGE",
+                    "OTHER"
+                  ],
+                  "nullable": true
+                },
+                "projectNumber": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "WEB",
+                    "WHATSAPP",
+                    "IMPORT",
+                    "PASTED",
+                    "COLLABORATOR",
+                    "PORTAL"
+                  ]
+                },
+                "awaitingReview": {
+                  "type": "boolean"
+                },
+                "submittedByLabel": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "invoicedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "id",
+                "projectId",
+                "projectTitle",
+                "customerName",
+                "number",
+                "title",
+                "type",
+                "status",
+                "versionNumber",
+                "totalDeltaMinor",
+                "currency",
+                "scheduleDeltaDays",
+                "sentAt",
+                "decidedAt",
+                "expiresAt",
+                "updatedAt",
+                "room",
+                "workCategory",
+                "projectNumber",
+                "origin",
+                "awaitingReview",
+                "submittedByLabel",
+                "invoicedAt"
+              ],
+              "additionalProperties": false
+            }
           },
           "recentDecisions": {
             "type": "array",
@@ -2790,6 +3235,60 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "ISO 8601 instant in UTC"
+                },
+                "room": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "workCategory": {
+                  "type": "string",
+                  "enum": [
+                    "CIVIL",
+                    "DEMOLITION",
+                    "PLUMBING",
+                    "ELECTRICAL",
+                    "CARPENTRY",
+                    "MODULAR_KITCHEN",
+                    "FALSE_CEILING",
+                    "FLOORING",
+                    "PAINTING",
+                    "WATERPROOFING",
+                    "HVAC",
+                    "FABRICATION",
+                    "GLASS_ALUMINIUM",
+                    "FURNITURE",
+                    "RENOVATION",
+                    "DESIGN_CHANGE",
+                    "OTHER"
+                  ],
+                  "nullable": true
+                },
+                "projectNumber": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "WEB",
+                    "WHATSAPP",
+                    "IMPORT",
+                    "PASTED",
+                    "COLLABORATOR",
+                    "PORTAL"
+                  ]
+                },
+                "awaitingReview": {
+                  "type": "boolean"
+                },
+                "submittedByLabel": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "invoicedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
                 }
               },
               "required": [
@@ -2808,7 +3307,14 @@
                 "sentAt",
                 "decidedAt",
                 "expiresAt",
-                "updatedAt"
+                "updatedAt",
+                "room",
+                "workCategory",
+                "projectNumber",
+                "origin",
+                "awaitingReview",
+                "submittedByLabel",
+                "invoicedAt"
               ],
               "additionalProperties": false
             }
@@ -2898,6 +3404,60 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "ISO 8601 instant in UTC"
+                },
+                "room": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "workCategory": {
+                  "type": "string",
+                  "enum": [
+                    "CIVIL",
+                    "DEMOLITION",
+                    "PLUMBING",
+                    "ELECTRICAL",
+                    "CARPENTRY",
+                    "MODULAR_KITCHEN",
+                    "FALSE_CEILING",
+                    "FLOORING",
+                    "PAINTING",
+                    "WATERPROOFING",
+                    "HVAC",
+                    "FABRICATION",
+                    "GLASS_ALUMINIUM",
+                    "FURNITURE",
+                    "RENOVATION",
+                    "DESIGN_CHANGE",
+                    "OTHER"
+                  ],
+                  "nullable": true
+                },
+                "projectNumber": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "string",
+                  "enum": [
+                    "WEB",
+                    "WHATSAPP",
+                    "IMPORT",
+                    "PASTED",
+                    "COLLABORATOR",
+                    "PORTAL"
+                  ]
+                },
+                "awaitingReview": {
+                  "type": "boolean"
+                },
+                "submittedByLabel": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "invoicedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
                 }
               },
               "required": [
@@ -2916,19 +3476,30 @@
                 "sentAt",
                 "decidedAt",
                 "expiresAt",
-                "updatedAt"
+                "updatedAt",
+                "room",
+                "workCategory",
+                "projectNumber",
+                "origin",
+                "awaitingReview",
+                "submittedByLabel",
+                "invoicedAt"
               ],
               "additionalProperties": false
             }
           }
         },
         "required": [
+          "audience",
           "currency",
           "pendingDecisions",
           "overdueOrExpiring",
           "approvedValueThisMonthMinor",
           "averageHoursToDecision",
-          "projectsWithUnbilledApprovedExtras",
+          "unbilledApprovedTotalMinor",
+          "unbilledApprovedCount",
+          "awaitingReviewCount",
+          "awaitingReview",
           "recentDecisions",
           "awaitingDecision"
         ],
@@ -3213,6 +3784,35 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
             "nullable": true
+          },
+          "party": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "CONSTRUCTION",
+              "ARCHITECT",
+              "CONSULTANT",
+              "OTHER"
+            ],
+            "default": "INTERNAL"
+          },
+          "companyName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "nullable": true
+          },
+          "teamRole": {
+            "type": "string",
+            "enum": [
+              "SITE_SUPERVISOR",
+              "FOREMAN",
+              "CONTRACTOR",
+              "DESIGNER",
+              "WORKER",
+              "OTHER"
+            ],
+            "default": "OTHER"
           }
         },
         "required": [
@@ -3264,6 +3864,31 @@
             "type": "integer",
             "nullable": true
           },
+          "party": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "CONSTRUCTION",
+              "ARCHITECT",
+              "CONSULTANT",
+              "OTHER"
+            ]
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamRole": {
+            "type": "string",
+            "enum": [
+              "SITE_SUPERVISOR",
+              "FOREMAN",
+              "CONTRACTOR",
+              "DESIGNER",
+              "WORKER",
+              "OTHER"
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -3285,6 +3910,9 @@
           "allProjects",
           "projectIds",
           "maxRequestMinor",
+          "party",
+          "companyName",
+          "teamRole",
           "createdAt",
           "updatedAt"
         ],
@@ -3374,7 +4002,10 @@
               "REJECTED_NOT_AUTHORIZED",
               "REJECTED_UNPARSEABLE",
               "REJECTED_POLICY",
-              "ACCEPTED"
+              "ACCEPTED",
+              "SAVED",
+              "AWAITING_CHOICE",
+              "ANSWERED"
             ]
           },
           "fromPhoneMasked": {
@@ -3389,6 +4020,10 @@
             "type": "string",
             "nullable": true
           },
+          "contactName": {
+            "type": "string",
+            "nullable": true
+          },
           "projectId": {
             "type": "string",
             "format": "uuid",
@@ -3399,6 +4034,11 @@
             "nullable": true
           },
           "changeOrderId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "documentId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -3436,15 +4076,505 @@
           "fromPhoneMasked",
           "employeeId",
           "employeeName",
+          "contactName",
           "projectId",
           "projectTitle",
           "changeOrderId",
+          "documentId",
           "body",
           "mediaCount",
           "rejectionReason",
           "replyText",
           "receivedAt",
           "processedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ProposalInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "room": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "workCategory": {
+            "type": "string",
+            "enum": [
+              "CIVIL",
+              "DEMOLITION",
+              "PLUMBING",
+              "ELECTRICAL",
+              "CARPENTRY",
+              "MODULAR_KITCHEN",
+              "FALSE_CEILING",
+              "FLOORING",
+              "PAINTING",
+              "WATERPROOFING",
+              "HVAC",
+              "FABRICATION",
+              "GLASS_ALUMINIUM",
+              "FURNITURE",
+              "RENOVATION",
+              "DESIGN_CHANGE",
+              "OTHER"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000000
+          },
+          "scheduleDeltaDays": {
+            "type": "integer",
+            "minimum": -365,
+            "maximum": 365
+          },
+          "attachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 12,
+            "default": []
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "raisedByEmployeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pasted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "ProposalResult": {
+        "type": "object",
+        "properties": {
+          "changeOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "changeOrderId",
+          "number",
+          "versionId"
+        ],
+        "additionalProperties": false
+      },
+      "DismissProposal": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "MarkInvoiced": {
+        "type": "object",
+        "properties": {
+          "invoiceReference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "additionalProperties": false
+      },
+      "Invoicing": {
+        "type": "object",
+        "properties": {
+          "invoicedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 instant in UTC"
+          },
+          "invoiceReference": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "invoicedAt",
+          "invoiceReference"
+        ],
+        "additionalProperties": false
+      },
+      "ParseIntakeRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "ParseIntakeResponse": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "amountMinor": {
+            "type": "integer",
+            "nullable": true
+          },
+          "days": {
+            "type": "integer",
+            "nullable": true
+          },
+          "room": {
+            "type": "string",
+            "nullable": true
+          },
+          "workCategory": {
+            "type": "string",
+            "enum": [
+              "CIVIL",
+              "DEMOLITION",
+              "PLUMBING",
+              "ELECTRICAL",
+              "CARPENTRY",
+              "MODULAR_KITCHEN",
+              "FALSE_CEILING",
+              "FLOORING",
+              "PAINTING",
+              "WATERPROOFING",
+              "HVAC",
+              "FABRICATION",
+              "GLASS_ALUMINIUM",
+              "FURNITURE",
+              "RENOVATION",
+              "DESIGN_CHANGE",
+              "OTHER"
+            ],
+            "nullable": true
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "title": {
+                "type": "string"
+              },
+              "projectNumber": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "projectNumber"
+            ],
+            "additionalProperties": false,
+            "nullable": true
+          }
+        },
+        "required": [
+          "description",
+          "reason",
+          "amountMinor",
+          "days",
+          "room",
+          "workCategory",
+          "missing",
+          "problems",
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "ContractHistory": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "pattern": "^[A-Z]{3}$"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "BASELINE",
+                    "BASELINE_AMENDMENT",
+                    "APPROVED_CHANGE"
+                  ]
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "deltaMinor": {
+                  "type": "integer"
+                },
+                "runningTotalMinor": {
+                  "type": "integer"
+                },
+                "scheduleDeltaDays": {
+                  "type": "integer"
+                },
+                "changeOrderId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "number": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "reason": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "kind",
+                "occurredAt",
+                "label",
+                "deltaMinor",
+                "runningTotalMinor",
+                "scheduleDeltaDays",
+                "changeOrderId",
+                "number",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "currentTotalMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "entries",
+          "currentTotalMinor"
+        ],
+        "additionalProperties": false
+      },
+      "ReopenProject": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "additionalProperties": false
+      },
+      "NotificationList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "REQUEST_SUBMITTED",
+                    "REQUEST_SENT",
+                    "REQUEST_DISMISSED",
+                    "DECISION_RECORDED",
+                    "DOCUMENT_ADDED",
+                    "NOTE_ADDED",
+                    "COLLABORATOR_JOINED",
+                    "MILESTONE_DUE",
+                    "COMPLETION_DUE",
+                    "WHATSAPP_ATTENTION"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "linkPath": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "projectId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "actorLabel": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC"
+                },
+                "readAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 instant in UTC",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "title",
+                "body",
+                "linkPath",
+                "projectId",
+                "actorLabel",
+                "createdAt",
+                "readAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "unreadCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "unreadCount"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationSummary": {
+        "type": "object",
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "unreadCount": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "organizationId",
+                "unreadCount"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "workspaces"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "emailEnabled": {
+            "type": "boolean"
+          },
+          "completionReminders": {
+            "type": "boolean"
+          },
+          "reminderLeadDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30
+          }
+        },
+        "required": [
+          "emailEnabled",
+          "completionReminders",
+          "reminderLeadDays"
         ],
         "additionalProperties": false
       }
@@ -9615,6 +10745,1190 @@
         "responses": {
           "501": {
             "description": "NOT_IMPLEMENTED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/proposals": {
+      "post": {
+        "tags": [
+          "change-orders"
+        ],
+        "summary": "Raise a request for the designer to review",
+        "description": "Creates a DRAFT with review provenance. It may be incomplete (no price yet); the designer completes it and sends it, or dismisses it. Origin is PASTED when `pasted` is set, COLLABORATOR for a collaborator, otherwise WEB. `raisedByEmployeeId` is accepted from designer roles only and must be on the project.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Project id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Proposal created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/change-orders/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "change-orders"
+        ],
+        "summary": "Dismiss a proposal without sending it",
+        "description": "Designer roles only, and only while the request awaits review (409 NOT_AWAITING_REVIEW otherwise). Cancels the draft and tells whoever raised it why.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Change order id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissProposal"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Dismissed"
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/change-orders/{id}/invoicing": {
+      "post": {
+        "tags": [
+          "change-orders"
+        ],
+        "summary": "Mark an approved change as invoiced",
+        "description": "Owner, admin or accounts. Bookkeeping only: outside the frozen snapshot. Rejected unless the current version is APPROVED.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Change order id"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkInvoiced"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invoiced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoicing"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "change-orders"
+        ],
+        "summary": "Clear the invoiced mark",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Change order id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cleared"
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/intake/parse": {
+      "post": {
+        "tags": [
+          "change-orders"
+        ],
+        "summary": "Read a pasted WhatsApp message (creates nothing)",
+        "description": "Paste-to-draft. Returns what was read, what is missing and the matched project, chosen only among projects the caller can see.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseIntakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the message says",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseIntakeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{id}/contract-history": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Contract value over time with a running total",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Project id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contract history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{id}/reopen": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Reopen a closed project",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Project id"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReopenProject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Reopened"
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "The signed-in user's notifications in the active workspace",
+        "responses": {
+          "200": {
+            "description": "Notifications, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark notifications read, by id or all at once",
+        "responses": {
+          "200": {
+            "description": "Number updated"
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/summary": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Unread counts for every workspace the user belongs to",
+        "responses": {
+          "200": {
+            "description": "Counts per workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/preferences": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Email and reminder preferences",
+        "responses": {
+          "200": {
+            "description": "Preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Replace email and reminder preferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: state, lock, or idempotency",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
             "content": {
               "application/json": {
                 "schema": {
