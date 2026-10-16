@@ -2059,3 +2059,252 @@ a.feed-title:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Slice C: project files, timeline, notification settings ------------- */
+
+/* Buttons used as segmented items (the Files "Add" switch, timeline views). */
+button.segmented-item {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 650;
+  cursor: pointer;
+}
+button.segmented-item + button.segmented-item {
+  border-left: 1px solid var(--rule-2);
+}
+button.segmented-item[aria-current='true'] {
+  background: var(--ink);
+  color: #fff;
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.files > .card {
+  margin-bottom: 0;
+}
+.files-add-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s2);
+}
+.files-add-target {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+.files-add-target label {
+  margin: 0;
+}
+.files-add-target select {
+  min-width: 0;
+  max-width: 220px;
+}
+.files-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px dashed var(--rule-2);
+  border-radius: var(--r);
+  background: var(--sheet-2);
+}
+.files-drop[data-dragging='true'] {
+  border-color: var(--focus);
+  background: var(--sheet-3);
+}
+/* Phones have no drag and drop; the picker is the whole affordance there. */
+@media (hover: none) {
+  .files-drop-hint {
+    display: none;
+  }
+}
+.files-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.files-queue li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.files-queue-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files-queue progress,
+.files-queue-error {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.files-queue li[data-stage='DONE'] .files-queue-stage {
+  color: var(--code-a);
+}
+.files-queue li[data-stage='FAILED'] .files-queue-stage {
+  color: var(--code-d);
+}
+.files-storage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.files-meter {
+  height: 6px;
+  border-radius: var(--r);
+  background: var(--sheet-3);
+  overflow: hidden;
+}
+.files-meter span {
+  display: block;
+  height: 100%;
+  background: var(--ink-2);
+}
+.files-meter[data-full='true'] span {
+  background: var(--code-d);
+}
+.files-approvals {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  padding: var(--s4);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--ink);
+  text-decoration: none;
+}
+.files-approvals:hover {
+  background: var(--sheet-2);
+}
+.files-approvals-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.files-folders {
+  border-top: 1px solid var(--rule-2);
+}
+.files-folder {
+  border-bottom: 1px solid var(--rule-2);
+  background: var(--sheet);
+}
+.files-folder > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  cursor: pointer;
+  list-style: none;
+}
+.files-folder > summary::-webkit-details-marker {
+  display: none;
+}
+.files-folder-name {
+  font-weight: 650;
+  flex: 1;
+  min-width: 0;
+}
+.files-folder-meta {
+  text-align: right;
+}
+.files-folder-body {
+  padding: 0 var(--s3) var(--s3);
+}
+.files-empty {
+  margin: 0 0 var(--s2);
+}
+.files-docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.files-doc {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.files-doc-icon {
+  padding-top: 2px;
+  color: var(--ink-3);
+}
+.files-doc-main {
+  min-width: 0;
+}
+.files-doc-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.files-doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+  margin-top: 2px;
+}
+.files-type {
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.files-note {
+  margin: var(--s2) 0 0;
+  white-space: pre-wrap;
+}
+.files-doc-actions {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+}
+.files-folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.files-manage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  margin-top: var(--s2);
+  padding: var(--s2);
+  background: var(--sheet-2);
+  border-radius: var(--r);
+}
+.files-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+}
+.files-inline-select select {
+  width: auto;
+}
+@media (max-width: 640px) {
+  .files-doc {
+    grid-template-columns: 20px 1fr;
+  }
+  .files-doc-actions {
+    grid-column: 2;
+  }
+}
