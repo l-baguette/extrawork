@@ -632,6 +632,12 @@ describe('decisions and the invoiced mark', () => {
     expect(after.unbilledApprovedTotalMinor).toBe(0);
     const unbilled = await call('GET', '/v1/change-orders?bucket=UNBILLED', owner);
     expect((unbilled.json() as { items: unknown[] }).items).toEqual([]);
+    // The reports ledger lists recent marks from the approved summaries.
+    const approved = await call('GET', '/v1/change-orders?status=APPROVED', owner);
+    const approvedItems = (
+      approved.json() as { items: Array<{ id: string; invoicedAt: string | null }> }
+    ).items;
+    expect(approvedItems.find((item) => item.id === id)?.invoicedAt).toEqual(expect.any(String));
 
     // The mark is bookkeeping; the terms on the same row stay frozen.
     await expect(
