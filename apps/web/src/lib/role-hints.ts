@@ -25,7 +25,7 @@ export function canInvoice(role: MembershipRole | null | undefined): boolean {
   return role === 'OWNER' || role === 'ADMIN' || role === 'FINANCE';
 }
 
-/** Close and reopen a project (`project:close`, which the policy gives owner and admin). */
+/** Close and reopen a project (`project:close`: owner, admin and designers). */
 export function canCloseProject(role: MembershipRole | null | undefined): boolean {
-  return role === 'OWNER' || role === 'ADMIN';
+  return role === 'OWNER' || role === 'ADMIN' || role === 'PROJECT_MANAGER';
 }

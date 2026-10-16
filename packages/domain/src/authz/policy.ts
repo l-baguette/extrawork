@@ -114,6 +114,9 @@ const ROLE_ACTIONS: Record<MembershipRole, ReadonlySet<Action>> = {
     'project:read',
     'project:create',
     'project:update',
+    // The designer leads the project, so finishing it (and reopening it when
+    // the homeowner calls back) is theirs, not only the owner's.
+    'project:close',
     'project:export',
     'change_order:read',
     'change_order:create',
