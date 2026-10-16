@@ -396,7 +396,11 @@ export function Composer({
 
       {review ? (
         <div className="banner banner-info" role="status">
-          <p style={{ marginBottom: review.note || review.attachments.length ? 'var(--space-2)' : 0 }}>
+          <p
+            style={{
+              marginBottom: review.note || review.attachments.length ? 'var(--space-2)' : 0,
+            }}
+          >
             <strong>{review.number}</strong> was raised{' '}
             {review.raisedBy ? (
               <>

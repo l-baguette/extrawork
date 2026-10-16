@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
+  CHANGE_ATTACHMENT_MIME_TYPES,
   ROOM_SUGGESTIONS,
   WORK_CATEGORY_LABELS,
   type ProposalResultDto,
@@ -33,13 +33,10 @@ interface PickedFile {
 
 const MAX_FILES = 12;
 
-export function RaiseRequestForm({
-  projectId,
-  currency,
-}: {
-  projectId: string;
-  currency: string;
-}) {
+/** What a request may carry: the change-attachment allowlist, not every upload type. */
+const ACCEPT = [...CHANGE_ATTACHMENT_MIME_TYPES].join(',');
+
+export function RaiseRequestForm({ projectId, currency }: { projectId: string; currency: string }) {
   const router = useRouter();
   const idempotencyKey = useRef(newIdempotencyKey());
   const [description, setDescription] = useState('');
@@ -57,18 +54,24 @@ export function RaiseRequestForm({
   const amountMinor = amount.trim() ? parseMoneyToMinor(amount, currency) : null;
   const amountInvalid = amount.trim() !== '' && (amountMinor === null || amountMinor < 0);
   const daysValue = days.trim() ? Number(days) : 0;
-  const daysInvalid = days.trim() !== '' && (!Number.isInteger(daysValue) || Math.abs(daysValue) > 365);
+  const daysInvalid =
+    days.trim() !== '' && (!Number.isInteger(daysValue) || Math.abs(daysValue) > 365);
 
   function pick(list: FileList | null): void {
     if (!list) return;
-    const room = MAX_FILES - files.length;
-    for (const file of Array.from(list).slice(0, Math.max(0, room))) {
+    const slots = MAX_FILES - files.length;
+    for (const file of Array.from(list).slice(0, Math.max(0, slots))) {
       const key = `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`;
       const checked = preflightUpload(file);
-      if (!checked.ok) {
+      const reason = !checked.ok
+        ? checked.reason
+        : CHANGE_ATTACHMENT_MIME_TYPES.has(checked.contentType)
+          ? null
+          : 'That kind of file cannot be attached to a request. Add it to the project files instead.';
+      if (reason) {
         setFiles((current) => [
           ...current,
-          { key, name: file.name, state: 'FAILED', fileObjectId: null, detail: checked.reason },
+          { key, name: file.name, state: 'FAILED', fileObjectId: null, detail: reason },
         ]);
         continue;
       }
@@ -78,15 +81,22 @@ export function RaiseRequestForm({
       ]);
       void uploadAttachment(file, projectId).then(
         ({ fileObjectId, scan }) => {
-          const rejected = scan?.scanStatus === 'REJECTED';
+          // Only a scanned-clean file can be attached; the server refuses the
+          // whole request otherwise, so say which file and why here instead.
+          const clean = scan?.scanStatus === 'CLEAN';
+          const detail = clean
+            ? null
+            : scan?.scanStatus === 'REJECTED'
+              ? 'This file did not pass the safety check.'
+              : 'The safety check has not finished. Remove it and try again in a moment.';
           setFiles((current) =>
             current.map((f) =>
               f.key === key
                 ? {
                     ...f,
-                    state: rejected ? 'FAILED' : 'READY',
-                    fileObjectId: rejected ? null : fileObjectId,
-                    detail: rejected ? 'This file did not pass the safety check.' : null,
+                    state: clean ? 'READY' : 'FAILED',
+                    fileObjectId: clean ? fileObjectId : null,
+                    detail,
                   }
                 : f,
             ),
@@ -258,7 +268,7 @@ export function RaiseRequestForm({
           id="rr-files"
           type="file"
           multiple
-          accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+          accept={ACCEPT}
           disabled={files.length >= MAX_FILES}
           onChange={(event) => {
             pick(event.target.files);
@@ -271,7 +281,9 @@ export function RaiseRequestForm({
               <li key={file.key}>
                 {file.name} —{' '}
                 {file.state === 'UPLOADING' ? 'uploading…' : file.state === 'READY' ? 'ready' : ''}
-                {file.state === 'FAILED' ? <span className="field-error">{file.detail}</span> : null}{' '}
+                {file.state === 'FAILED' ? (
+                  <span className="field-error">{file.detail}</span>
+                ) : null}{' '}
                 {file.state !== 'UPLOADING' ? (
                   <button
                     type="button"
@@ -300,8 +312,8 @@ export function RaiseRequestForm({
       </div>
 
       <p className="hint" style={{ marginBottom: 0 }}>
-        This goes to the design team, not to the homeowner. They will check it, price it and send
-        it on.
+        This goes to the design team, not to the homeowner. They will check it, price it and send it
+        on.
       </p>
 
       <div className="sticky-actions">

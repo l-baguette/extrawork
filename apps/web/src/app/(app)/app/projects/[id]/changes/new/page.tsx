@@ -1,12 +1,9 @@
 import Link from 'next/link';
 import type { ChangeOrderDto, CustomerDto, ProjectDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
-import { activeMembership, isDesigner } from '@/lib/active-role';
+import { activeMembership, canPropose, isDesigner } from '@/lib/active-role';
 import { Composer } from '@/features/composer/composer';
-import {
-  composerValuesFromChange,
-  reviewContextFromChange,
-} from '@/features/composer/from-change';
+import { composerValuesFromChange, reviewContextFromChange } from '@/features/composer/from-change';
 import { ErrorPanel } from '@/components/error-panel';
 
 /**
@@ -37,14 +34,25 @@ export default async function NewChangePage({
   if (!projectResult.ok) return null;
   const project = projectResult.data;
 
+  // Presentation only: the API refuses an edit or send from these roles anyway.
   if (membership && !isDesigner(membership.role)) {
-    return (
+    return canPropose(membership.role) ? (
       <Notice
         title="Requests go to the design team"
         message="You can raise a request on this project and the designer will price it and send it to the homeowner."
         action={
           <Link className="btn btn-primary" href={`/app/projects/${project.id}/requests/new`}>
             Raise a request
+          </Link>
+        }
+      />
+    ) : (
+      <Notice
+        title="Only the design team writes requests"
+        message="Your role can read this project and its requests, but not raise or edit them."
+        action={
+          <Link className="btn" href={`/app/projects/${project.id}/requests`}>
+            Back to requests
           </Link>
         }
       />

@@ -121,7 +121,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               </thead>
               <tbody>
                 {history.map((entry, index) => (
-                  <tr key={`${entry.kind}-${entry.changeOrderId ?? index}`}>
+                  <tr key={`${index}-${entry.kind}-${entry.changeOrderId ?? ''}`}>
                     <td className="small">{formatDate(entry.occurredAt)}</td>
                     <td>
                       {entry.changeOrderId ? (
@@ -148,7 +148,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </section>
       ) : null}
 
-      {canCloseProject(membership?.role) && (closed || project.status === 'ACTIVE') ? (
+      {canCloseProject(membership?.role) &&
+      project.status !== 'ARCHIVED' &&
+      project.status !== 'INTEGRITY_REVIEW' ? (
         <ProjectLifecycle projectId={project.id} closed={closed} />
       ) : null}
     </>

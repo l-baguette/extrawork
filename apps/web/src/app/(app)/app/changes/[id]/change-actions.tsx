@@ -54,6 +54,10 @@ export function ChangeActions({
   const awaitingReview = version.submission.awaitingReview;
   const editHref = `/app/projects/${change.projectId}/changes/new?changeOrderId=${change.id}`;
   const showInvoicing = viewer.canInvoice && version.status === 'APPROVED';
+  // A collaborator looking at their own proposal has nothing to do here yet;
+  // an empty "Actions" card would read as something failing to load.
+  const hasActions =
+    (viewer.designer && (isDraft || isOpen || canRevise)) || isDecided || showInvoicing;
 
   async function run<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
     setBusy(label);
@@ -84,6 +88,8 @@ export function ChangeActions({
       />
     );
   }
+
+  if (!hasActions) return null;
 
   return (
     <section className="card" aria-labelledby="actions-heading">
@@ -140,7 +146,11 @@ export function ChangeActions({
                   >
                     {busy === 'dismiss' ? 'Dismissing…' : 'Dismiss request'}
                   </button>
-                  <button type="button" className="btn btn-quiet" onClick={() => setDismissing(false)}>
+                  <button
+                    type="button"
+                    className="btn btn-quiet"
+                    onClick={() => setDismissing(false)}
+                  >
                     Keep it
                   </button>
                 </div>
