@@ -3007,3 +3007,525 @@ a.feed-title:hover {
     justify-content: flex-end;
   }
 }
+
+/* --- Slice C: project files, timeline, notification settings ------------- */
+
+/* Buttons used as segmented items (the Files "Add" switch, timeline views). */
+button.segmented-item {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 650;
+  cursor: pointer;
+}
+button.segmented-item + button.segmented-item {
+  border-left: 1px solid var(--rule-2);
+}
+button.segmented-item[aria-current='true'] {
+  background: var(--ink);
+  color: #fff;
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.files > .card {
+  margin-bottom: 0;
+}
+.files-add-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s2);
+}
+.files-add-target {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+.files-add-target label {
+  margin: 0;
+}
+.files-add-target select {
+  min-width: 0;
+  max-width: 220px;
+}
+.files-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px dashed var(--rule-2);
+  border-radius: var(--r);
+  background: var(--sheet-2);
+}
+.files-drop[data-dragging='true'] {
+  border-color: var(--focus);
+  background: var(--sheet-3);
+}
+/* Phones have no drag and drop; the picker is the whole affordance there. */
+@media (hover: none) {
+  .files-drop-hint {
+    display: none;
+  }
+}
+.files-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.files-queue li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.files-queue-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files-queue progress,
+.files-queue-error {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.files-queue li[data-stage='DONE'] .files-queue-stage {
+  color: var(--code-a);
+}
+.files-queue li[data-stage='FAILED'] .files-queue-stage {
+  color: var(--code-d);
+}
+.files-storage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.files-meter {
+  height: 6px;
+  border-radius: var(--r);
+  background: var(--sheet-3);
+  overflow: hidden;
+}
+.files-meter span {
+  display: block;
+  height: 100%;
+  background: var(--ink-2);
+}
+.files-meter[data-full='true'] span {
+  background: var(--code-d);
+}
+.files-approvals {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  padding: var(--s4);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  background: var(--sheet);
+  color: var(--ink);
+  text-decoration: none;
+}
+.files-approvals:hover {
+  background: var(--sheet-2);
+}
+.files-approvals-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.files-folders {
+  border-top: 1px solid var(--rule-2);
+}
+.files-folder {
+  border-bottom: 1px solid var(--rule-2);
+  background: var(--sheet);
+}
+.files-folder > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  cursor: pointer;
+  list-style: none;
+}
+.files-folder > summary::-webkit-details-marker {
+  display: none;
+}
+.files-folder-name {
+  font-weight: 650;
+  flex: 1;
+  min-width: 0;
+}
+.files-folder-meta {
+  text-align: right;
+}
+.files-folder-body {
+  padding: 0 var(--s3) var(--s3);
+}
+.files-empty {
+  margin: 0 0 var(--s2);
+}
+.files-docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.files-doc {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.files-doc-icon {
+  padding-top: 2px;
+  color: var(--ink-3);
+}
+.files-doc-main {
+  min-width: 0;
+}
+.files-doc-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.files-doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+  margin-top: 2px;
+}
+.files-type {
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.files-note {
+  margin: var(--s2) 0 0;
+  white-space: pre-wrap;
+}
+.files-doc-actions {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+}
+.files-folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.files-manage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  margin-top: var(--s2);
+  padding: var(--s2);
+  background: var(--sheet-2);
+  border-radius: var(--r);
+}
+.files-inline-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+}
+.files-inline-select select {
+  width: auto;
+}
+@media (max-width: 640px) {
+  .files-doc {
+    grid-template-columns: 20px 1fr;
+  }
+  .files-doc-actions {
+    grid-column: 2;
+  }
+}
+
+/* Project timeline: milestones and the agenda. */
+.timeline > .card:last-child {
+  margin-bottom: 0;
+}
+.timeline-list {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.timeline-item {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.timeline-item[data-complete='true'] .timeline-item-title {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+.timeline-check {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+}
+.timeline-item-main {
+  min-width: 0;
+}
+.timeline-item-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.timeline-notes {
+  margin: var(--s1) 0 0;
+  white-space: pre-wrap;
+}
+.timeline-form {
+  margin-top: var(--s3);
+  padding: var(--s3);
+  background: var(--sheet-2);
+  border-radius: var(--r);
+}
+@media (max-width: 640px) {
+  .timeline-item {
+    grid-template-columns: 24px 1fr;
+  }
+  .timeline-item > .actions {
+    grid-column: 2;
+  }
+}
+
+.agenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.agenda-day {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.agenda-day[data-today='true'] .agenda-date span:first-child {
+  font-weight: 700;
+  color: var(--ink);
+}
+.agenda-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ink-2);
+}
+.agenda-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.agenda-events > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.agenda-title {
+  font-weight: 600;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .agenda-day {
+    grid-template-columns: 1fr;
+    gap: var(--s2);
+  }
+  .agenda-date {
+    flex-direction: row;
+    gap: var(--s2);
+  }
+}
+
+/* All-projects timeline: toolbar, month grid, feed card. */
+.cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--s4) 0;
+}
+.cal-nav,
+.cal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+.cal-month {
+  margin: 0 0 0 var(--s2);
+  font-size: var(--t-lead);
+}
+.cal-filter select {
+  max-width: 260px;
+}
+.cal-grid {
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  background: var(--sheet);
+  margin-bottom: var(--s4);
+}
+.cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.cal-row + .cal-row {
+  border-top: 1px solid var(--rule);
+}
+.cal-head {
+  background: var(--sheet-3);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.cal-head span {
+  padding: var(--s1) var(--s2);
+}
+.cal-cell {
+  min-height: 96px;
+  padding: var(--s1);
+  min-width: 0;
+}
+.cal-cell + .cal-cell {
+  border-left: 1px solid var(--rule);
+}
+.cal-cell[data-outside='true'] {
+  background: var(--sheet-2);
+  color: var(--ink-3);
+}
+.cal-day {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  font-size: var(--t-small);
+  font-weight: 650;
+  color: inherit;
+  text-decoration: none;
+}
+.cal-cell[data-today='true'] .cal-day {
+  background: var(--ink);
+  color: #fff;
+  border-radius: var(--r);
+}
+.cal-events {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cal-event {
+  display: block;
+  padding: 1px var(--s1);
+  font-size: var(--t-micro);
+  line-height: 1.4;
+  border-left: 3px solid var(--code-n);
+  background: var(--code-n-bg);
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-event-approved {
+  border-color: var(--code-a);
+  background: var(--code-a-bg);
+}
+.cal-event-waiting {
+  border-color: var(--code-w);
+  background: var(--code-w-bg);
+}
+.cal-event-declined {
+  border-color: var(--code-d);
+  background: var(--code-d-bg);
+}
+.cal-more {
+  padding-left: var(--s1);
+  font-size: var(--t-micro);
+}
+/* Wide screens read the grid; the list below repeats it only on phones. */
+.cal-month-list {
+  display: none;
+}
+@media (max-width: 760px) {
+  .cal-cell {
+    min-height: 52px;
+    padding: 2px;
+  }
+  .cal-head span {
+    padding: var(--s1) 2px;
+    text-align: center;
+  }
+  .cal-day {
+    min-width: 22px;
+    height: 22px;
+  }
+  /* Events become marks: a day with something on it reads at a glance. */
+  .cal-events {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .cal-event {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border-left-width: 8px;
+    font-size: 0;
+  }
+  .cal-more {
+    display: none;
+  }
+  .cal-month-list {
+    display: block;
+    margin-bottom: var(--s4);
+  }
+}
+.feed-url {
+  display: flex;
+  gap: var(--s2);
+}
+.feed-url input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--t-small);
+}
+.feed-steps {
+  margin: 0;
+  padding-left: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}

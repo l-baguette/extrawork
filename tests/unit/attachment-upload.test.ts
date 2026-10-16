@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROJECT_FILE_TYPES,
+  acceptAttribute,
   pollScanStatus,
   preflightUpload,
   resolveContentType,
@@ -83,6 +85,90 @@ describe('preflightUpload', () => {
   it('rejects an empty file', () => {
     const result = preflightUpload({ name: 'empty.jpg', type: 'image/jpeg', size: 0 });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('project files (spec 2026-10-12, D10)', () => {
+  const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  it('falls back to the extension list for every project type when the browser reports none', () => {
+    const project = { allowed: PROJECT_FILE_TYPES };
+    expect(resolveContentType({ name: 'BOQ.xlsx', type: '' }, PROJECT_FILE_TYPES)).toBe(XLSX);
+    expect(
+      resolveContentType(
+        { name: 'plan.DWG', type: 'application/octet-stream' },
+        PROJECT_FILE_TYPES,
+      ),
+    ).toBe('application/acad');
+    expect(resolveContentType({ name: 'site.dxf', type: '' }, PROJECT_FILE_TYPES)).toBe(
+      'application/dxf',
+    );
+    expect(preflightUpload({ name: 'notes.txt', type: '', size: 20 }, project)).toEqual({
+      ok: true,
+      contentType: 'text/plain',
+      filename: 'notes.txt',
+    });
+  });
+
+  it('maps the Excel type Windows reports for a .csv only when the extension agrees', () => {
+    expect(
+      resolveContentType(
+        { name: 'rates.csv', type: 'application/vnd.ms-excel' },
+        PROJECT_FILE_TYPES,
+      ),
+    ).toBe('text/csv');
+    expect(
+      resolveContentType(
+        { name: 'rates.xls', type: 'application/vnd.ms-excel' },
+        PROJECT_FILE_TYPES,
+      ),
+    ).toBeNull();
+  });
+
+  it('refuses legacy and macro-enabled Office files with a save-as message', () => {
+    const legacy = preflightUpload(
+      { name: 'BOQ.xls', type: 'application/vnd.ms-excel', size: 100 },
+      { allowed: PROJECT_FILE_TYPES },
+    );
+    expect(legacy).toEqual({
+      ok: false,
+      reason:
+        'Older .xls/.doc files can carry macros. Save it as .xlsx or .docx and upload it again.',
+    });
+    const macro = preflightUpload(
+      { name: 'rates.xlsm', type: '', size: 100 },
+      { allowed: PROJECT_FILE_TYPES },
+    );
+    expect(macro.ok).toBe(false);
+    if (!macro.ok) expect(macro.reason).toContain('macros');
+  });
+
+  it('keeps the composer to change-attachment types even for a known project type', () => {
+    expect(resolveContentType({ name: 'plan.dwg', type: '' })).toBeNull();
+    expect(resolveContentType({ name: 'BOQ.xlsx', type: '' })).toBe(XLSX);
+    const result = preflightUpload({ name: 'plan.dwg', type: '', size: 100 });
+    expect(result.ok).toBe(false);
+  });
+
+  it('applies the per-type cap, so a 40 MB drawing passes and a 40 MB CSV does not', () => {
+    const project = { allowed: PROJECT_FILE_TYPES };
+    expect(preflightUpload({ name: 'a.dwg', type: '', size: 40 * 1024 * 1024 }, project).ok).toBe(
+      true,
+    );
+    const csv = preflightUpload(
+      { name: 'a.csv', type: 'text/csv', size: 40 * 1024 * 1024 },
+      project,
+    );
+    expect(csv.ok).toBe(false);
+    if (!csv.ok) expect(csv.reason).toContain('5 MB');
+  });
+
+  it('builds an accept list of types and extensions', () => {
+    const accept = acceptAttribute(PROJECT_FILE_TYPES).split(',');
+    expect(accept).toContain('application/acad');
+    expect(accept).toContain('.dwg');
+    expect(accept).toContain('.xlsx');
+    expect(accept).not.toContain('.xls');
   });
 });
 

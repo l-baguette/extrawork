@@ -9,6 +9,7 @@ export * from './s3-store.js';
 export * from './local-store.js';
 export * from './validation.js';
 export * from './scanner.js';
+export * from './office.js';
 
 /** Chooses the storage driver from configuration. */
 export function createObjectStore(env: Env): ObjectStore {

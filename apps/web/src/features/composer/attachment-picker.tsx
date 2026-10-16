@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ALLOWED_UPLOAD_MIME_TYPES } from '@extrawork/contracts';
+import { CHANGE_ATTACHMENT_MIME_TYPES } from '@extrawork/contracts';
 import { api, ApiError } from '@/lib/api';
-import { preflightUpload } from './attachment-upload';
+import { acceptAttribute, preflightUpload } from './attachment-upload';
 import { uploadAttachment } from './attachment-client';
 
 /**
@@ -252,7 +252,7 @@ export function AttachmentPicker({
         // No `capture` attribute: on a phone this offers the camera *and* the
         // gallery. Forcing the camera would block the common case of a
         // photograph the site lead already took an hour ago.
-        accept={ALLOWED_UPLOAD_MIME_TYPES.join(',')}
+        accept={acceptAttribute(CHANGE_ATTACHMENT_MIME_TYPES)}
         onChange={(event) => {
           if (event.target.files) void handleFiles(event.target.files);
           event.target.value = '';

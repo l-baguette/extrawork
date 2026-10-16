@@ -10,6 +10,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AppError } from '@extrawork/contracts';
 import {
   assertSafeKey,
+  type DownloadOptions,
   type ObjectMetadata,
   type ObjectStore,
   type PresignedUpload,
@@ -73,16 +74,26 @@ export class S3ObjectStore implements ObjectStore {
     };
   }
 
-  async createDownload(key: string, ttlSeconds: number, filename?: string): Promise<string> {
+  async createDownload(
+    key: string,
+    ttlSeconds: number,
+    filename?: string,
+    options: DownloadOptions = {},
+  ): Promise<string> {
     assertSafeKey(key);
+    const name = (filename ?? 'file').replace(/["\\\r\n]/g, '');
     const get = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,
       // Forces a download rather than inline rendering of an untrusted file
       // (report §12.2 "restrict serving headers").
-      ...(filename
-        ? { ResponseContentDisposition: `attachment; filename="${filename.replace(/"/g, '')}"` }
+      ...(filename || options.forceDownload
+        ? { ResponseContentDisposition: `attachment; filename="${name}"` }
         : {}),
+      // S3 cannot be asked for `X-Content-Type-Options` per URL, so the
+      // equivalent is to override the type itself: opaque bytes are never
+      // sniffed into something renderable (spec 2026-10-12, D10).
+      ...(options.forceDownload ? { ResponseContentType: 'application/octet-stream' } : {}),
     });
     return getSignedUrl(this.client, get, { expiresIn: ttlSeconds });
   }

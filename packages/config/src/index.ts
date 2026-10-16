@@ -107,11 +107,16 @@ export const EnvSchema = z.object({
   /** Filesystem root when STORAGE_DRIVER=local. Never web-served directly. */
   STORAGE_LOCAL_ROOT: z.string().default('./.data/storage'),
   SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+  /**
+   * The ceiling on any single upload. 50 MiB matches the largest per-type cap
+   * (PowerPoint, DWG/DXF drawings — spec 2026-10-12, D10); the per-type caps in
+   * `MAX_FILE_BYTES` still apply beneath it, so a photo stays at 15 MB.
+   */
   MAX_UPLOAD_BYTES: z.coerce
     .number()
     .int()
     .min(1024)
-    .default(15 * 1024 * 1024),
+    .default(50 * 1024 * 1024),
   MAX_ATTACHMENTS_PER_VERSION: z.coerce.number().int().min(1).max(50).default(12),
 
   // --- Messaging -----------------------------------------------------------

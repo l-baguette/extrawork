@@ -233,6 +233,16 @@ export async function scheduleRecurringJobs(ctx: WorkerContext): Promise<void> {
       dedupeKey: `retention:${dayWindow}`,
     },
   );
+  // Milestone and completion-date reminders (spec 2026-10-12, D14).
+  await enqueueJob(
+    { db: ctx.db },
+    {
+      kind: JOB_KINDS.SEND_DUE_REMINDERS,
+      organizationId: null,
+      payload: {},
+      dedupeKey: `due-reminders:${dayWindow}`,
+    },
+  );
 }
 
 /** Promotes due reminders from the schedule table into the job queue. */

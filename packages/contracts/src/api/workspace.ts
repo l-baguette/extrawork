@@ -186,4 +186,7 @@ export type MilestoneDto = z.infer<typeof MilestoneSchema>;
 
 export const MilestoneListSchema = z.object({
   items: z.array(MilestoneSchema),
+  /** True when the signed-in user may add, edit, complete or delete (designer roles). */
+  canManage: z.boolean(),
 });
+export type MilestoneListDto = z.infer<typeof MilestoneListSchema>;
