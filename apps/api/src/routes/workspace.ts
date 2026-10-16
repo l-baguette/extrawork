@@ -10,7 +10,7 @@ import {
   type ProjectFolderDto,
   type ProjectWorkspaceDto,
 } from '@extrawork/contracts';
-import { WorkspaceService, type AppContext, type WorkspaceView } from '@extrawork/application';
+import type { AppContext, WorkspaceService, WorkspaceView } from '@extrawork/application';
 import type { DocumentRow, FolderRow } from '@extrawork/db';
 import { detectLinkProvider, type Actor } from '@extrawork/domain';
 import { isImage } from '@extrawork/files';
