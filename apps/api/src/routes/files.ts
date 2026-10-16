@@ -91,14 +91,29 @@ export async function registerFileRoutes(
   if (appContext.objectStore instanceof LocalObjectStore) {
     const store = appContext.objectStore;
 
+    // The token is a wildcard, not a `:token` parameter: a signed payload
+    // (key + op + expiry + content type + byte cap) is ~250 characters, past
+    // Fastify's default 100-character `maxParamLength`, and an over-long
+    // parameter makes the router answer 404 before the handler ever runs.
+    const localToken = (params: unknown): string =>
+      z
+        .object({
+          '*': z
+            .string()
+            .min(16)
+            .max(2048)
+            .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
+        })
+        .parse(params)['*'];
+
     // The global body limit is 1 MiB; a signed local PUT carries a whole file,
     // up to the upload ceiling (spec 2026-10-12, D11), and its token already
     // pins the exact byte count it may write.
     app.put(
-      '/v1/files/local/:token',
+      '/v1/files/local/*',
       { bodyLimit: appContext.env.MAX_UPLOAD_BYTES },
       async (request, reply) => {
-        const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
+        const token = localToken(request.params);
         const payload = store.verify(token);
         if (payload.op !== 'put') throw new AppError('NOT_FOUND');
 
@@ -115,8 +130,8 @@ export async function registerFileRoutes(
       },
     );
 
-    app.get('/v1/files/local/:token', async (request, reply) => {
-      const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
+    app.get('/v1/files/local/*', async (request, reply) => {
+      const token = localToken(request.params);
       const { filename } = z
         .object({ filename: z.string().max(255).optional() })
         .parse(request.query);
