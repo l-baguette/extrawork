@@ -5,7 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'ExtraWork',
   description:
-    'Record customer-approved extra work with a price, a schedule impact and an evidence trail.',
+    'Every project organised in one place: files, timeline, the people on it, and every change approved by the homeowner.',
   // Public approval routes additionally send X-Robots-Tag from next.config.mjs.
   robots: { index: false, follow: false },
 };
