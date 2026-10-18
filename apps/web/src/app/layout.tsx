@@ -20,8 +20,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-IN">
-      <body>
+    // Browser extensions (Grammarly, password managers, translators) write
+    // attributes onto <html> and <body> before React hydrates, which React then
+    // reports as a server/client mismatch. Suppressing the warning on these two
+    // elements only affects their own attributes, not anything inside them.
+    <html lang="en-IN" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {/*
           THESIS: An evidence console built as a reinforcement schedule — the dense
           coded table every Indian site already reads — refusing the SaaS card grid
