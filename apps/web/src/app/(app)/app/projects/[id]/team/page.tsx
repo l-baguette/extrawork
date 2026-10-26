@@ -1,6 +1,8 @@
 import type {
   CurrentUserDto,
+  CustomerDto,
   EmployeeDto,
+  PortalLinkDto,
   ProjectCollaboratorsDto,
   ProjectDto,
 } from '@extrawork/contracts';
@@ -8,6 +10,7 @@ import { serverGet } from '@/lib/server-fetch';
 import { ErrorPanel } from '@/components/error-panel';
 import { Block } from '@/components/sheet';
 import { ProjectTeam } from '../project-team';
+import { HomeownerAccess } from './homeowner-access';
 import { ProjectPeople } from './project-people';
 import { RaciMatrix } from './raci-matrix';
 
@@ -53,6 +56,15 @@ export default async function ProjectTeamPage({ params }: { params: Promise<{ id
   const project = projectResult.data;
   const { people, invitations } = peopleResult.data;
 
+  // Homeowner portal links are a designer action (portal:share), so they are
+  // only asked for on a designer's behalf (spec 2026-10-12, D5).
+  const [linksResult, customerResult] = canManage
+    ? await Promise.all([
+        serverGet<{ items: PortalLinkDto[] }>(`/v1/projects/${id}/portal-links`),
+        serverGet<CustomerDto>(`/v1/customers/${project.customerId}`),
+      ])
+    : [null, null];
+
   return (
     <>
       <ProjectPeople
@@ -77,7 +89,14 @@ export default async function ProjectTeamPage({ params }: { params: Promise<{ id
         />
       </Block>
 
-      {/* Slice D: homeowner portal access */}
+      {canManage && linksResult?.ok ? (
+        <HomeownerAccess
+          projectId={id}
+          links={linksResult.data.items}
+          contacts={customerResult?.ok ? customerResult.data.contacts : []}
+          defaultContactId={project.defaultApproverContactId}
+        />
+      ) : null}
     </>
   );
 }

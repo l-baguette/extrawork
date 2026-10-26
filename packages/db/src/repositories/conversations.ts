@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { TenantContext } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
 import { newId } from '../ids.js';
 import { toDate, toDateOrNull, toJsonOrNull } from '../row-types.js';
@@ -156,6 +157,81 @@ export class ConversationRepository {
       `),
     );
     return result.rows.map(mapConversation);
+  }
+
+  // --- Tenant-scoped reads the channel needs once the project is known --------
+
+  /**
+   * The live documents a WhatsApp message was filed as, for the one-word
+   * REQUEST correction that withdraws them.
+   */
+  async documentsForInbound(
+    db: Database,
+    ctx: TenantContext,
+    inboundMessageId: string,
+  ): Promise<Array<{ id: string; fileObjectId: string | null; mimeType: string | null }>> {
+    const result = await db.execute<{
+      id: string;
+      file_object_id: string | null;
+      mime_type: string | null;
+    }>(sql`
+      SELECT d.id, d.file_object_id,
+             COALESCE(fo.detected_mime_type, fo.declared_mime_type) AS mime_type
+      FROM project_documents d
+      LEFT JOIN file_objects fo
+        ON fo.organization_id = d.organization_id AND fo.id = d.file_object_id
+      WHERE d.organization_id = ${ctx.organizationId}::uuid
+        AND d.inbound_message_id = ${inboundMessageId}::uuid
+        AND d.deleted_at IS NULL
+      ORDER BY d.created_at, d.id
+    `);
+    return result.rows.map((r) => ({
+      id: r.id,
+      fileObjectId: r.file_object_id,
+      mimeType: r.mime_type,
+    }));
+  }
+
+  /**
+   * Requests still open on a project, for the STATUS and (site team)
+   * CONTRACTS replies: with the designer for review, or waiting on the
+   * homeowner. One row per request, at its current version.
+   */
+  async openRequests(
+    ctx: TenantContext,
+    projectId: string,
+    limit = 8,
+  ): Promise<
+    Array<{ number: string; title: string; status: string; awaitingReview: boolean }>
+  > {
+    const result = await this.db.execute<{
+      number: string;
+      title: string;
+      status: string;
+      awaiting_review: boolean;
+    }>(sql`
+      SELECT number, title, status, awaiting_review FROM (
+        SELECT DISTINCT ON (co.id)
+          co.number, v.title, v.status::text AS status, v.created_at,
+          (v.status = 'DRAFT' AND v.submitted_for_review_at IS NOT NULL
+            AND v.reviewed_at IS NULL) AS awaiting_review
+        FROM change_orders co
+        JOIN change_order_versions v
+          ON v.organization_id = co.organization_id AND v.change_order_id = co.id
+        WHERE co.organization_id = ${ctx.organizationId}::uuid
+          AND co.project_id = ${projectId}::uuid
+        ORDER BY co.id, v.version_number DESC
+      ) current
+      WHERE status IN ('SENT', 'VIEWED', 'REVISION_REQUESTED') OR awaiting_review
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `);
+    return result.rows.map((r) => ({
+      number: r.number,
+      title: r.title,
+      status: r.status,
+      awaitingReview: r.awaiting_review,
+    }));
   }
 }
 
