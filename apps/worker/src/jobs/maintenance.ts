@@ -1,8 +1,14 @@
 import { DOMAIN_EVENTS, JOB_KINDS } from '@extrawork/contracts';
-import { enqueueJob, listAggregatesForOrganization, readChain, type JobRow } from '@extrawork/db';
-import { systemTenantContext, verifyChain } from '@extrawork/domain';
+import {
+  enqueueJob,
+  listAggregatesForOrganization,
+  verifyAggregateChain,
+  type JobRow,
+} from '@extrawork/db';
+import { systemTenantContext } from '@extrawork/domain';
 import { METRIC, metrics } from '@extrawork/observability';
 import type { WorkerContext } from '../context.js';
+import { sendReply } from './inbound.js';
 
 /**
  * Recurring maintenance — report §13.3 (projection integrity), §4.3 (expiry),
@@ -17,6 +23,8 @@ import type { WorkerContext } from '../context.js';
  * from SENT and VIEWED, and the token is revoked with it.
  */
 export async function expireRequests(_job: JobRow, ctx: WorkerContext): Promise<void> {
+  await expireWhatsAppChoices(ctx);
+
   const now = ctx.app.clock.now();
   const due = await ctx.repos.changeOrders.findExpiredVersions(200);
   if (due.length === 0) return;
@@ -28,14 +36,14 @@ export async function expireRequests(_job: JobRow, ctx: WorkerContext): Promise<
       // Re-read under a row lock. A decision may have committed between the
       // scan and this transaction, and a decided version must never be
       // overwritten with EXPIRED (report §4.6, first committed decision wins).
-      const version = await ctx.repos.changeOrders.lockVersion(tx, candidate.id);
+      const version = await ctx.repos.changeOrders.lockVersion(tx, tenant, candidate.id);
       if (!version) return false;
       if (version.status !== 'SENT' && version.status !== 'VIEWED') return false;
       if (!version.expiresAt || version.expiresAt.getTime() > now.getTime()) return false;
 
-      await ctx.repos.changeOrders.setStatus(tx, version.id, 'EXPIRED', now);
-      await ctx.repos.approvals.revokeForVersion(tx, version.id, 'EXPIRED');
-      await ctx.repos.reminders.cancelForVersion(tx, version.id, 'EXPIRED');
+      await ctx.repos.changeOrders.setStatus(tx, tenant, version.id, 'EXPIRED', now);
+      await ctx.repos.approvals.revokeForVersion(tx, tenant.organizationId, version.id, 'EXPIRED');
+      await ctx.repos.reminders.cancelForVersion(tx, tenant.organizationId, version.id, 'EXPIRED');
       await ctx.repos.audit.append(tx, tenant, [
         {
           aggregateType: 'change_order',
@@ -108,16 +116,19 @@ export async function checkProjectIntegrity(_job: JobRow, ctx: WorkerContext): P
   for (const organizationId of organizationIds) {
     const tenant = systemTenantContext(organizationId, 'job:integrity');
     for (const aggregate of await listAggregatesForOrganization(ctx.db, organizationId)) {
-      const events = await readChain(
+      const verification = await verifyAggregateChain(
         ctx.db,
         tenant,
         aggregate.aggregateType,
         aggregate.aggregateId,
       );
-      if (!verifyChain(events).valid) {
+      if (!verification.valid) {
         invalidChains += 1;
         metrics.counter(METRIC.AUDIT_CHAIN_INVALID, 'Audit chains that failed verification');
-        ctx.logger.error({ organizationId, ...aggregate }, 'audit chain failed verification');
+        ctx.logger.error(
+          { organizationId, ...aggregate, reason: verification.reason },
+          'audit chain failed verification',
+        );
       }
     }
   }
@@ -162,6 +173,19 @@ export async function applyRetention(_job: JobRow, ctx: WorkerContext): Promise<
     });
   }
 
+  // Closed accounts whose recovery window has elapsed. Surfaced, never deleted
+  // here: purging an organization destroys evidence tables this process has no
+  // privilege to write, and the same reasoning as project retention applies —
+  // the destructive step stays a deliberate operator act:
+  // `pnpm db:purge-organization`, per §4 of the data-subject-request runbook.
+  const purgeable = await ctx.repos.organizations.findPurgeable(now, 100);
+  if (purgeable.length > 0) {
+    ctx.logger.warn(
+      { count: purgeable.length, organizationIds: purgeable.map((o) => o.id) },
+      'closed organizations are past their recovery window and awaiting operator purge',
+    );
+  }
+
   ctx.logger.info(
     {
       abandonedDrafts,
@@ -169,6 +193,7 @@ export async function applyRetention(_job: JobRow, ctx: WorkerContext): Promise<
       expiredSessions,
       expiredIdempotency,
       retentionDue: dueForReview.length,
+      awaitingPurge: purgeable.length,
     },
     'retention pass complete',
   );
@@ -211,6 +236,16 @@ export async function scheduleRecurringJobs(ctx: WorkerContext): Promise<void> {
       dedupeKey: `retention:${dayWindow}`,
     },
   );
+  // Milestone and completion-date reminders (spec 2026-10-12, D14).
+  await enqueueJob(
+    { db: ctx.db },
+    {
+      kind: JOB_KINDS.SEND_DUE_REMINDERS,
+      organizationId: null,
+      payload: {},
+      dedupeKey: `due-reminders:${dayWindow}`,
+    },
+  );
 }
 
 /** Promotes due reminders from the schedule table into the job queue. */
@@ -235,4 +270,28 @@ export async function enqueueDueReminders(ctx: WorkerContext): Promise<number> {
     );
   }
   return due.length;
+}
+
+/**
+ * The 30-minute rule for "which project?" (spec 2026-10-12, WhatsApp
+ * conversation rules §3). Rides on the hourly expiry pass rather than a job of
+ * its own: a question nobody answered is also closed the moment the sender
+ * next writes, so this sweep only covers people who went quiet, and an hour's
+ * lag in telling them costs nothing. Intake closes the question, marks the
+ * held messages and notifies the designers in one transaction; the reply is
+ * sent here, outside it.
+ */
+async function expireWhatsAppChoices(ctx: WorkerContext): Promise<void> {
+  const replies = await ctx.services.intake.expireStaleChoices();
+  for (const expired of replies) {
+    await sendReply(
+      expired.phoneE164,
+      expired.reply,
+      `choice-expired:${expired.heldInboundMessageId}`,
+      ctx,
+    );
+  }
+  if (replies.length > 0) {
+    ctx.logger.info({ expired: replies.length }, 'expired unanswered WhatsApp project choices');
+  }
 }

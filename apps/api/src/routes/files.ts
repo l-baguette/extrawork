@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { AppError, CompleteUploadSchema, CreateUploadSchema } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
+import { authorize } from '@extrawork/domain';
 import { LocalObjectStore } from '@extrawork/files';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 
@@ -21,6 +22,10 @@ export async function registerFileRoutes(
     subject: authenticatedSubject,
   });
   const read = rateLimit(limiter, { name: 'AUTHENTICATED_READ', subject: authenticatedSubject });
+  const write = rateLimit(limiter, {
+    name: 'AUTHENTICATED_MUTATION',
+    subject: authenticatedSubject,
+  });
 
   app.post('/v1/uploads', { preHandler: uploadLimit }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
@@ -30,7 +35,10 @@ export async function registerFileRoutes(
     return reply.status(201).send(result);
   });
 
-  app.post('/v1/uploads/complete', { preHandler: uploadLimit }, async (request, reply) => {
+  // Completing an upload mints nothing; only creating one issues a signed URL,
+  // which is what report §7.7's upload limit meters. Counting both against it
+  // halved how many files a designer could add from one project's drawings.
+  app.post('/v1/uploads/complete', { preHandler: write }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
     const { fileObjectId } = CompleteUploadSchema.parse(request.body);
     const file = await app.services.files.completeUpload(auth, fileObjectId);
@@ -51,6 +59,10 @@ export async function registerFileRoutes(
     const auth = await app.requireAuth(request, reply);
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const file = await app.repos.files.requireById(auth.tenant, id);
+    authorize(auth.actor, 'file:read', {
+      organizationId: file.organizationId,
+      projectId: file.projectId,
+    });
 
     const downloadUrl =
       file.scanStatus === 'CLEAN' ? await app.services.files.downloadUrl(auth, id) : null;
@@ -79,25 +91,47 @@ export async function registerFileRoutes(
   if (appContext.objectStore instanceof LocalObjectStore) {
     const store = appContext.objectStore;
 
-    app.put('/v1/files/local/:token', async (request, reply) => {
-      const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
-      const payload = store.verify(token);
-      if (payload.op !== 'put') throw new AppError('NOT_FOUND');
+    // The token is a wildcard, not a `:token` parameter: a signed payload
+    // (key + op + expiry + content type + byte cap) is ~250 characters, past
+    // Fastify's default 100-character `maxParamLength`, and an over-long
+    // parameter makes the router answer 404 before the handler ever runs.
+    const localToken = (params: unknown): string =>
+      z
+        .object({
+          '*': z
+            .string()
+            .min(16)
+            .max(2048)
+            .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
+        })
+        .parse(params)['*'];
 
-      const body = request.body;
-      const bytes = Buffer.isBuffer(body)
-        ? body
-        : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body ?? ''));
+    // The global body limit is 1 MiB; a signed local PUT carries a whole file,
+    // up to the upload ceiling (spec 2026-10-12, D11), and its token already
+    // pins the exact byte count it may write.
+    app.put(
+      '/v1/files/local/*',
+      { bodyLimit: appContext.env.MAX_UPLOAD_BYTES },
+      async (request, reply) => {
+        const token = localToken(request.params);
+        const payload = store.verify(token);
+        if (payload.op !== 'put') throw new AppError('NOT_FOUND');
 
-      if (payload.maxBytes !== undefined && bytes.byteLength > payload.maxBytes) {
-        throw new AppError('FILE_TOO_LARGE');
-      }
-      await store.put(payload.key, bytes);
-      return reply.status(200).send({ ok: true, byteSize: bytes.byteLength });
-    });
+        const body = request.body;
+        const bytes = Buffer.isBuffer(body)
+          ? body
+          : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body ?? ''));
 
-    app.get('/v1/files/local/:token', async (request, reply) => {
-      const { token } = z.object({ token: z.string().min(16) }).parse(request.params);
+        if (payload.maxBytes !== undefined && bytes.byteLength > payload.maxBytes) {
+          throw new AppError('FILE_TOO_LARGE');
+        }
+        await store.put(payload.key, bytes);
+        return reply.status(200).send({ ok: true, byteSize: bytes.byteLength });
+      },
+    );
+
+    app.get('/v1/files/local/*', async (request, reply) => {
+      const token = localToken(request.params);
       const { filename } = z
         .object({ filename: z.string().max(255).optional() })
         .parse(request.query);

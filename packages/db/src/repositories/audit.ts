@@ -38,13 +38,16 @@ interface ChainTail {
 
 async function lockChainTail(
   tx: TransactionContext,
+  ctx: TenantContext,
   aggregateType: string,
   aggregateId: string,
 ): Promise<ChainTail | null> {
   const result = await tx.db.execute<{ sequence: string; event_hash: Buffer }>(sql`
     SELECT sequence, event_hash
     FROM audit_events
-    WHERE aggregate_type = ${aggregateType} AND aggregate_id = ${aggregateId}::uuid
+    WHERE organization_id = ${ctx.organizationId}::uuid
+      AND aggregate_type = ${aggregateType}
+      AND aggregate_id = ${aggregateId}::uuid
     ORDER BY sequence DESC
     LIMIT 1
     FOR UPDATE
@@ -52,6 +55,38 @@ async function lockChainTail(
   const row = result.rows[0];
   if (!row) return null;
   return { sequence: Number(row.sequence), eventHash: toBuffer(row.event_hash) };
+}
+
+async function validateAggregateBinding(
+  db: Database,
+  ctx: TenantContext,
+  aggregateType: string,
+  aggregateId: string,
+  events: readonly AuditEventInput[],
+): Promise<{ valid: boolean; reason: string | null }> {
+  if (aggregateType === 'change_order') {
+    const result = await db.execute<{ project_id: string }>(sql`
+      SELECT project_id FROM change_orders
+      WHERE id = ${aggregateId}::uuid
+        AND organization_id = ${ctx.organizationId}::uuid
+    `);
+    const projectId = result.rows[0]?.project_id;
+    if (!projectId) {
+      return {
+        valid: false,
+        reason: 'Change-order audit aggregate does not identify a change order',
+      };
+    }
+    if (events.some((event) => event.projectId !== projectId)) {
+      return { valid: false, reason: 'Change-order audit event is not bound to its project' };
+    }
+  }
+
+  if (aggregateType === 'project' && events.some((event) => event.projectId !== aggregateId)) {
+    return { valid: false, reason: 'Project audit event is not bound to its aggregate project' };
+  }
+
+  return { valid: true, reason: null };
 }
 
 export class PostgresAuditWriter implements AuditWriter {
@@ -78,7 +113,17 @@ export class PostgresAuditWriter implements AuditWriter {
     for (const key of [...byAggregate.keys()].sort()) {
       const group = byAggregate.get(key) as AuditEventInput[];
       const first = group[0] as AuditEventInput;
-      const tail = await lockChainTail(tx, first.aggregateType, first.aggregateId);
+      const binding = await validateAggregateBinding(
+        tx.db,
+        ctx,
+        first.aggregateType,
+        first.aggregateId,
+        group,
+      );
+      if (!binding.valid) {
+        throw new Error(binding.reason ?? 'Audit aggregate binding failed');
+      }
+      const tail = await lockChainTail(tx, ctx, first.aggregateType, first.aggregateId);
       const chained = chainEvents(group, tail);
 
       for (const event of chained) {
@@ -174,9 +219,13 @@ export async function verifyAggregateChain(
 ): Promise<ChainVerificationResult & { eventCount: number; terminalHash: string | null }> {
   const events = await readChain(db, ctx, aggregateType, aggregateId);
   const result = verifyChain(events);
+  const binding = await validateAggregateBinding(db, ctx, aggregateType, aggregateId, events);
   const terminal = events[events.length - 1];
   return {
-    ...result,
+    valid: result.valid && binding.valid,
+    failedAtSequence:
+      result.failedAtSequence ?? (binding.valid ? null : (events[0]?.sequence ?? null)),
+    reason: result.reason ?? binding.reason,
     eventCount: events.length,
     terminalHash: terminal ? terminal.eventHash.toString('hex') : null,
   };

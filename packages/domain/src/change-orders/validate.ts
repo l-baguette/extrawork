@@ -39,8 +39,9 @@ export interface Blocker {
 }
 
 /**
- * Hard rules. Throws — used by create/update/send. `collectSendBlockers` is the
- * soft counterpart used by the preview to explain what still needs doing.
+ * Hard rules for saving a draft. Throws — used by create and update.
+ * `collectSendBlockers` holds the rules for sending: the preview lists them to
+ * explain what still needs doing, and send refuses while any remains.
  */
 export function validateDraft(input: DraftValidationInput): DraftValidationResult {
   if (input.currency !== input.projectCurrency) {
@@ -54,11 +55,10 @@ export function validateDraft(input: DraftValidationInput): DraftValidationResul
   if (input.projectStatus === 'INTEGRITY_REVIEW') {
     throw new AppError('PROJECT_INTEGRITY_REVIEW');
   }
-  // Report §4.6: a zero-price time-only change is valid, so substance is
-  // "lines OR schedule", not "lines".
-  if (input.lineItems.length === 0 && input.scheduleDeltaDays === 0) {
-    throw new AppError('EMPTY_CHANGE');
-  }
+  // No substance check: a draft may be saved with no priced line and no
+  // schedule impact — the person on site often has no price yet, and a photo
+  // picked first needs a draft to attach to. Substance is a send rule, applied
+  // by `collectSendBlockers` (EMPTY_CHANGE), which every send path enforces.
   if (input.type === 'TIME_ONLY' && input.lineItems.length > 0) {
     throw new AppError('VALIDATION_FAILED', {
       message: 'A time-only change cannot carry priced line items',

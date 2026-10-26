@@ -21,7 +21,7 @@ export interface Entitlements {
   retentionMonths: number;
 }
 
-export type PlanCode = 'TRIAL' | 'STARTER_MONTHLY' | 'PROJECT_PASS' | 'PRO_MONTHLY';
+export type PlanCode = 'TRIAL' | 'STARTER_MONTHLY' | 'PROJECT_PASS' | 'PRO_MONTHLY' | 'BETA';
 export type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'GRACE' | 'LAPSED' | 'CANCELLED';
 
 const UNLIMITED = Number.MAX_SAFE_INTEGER;
@@ -86,7 +86,28 @@ export const PLANS: Record<
       retentionMonths: 60,
     },
   },
+  /**
+   * Spec 2026-10-12, D13: early users get the product free, permanently, in
+   * exchange for feedback. Pro's capabilities without its price; collaborators
+   * from other firms are not capped because they are how a project gets used.
+   */
+  BETA: {
+    name: 'Founding beta',
+    priceMinor: 0,
+    entitlements: {
+      activeProjects: UNLIMITED,
+      completedDecisionsPerPeriod: UNLIMITED,
+      teamMembers: UNLIMITED,
+      automatedWhatsApp: true,
+      otpApprovals: true,
+      customBranding: true,
+      retentionMonths: 60,
+    },
+  },
 };
+
+/** The plan a newly created workspace starts on. */
+export const DEFAULT_PLAN_CODE: PlanCode = 'BETA';
 
 export interface SubscriptionState {
   planCode: PlanCode;

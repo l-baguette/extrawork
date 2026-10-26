@@ -4,6 +4,7 @@ import path from 'node:path';
 import { AppError } from '@extrawork/contracts';
 import {
   assertSafeKey,
+  type DownloadOptions,
   type ObjectMetadata,
   type ObjectStore,
   type PresignedUpload,
@@ -97,7 +98,17 @@ export class LocalObjectStore implements ObjectStore {
     };
   }
 
-  async createDownload(key: string, ttlSeconds: number, filename?: string): Promise<string> {
+  /**
+   * The local serve route always answers with `application/octet-stream`, an
+   * attachment disposition and `nosniff`, so `forceDownload` needs no extra
+   * handling here.
+   */
+  async createDownload(
+    key: string,
+    ttlSeconds: number,
+    filename?: string,
+    _options?: DownloadOptions,
+  ): Promise<string> {
     assertSafeKey(key);
     const token = this.sign({
       key,
@@ -112,23 +123,36 @@ export class LocalObjectStore implements ObjectStore {
     const full = this.resolve(key);
     try {
       const info = await stat(full);
-      const bytes = await readFile(full);
       return {
         key,
         byteSize: info.size,
         contentType: null,
         versionId: null,
-        etag: createHash('md5').update(bytes).digest('hex'),
+        // A metadata read must not load the full object merely to synthesize an
+        // ETag. Local storage has no version contract, so null is honest.
+        etag: null,
       };
     } catch (error) {
       throw new AppError('NOT_FOUND', { cause: error });
     }
   }
 
-  async get(key: string): Promise<Buffer> {
+  async get(key: string, maxBytes?: number): Promise<Buffer> {
     try {
-      return await readFile(this.resolve(key));
+      const full = this.resolve(key);
+      const info = await stat(full);
+      if (maxBytes !== undefined && info.size > maxBytes) {
+        throw new AppError('FILE_TOO_LARGE', { details: { maxBytes, actualBytes: info.size } });
+      }
+      const bytes = await readFile(full);
+      if (maxBytes !== undefined && bytes.byteLength > maxBytes) {
+        throw new AppError('FILE_TOO_LARGE', {
+          details: { maxBytes, actualBytes: bytes.byteLength },
+        });
+      }
+      return bytes;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError('NOT_FOUND', { cause: error });
     }
   }

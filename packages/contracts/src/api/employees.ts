@@ -6,6 +6,8 @@ import {
   LimitSchema,
   PhoneE164Schema,
   ShortTextSchema,
+  TeamPartySchema,
+  TeamRoleSchema,
   UuidSchema,
 } from '../primitives.js';
 
@@ -35,6 +37,10 @@ export const CreateEmployeeSchema = z.object({
    * unprompted, but not ₹5,00,000.
    */
   maxRequestMinor: AmountMinorSchema.nullish(),
+  /** Which firm they belong to — your own, or the construction company. */
+  party: TeamPartySchema.default('INTERNAL'),
+  companyName: ShortTextSchema.nullish(),
+  teamRole: TeamRoleSchema.default('OTHER'),
 });
 export type CreateEmployeeInput = z.infer<typeof CreateEmployeeSchema>;
 
@@ -49,6 +55,9 @@ export const UpdateEmployeeSchema = z
     allProjects: z.boolean(),
     projectIds: z.array(UuidSchema).max(200),
     maxRequestMinor: AmountMinorSchema.nullable(),
+    party: TeamPartySchema,
+    companyName: ShortTextSchema.nullable(),
+    teamRole: TeamRoleSchema,
   })
   .partial();
 export type UpdateEmployeeInput = z.infer<typeof UpdateEmployeeSchema>;
@@ -64,6 +73,9 @@ export const EmployeeSchema = z.object({
   allProjects: z.boolean(),
   projectIds: z.array(UuidSchema),
   maxRequestMinor: z.number().int().nullable(),
+  party: TeamPartySchema,
+  companyName: z.string().nullable(),
+  teamRole: TeamRoleSchema,
   createdAt: InstantSchema,
   updatedAt: InstantSchema,
 });
@@ -119,6 +131,10 @@ export const InboundStatusSchema = z.enum([
   'REJECTED_UNPARSEABLE',
   'REJECTED_POLICY',
   'ACCEPTED',
+  // Migration 0023.
+  'SAVED',
+  'AWAITING_CHOICE',
+  'ANSWERED',
 ]);
 export type InboundStatusDto = z.infer<typeof InboundStatusSchema>;
 
@@ -134,9 +150,13 @@ export const InboundMessageSchema = z.object({
   fromPhoneMasked: z.string(),
   employeeId: UuidSchema.nullable(),
   employeeName: z.string().nullable(),
+  /** Set when the sender was a customer contact (the homeowner), not site team. */
+  contactName: z.string().nullable(),
   projectId: UuidSchema.nullable(),
   projectTitle: z.string().nullable(),
   changeOrderId: UuidSchema.nullable(),
+  /** Set when the message was filed into the project as a file or note. */
+  documentId: UuidSchema.nullable(),
   body: z.string().nullable(),
   mediaCount: z.number().int(),
   rejectionReason: z.string().nullable(),

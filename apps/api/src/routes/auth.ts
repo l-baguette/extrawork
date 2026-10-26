@@ -1,9 +1,9 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AppError, CreateOrganizationSchema, EmailSchema } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
 import { RATE_LIMITS } from '@extrawork/db';
-import { CSRF_COOKIE, SESSION_COOKIE } from '../plugins/context.js';
+import { CSRF_COOKIE, SESSION_COOKIE, clientIp } from '../plugins/context.js';
 import { ipSubject, rateLimit } from '../plugins/rate-limit.js';
 
 /**
@@ -14,11 +14,17 @@ import { ipSubject, rateLimit } from '../plugins/rate-limit.js';
  * readable cookie whose value must be echoed in `X-CSRF-Token` on mutations.
  */
 
-const RequestSignInSchema = z.object({ email: EmailSchema });
+const RequestSignInSchema = z.object({
+  email: EmailSchema,
+  botToken: z.string().max(4096).optional(),
+});
 const VerifySignInSchema = z.object({ token: z.string().min(16).max(512) });
 const SwitchOrganizationSchema = z.object({ organizationId: z.string().uuid() });
+const VerifyEmailSchema = z.object({ token: z.string().min(16).max(512) });
 const RegisterSchema = z.object({
   email: EmailSchema,
+  /** Challenge token; only checked when a bot-protection driver is configured. */
+  botToken: z.string().max(4096).optional(),
   // Length is checked properly in the domain, which owns the policy; this is
   // only the wire-shape bound.
   password: z.string().min(1).max(200),
@@ -27,6 +33,11 @@ const RegisterSchema = z.object({
 const PasswordSignInSchema = z.object({
   email: EmailSchema,
   password: z.string().min(1).max(200),
+  botToken: z.string().max(4096).optional(),
+});
+/** Email is intentionally not here; see the PATCH handler for why. */
+const UpdateProfileSchema = z.object({
+  displayName: z.string().trim().min(1, 'Your name cannot be empty').max(120),
 });
 const GoogleCallbackSchema = z.object({
   code: z.string().min(1).max(2048).optional(),
@@ -66,11 +77,44 @@ export async function registerAuthRoutes(
   const secure = app.env.APP_ENV !== 'local';
   const limiter = app.repos.rateLimiter;
 
+  /**
+   * Fails the request unless the challenge token is good.
+   *
+   * Rate limiting caps one source's speed; this caps the value of an attempt
+   * from anywhere, which is the part a distributed attack routes around. It
+   * runs before the credential is looked at, so a bot never reaches the
+   * password comparison and cannot use its timing as an oracle.
+   *
+   * A provider outage fails closed on these three routes only. That is a
+   * deliberate trade: a few minutes of blocked sign-ups is recoverable, an open
+   * door during someone else's outage is not.
+   */
+  async function requireHuman(
+    request: FastifyRequest,
+    token: string | undefined,
+    purpose: string,
+  ): Promise<void> {
+    const gateway = appContext.integrations.botProtection;
+    if (!gateway.enforced) return;
+
+    const verdict = await gateway.verify(token, clientIp(request, app.env.TRUST_PROXY));
+    if (verdict.ok) return;
+
+    appContext.logger.warn(
+      { purpose, provider: gateway.name, errorCodes: verdict.errorCodes },
+      'bot protection rejected a request',
+    );
+    throw new AppError('VALIDATION_FAILED', {
+      message: 'Could not confirm you are a person. Reload the page and try again.',
+    });
+  }
+
   app.post(
     '/v1/auth/sign-in',
     { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
     async (request, reply) => {
-      const { email } = RequestSignInSchema.parse(request.body);
+      const { email, botToken } = RequestSignInSchema.parse(request.body);
+      await requireHuman(request, botToken, 'sign-in-link');
       await app.services.auth.requestSignIn(email);
       // Always the same answer: revealing whether an address exists would be an
       // account-enumeration oracle (report §12.2).
@@ -98,6 +142,7 @@ export async function registerAuthRoutes(
     { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
     async (request, reply) => {
       const input = RegisterSchema.parse(request.body);
+      await requireHuman(request, input.botToken, 'register');
       await app.services.auth.register(input);
 
       // Deliberately identical whether the account was created or the address
@@ -105,16 +150,17 @@ export async function registerAuthRoutes(
       // registered" is a way to test which addresses exist.
       return reply.status(202).send({
         status: 'ok',
-        message: 'Your account is ready. Sign in with your email and password.',
+        message: 'Check your email. We have sent a link to confirm the address before you sign in.',
       });
     },
   );
 
   app.post(
     '/v1/auth/password',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_SIGN_IN_ATTEMPT', subject: ipSubject }) },
     async (request, reply) => {
-      const { email, password } = PasswordSignInSchema.parse(request.body);
+      const { email, password, botToken } = PasswordSignInSchema.parse(request.body);
+      await requireHuman(request, botToken, 'password-sign-in');
       const identity = await app.services.auth.verifyPassword(email, password);
       if (!identity) {
         // One message for a wrong address and a wrong password alike.
@@ -143,7 +189,7 @@ export async function registerAuthRoutes(
 
   app.get(
     '/v1/auth/google/start',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (_request, reply) => {
       const google = app.services.google;
       if (!google) {
@@ -164,7 +210,7 @@ export async function registerAuthRoutes(
 
   app.get(
     '/v1/auth/google/callback',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (request, reply) => {
       const google = app.services.google;
       if (!google) throw new AppError('NOT_IMPLEMENTED');
@@ -193,13 +239,20 @@ export async function registerAuthRoutes(
         userAgent: request.publicCtx.userAgent,
       });
       setSessionCookies(reply, secure, session);
-      return reply.redirect(`${app.env.WEB_PUBLIC_URL}/app/dashboard`);
+      // A brand-new account has no organization yet, and the dashboard would
+      // render an empty shell with nothing to explain it. Send them to set up
+      // their business; returning users go straight to work.
+      return reply.redirect(
+        session.activeOrganizationId
+          ? `${app.env.WEB_PUBLIC_URL}/app/dashboard`
+          : `${app.env.WEB_PUBLIC_URL}/onboarding`,
+      );
     },
   );
 
   app.post(
     '/v1/auth/verify',
-    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
     async (request, reply) => {
       const { token } = VerifySignInSchema.parse(request.body);
       const session = await app.services.auth.completeSignIn(token, {
@@ -211,6 +264,39 @@ export async function registerAuthRoutes(
         userId: session.userId,
         activeOrganizationId: session.activeOrganizationId,
         expiresAt: session.expiresAt.toISOString(),
+      });
+    },
+  );
+
+  /**
+   * Confirms an address. Unauthenticated by design — the token is the proof,
+   * and the person cannot sign in until this succeeds.
+   */
+  app.post(
+    '/v1/auth/verify-email',
+    { preHandler: rateLimit(limiter, { name: 'AUTH_FLOW', subject: ipSubject }) },
+    async (request, reply) => {
+      const { token } = VerifyEmailSchema.parse(request.body);
+      const { verified } = await app.services.auth.verifyEmail(token);
+      if (!verified) {
+        throw new AppError('TOKEN_INVALID', {
+          message: 'That confirmation link has expired or has already been used.',
+        });
+      }
+      return reply.status(200).send({ status: 'verified' });
+    },
+  );
+
+  /** Reissues a confirmation link. Same answer whatever the address is. */
+  app.post(
+    '/v1/auth/verify-email/resend',
+    { preHandler: rateLimit(limiter, { name: 'AUTH_MAGIC_LINK', subject: ipSubject }) },
+    async (request, reply) => {
+      const { email } = RequestSignInSchema.parse(request.body);
+      await app.services.auth.resendVerification(email);
+      return reply.status(202).send({
+        status: 'ok',
+        message: 'If that address needs confirming, a new link is on its way.',
       });
     },
   );
@@ -241,8 +327,36 @@ export async function registerAuthRoutes(
         organizationId: m.organizationId,
         organizationName: m.organizationName,
         role: m.role,
+        collaboratorParty: m.collaboratorParty,
       })),
       activeOrganizationId: session.activeOrganizationId,
+    });
+  });
+
+  /**
+   * Updates the signed-in person's own profile.
+   *
+   * Only the display name. Email is the address this account is recovered by,
+   * so moving it needs proof of control over the new one — a verification round
+   * trip this release does not have. Offering the field without that would let
+   * one mistyped character strand somebody outside their own account.
+   */
+  app.patch('/v1/auth/me', async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    if (!auth.actor.userId) throw new AppError('UNAUTHENTICATED');
+    const input = UpdateProfileSchema.parse(request.body);
+
+    const updated = await appContext.uow.transaction((tx) =>
+      app.repos.identity.updateProfile(tx, auth.actor.userId as string, {
+        displayName: input.displayName,
+      }),
+    );
+    if (!updated) throw new AppError('NOT_FOUND');
+
+    return reply.send({
+      id: updated.id,
+      email: updated.emailNormalized,
+      displayName: updated.displayName,
     });
   });
 
@@ -289,6 +403,7 @@ export async function registerAuthRoutes(
       gstin: input.gstin ?? null,
       timezone: input.timezone,
       defaultCurrency: input.defaultCurrency,
+      businessType: input.businessType ?? null,
     });
 
     await appContext.uow.transaction(async (tx) => {

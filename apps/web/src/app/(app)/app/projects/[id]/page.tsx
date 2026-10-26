@@ -1,57 +1,62 @@
 import Link from 'next/link';
-import type { ChangeRegisterDto, ProjectDto } from '@extrawork/contracts';
+import type { ContractHistoryDto, ProjectDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
+import { activeMembership, canCloseProject } from '@/lib/active-role';
 import { formatDate, formatMoney, formatScheduleDelta } from '@/lib/format';
-import { StatusChip } from '@/components/status-chip';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
+import { ProjectLifecycle } from './project-lifecycle';
 
 /**
- * Project workspace — report §6.2: baseline, change register, revised total,
- * exports.
+ * Project overview — what the project is and what it is worth: the
+ * description, the site and dates, and the contract value with every change
+ * that moved it. The header and section tabs come from the project layout.
  */
 export const dynamic = 'force-dynamic';
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [projectResult, registerResult] = await Promise.all([
+  const [projectResult, historyResult, membership] = await Promise.all([
     serverGet<ProjectDto>(`/v1/projects/${id}`),
-    serverGet<ChangeRegisterDto>(`/v1/projects/${id}/change-register`),
+    serverGet<ContractHistoryDto>(`/v1/projects/${id}/contract-history`),
+    activeMembership(),
   ]);
 
   if (!projectResult.ok && projectResult.status === 401) return <SignInPrompt />;
   if (!projectResult.ok) return <ErrorPanel message={projectResult.message} />;
 
   const project = projectResult.data;
-  const changes = registerResult.ok ? registerResult.data.changes : [];
   const totals = project.totals;
+  const history = historyResult.ok ? historyResult.data.entries : [];
+  const closed = project.status === 'CLOSED';
 
   return (
-    <main className="page page-wide">
-      {project.status === 'INTEGRITY_REVIEW' ? (
-        <div className="banner banner-error" role="alert">
-          <strong>This project is under integrity review.</strong> The recorded total does not match
-          a recomputation from its approved changes. New requests cannot be sent until an
-          administrator has repaired it. Existing records remain readable.
-        </div>
+    <>
+      {project.description ? (
+        <section className="card" aria-labelledby="about">
+          <h2 id="about">About this project</h2>
+          <p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{project.description}</p>
+        </section>
       ) : null}
 
-      <div className="row-between" style={{ marginBottom: 'var(--space-4)' }}>
-        <div>
-          <h1>{project.title}</h1>
-          <p className="muted small" style={{ marginBottom: 0 }}>
-            {project.projectNumber} · {project.customerName}
-            {project.siteAddress?.city ? ` · ${project.siteAddress.city}` : ''}
-          </p>
-        </div>
-        <Link
-          className="btn btn-primary"
-          href={`/app/projects/${project.id}/changes/new`}
-          aria-disabled={project.status === 'INTEGRITY_REVIEW'}
-        >
-          Record extra work
-        </Link>
-      </div>
+      <section className="card" aria-labelledby="details">
+        <h2 id="details">Details</h2>
+        <dl className="kv">
+          <dt>Customer</dt>
+          <dd>{project.customerName}</dd>
+          <dt>Site</dt>
+          <dd>
+            {[project.siteAddress?.line1, project.siteAddress?.city].filter(Boolean).join(', ') ||
+              '—'}
+          </dd>
+          <dt>Start</dt>
+          <dd>{formatDate(project.startDate) || '—'}</dd>
+          <dt>Expected completion</dt>
+          <dd>
+            {formatDate(project.revisedCompletionDate ?? project.expectedCompletionDate) || '—'}
+          </dd>
+        </dl>
+      </section>
 
       <section className="card" aria-labelledby="contract-value">
         <h2 id="contract-value">Contract value</h2>
@@ -97,69 +102,57 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </p>
       </section>
 
-      <section className="card" aria-labelledby="register">
-        <div className="row-between">
-          <h2 id="register">Change register</h2>
-          <Link className="small" href={`/app/reports?projectId=${project.id}`}>
-            Export
-          </Link>
-        </div>
-
-        {changes.length === 0 ? (
-          <p className="muted">
-            No extra work recorded yet. Anything the customer asks for beyond the original scope
-            belongs here.
-          </p>
-        ) : (
+      {history.length > 0 ? (
+        <section className="card" aria-labelledby="contract-history">
+          <h2 id="contract-history">How the contract value changed</h2>
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th scope="col">Change</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
-                    Value
+                  <th scope="col">Date</th>
+                  <th scope="col">What changed</th>
+                  <th scope="col" className="num">
+                    Amount
                   </th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
-                    Days
+                  <th scope="col" className="num">
+                    Running total
                   </th>
-                  <th scope="col">Sent</th>
                 </tr>
               </thead>
               <tbody>
-                {changes.map((change) => (
-                  <tr key={change.id}>
+                {history.map((entry, index) => (
+                  <tr key={`${index}-${entry.kind}-${entry.changeOrderId ?? ''}`}>
+                    <td className="small">{formatDate(entry.occurredAt)}</td>
                     <td>
-                      <Link href={`/app/changes/${change.id}`}>
-                        <strong>{change.number}</strong>
-                        {change.versionNumber > 1 ? (
-                          <span className="muted small"> v{change.versionNumber}</span>
-                        ) : null}
-                      </Link>
-                      <div className="small muted">{change.title}</div>
+                      {entry.changeOrderId ? (
+                        <Link href={`/app/changes/${entry.changeOrderId}`}>
+                          <strong className="mono">{entry.number}</strong>
+                        </Link>
+                      ) : null}{' '}
+                      {entry.label}
+                      {entry.reason && entry.kind !== 'BASELINE' ? (
+                        <div className="small muted">{entry.reason}</div>
+                      ) : null}
                     </td>
-                    <td>
-                      <StatusChip status={change.status} />
+                    <td className={`num ${entry.deltaMinor < 0 ? 'amount-negative' : ''}`}>
+                      {entry.kind === 'BASELINE'
+                        ? formatMoney(entry.deltaMinor, totals.currency)
+                        : formatMoney(entry.deltaMinor, totals.currency, { showSign: true })}
                     </td>
-                    <td
-                      className={`tabular ${change.totalDeltaMinor < 0 ? 'amount-negative' : ''}`}
-                      style={{ textAlign: 'right' }}
-                    >
-                      {formatMoney(change.totalDeltaMinor, change.currency)}
-                    </td>
-                    <td className="tabular" style={{ textAlign: 'right' }}>
-                      {change.scheduleDeltaDays === 0
-                        ? '—'
-                        : `${change.scheduleDeltaDays > 0 ? '+' : ''}${change.scheduleDeltaDays}`}
-                    </td>
-                    <td className="small muted">{formatDate(change.sentAt)}</td>
+                    <td className="num">{formatMoney(entry.runningTotalMinor, totals.currency)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </section>
-    </main>
+        </section>
+      ) : null}
+
+      {canCloseProject(membership?.role) &&
+      project.status !== 'ARCHIVED' &&
+      project.status !== 'INTEGRITY_REVIEW' ? (
+        <ProjectLifecycle projectId={project.id} closed={closed} />
+      ) : null}
+    </>
   );
 }

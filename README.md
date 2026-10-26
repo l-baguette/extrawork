@@ -1,15 +1,28 @@
 # ExtraWork
 
-A WhatsApp-first contract-change and approval ledger for small Indian project
-businesses. A contractor records work the customer asked for beyond the original
-scope — with a price, a schedule impact and photographs — sends a secure link,
-and gets an approve, decline or revision decision **without the customer
-creating an account**. ExtraWork keeps the exact version that was approved, the
-timestamps, the identity evidence, an append-only history and a tamper-evident
-PDF, so the extra work can be substantiated and invoiced.
+A WhatsApp-first project organisation and change-approval system for India's
+residential interiors and construction work. The primary user is the **interior
+designer or architect**; each project is shared with the **construction
+company** that builds it and the **homeowner** who pays for it.
 
-Built to the _ExtraWork Technical Design Report and Master Build Specification
-v1.0_. Section references throughout the code and docs point back to it.
+A project is one shared folder: the customer, the contract value and its
+history, the timeline, the people, the drawings, spreadsheets and photos, and
+one dedicated record of every change request. Site staff and homeowners send
+requests and files in one WhatsApp message; collaborators from other firms use
+the web app; **everything goes through the designer**, who reviews each request
+before it reaches the homeowner. The homeowner decides from a link **without
+creating an account**, and ExtraWork keeps the exact version that was approved,
+the timestamps, an append-only history and a tamper-evident PDF.
+
+Organising an unorganised sector comes first; the approval record is a side
+benefit, and its guarantees are unchanged. ExtraWork is the working name.
+
+Product: [`docs/ExtraWork_Product_Brief_v3.md`](docs/ExtraWork_Product_Brief_v3.md).
+Design: [`docs/superpowers/specs/2026-10-12-three-party-workspace-design.md`](docs/superpowers/specs/2026-10-12-three-party-workspace-design.md).
+Flows and roles: [`docs/workflows.md`](docs/workflows.md). The evidence
+machinery was built to the _ExtraWork Technical Design Report and Master Build
+Specification v1.0_; section references throughout the code and docs point back
+to it.
 
 > **What this is not.** ExtraWork records a secure-link record of assent. It is
 > not a licensed or government-recognised electronic signature, and it does not
@@ -144,20 +157,20 @@ database.
 
 ### Packages
 
-| Package                  | Owns                                                                                                       |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `packages/contracts`     | Zod schemas, error codes, event catalogue, assurance copy                                                  |
-| `packages/domain`        | Money/tax engine, canonical JSON + digests, state machine, authz policy, tokens, audit chain, entitlements |
-| `packages/db`            | Schema, SQL migrations, tenant-scoped repositories, unit of work, outbox, jobs, idempotency, rate limits   |
-| `packages/application`   | Use cases: create, send, decide, evidence, files, auth                                                     |
-| `packages/integrations`  | WhatsApp, email, OTP, payment, e-sign adapters + webhook signature verification                            |
-| `packages/files`         | Object store (S3 + local), upload validation, quarantine scanner                                           |
-| `packages/runtime`       | Composition root shared by every process                                                                   |
-| `packages/observability` | Structured logging with redaction, metrics, request ids                                                    |
-| `packages/testkit`       | Seeds, fixtures, real-PostgreSQL test harness                                                              |
-| `apps/api`               | Fastify: `/v1`, `/public/v1`, `/webhooks/v1`                                                               |
-| `apps/worker`            | Outbox pump, job runner, evidence PDFs, reminders, integrity, retention                                    |
-| `apps/web`               | Next.js: `/app/*` contractor, `/r/*` public approval                                                       |
+| Package                  | Owns                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `packages/contracts`     | Zod schemas, error codes, event catalogue, assurance copy                                                                 |
+| `packages/domain`        | Money/tax engine, canonical JSON + digests, state machine, authz policy, tokens, audit chain, entitlements                |
+| `packages/db`            | Schema, SQL migrations, tenant-scoped repositories, unit of work, outbox, jobs, idempotency, rate limits                  |
+| `packages/application`   | Use cases: create, review, send, decide, evidence, files, auth, collaborators, workspace, timeline, portal, notifications |
+| `packages/integrations`  | WhatsApp, email, OTP, payment, e-sign adapters + webhook signature verification                                           |
+| `packages/files`         | Object store (S3 + local), upload validation, quarantine scanner                                                          |
+| `packages/runtime`       | Composition root shared by every process                                                                                  |
+| `packages/observability` | Structured logging with redaction, metrics, request ids                                                                   |
+| `packages/testkit`       | Seeds, fixtures, real-PostgreSQL test harness                                                                             |
+| `apps/api`               | Fastify: `/v1`, `/public/v1` (approval, portal, invitations, calendar feed), `/webhooks/v1`                               |
+| `apps/worker`            | Outbox pump, job runner, evidence PDFs, notifications, invitations, reminders, integrity, retention                       |
+| `apps/web`               | Next.js: `/app/*` designer workspace, `/r/*` public approval, `/p/*` homeowner portal, `/invite/*`                        |
 
 Dependency direction is enforced by package boundaries:
 `domain ← application ← api/worker`, and `web → contracts` only.
@@ -218,30 +231,57 @@ pnpm verify               # format, lint, typecheck, all tests
 
 ## The core journey
 
+Three parties: the designer's firm owns the workspace, the construction company
+collaborates, the homeowner decides. Flowcharts for each step and each role are
+in [`docs/workflows.md`](docs/workflows.md).
+
 1. **Sign in and set up** — magic link, then business identity, timezone and
-   currency. `/app/onboarding`.
-2. **Customer, project, baseline** — the original contract value is captured
-   once and **locks** as soon as the first change is sent. Changing it after
-   that requires an explicit, audited baseline amendment.
-3. **Compose** — a four-step mobile flow: what changed, commercial effect, time
-   and approver, preview. Autosaves locally and to the server; a draft carries a
-   `lockVersion` and a conflicting update shows a comparison rather than
-   overwriting.
-4. **Preview and send** — the **send button stays unavailable until the server
+   currency. `/app/onboarding`. New workspaces start on the free `BETA` plan.
+2. **Customer, project, baseline** — customer, title, address, description,
+   dates and the original contract value, which **locks** as soon as the first
+   change is sent; changing it after that requires an explicit, audited baseline
+   amendment. The project starts with default folders (Plans & drawings,
+   Contracts & quotes, Site photos, Bills & invoices, From WhatsApp), each with a
+   visibility: firm only, firm and collaborators, or also the homeowner.
+3. **People** — the site team by WhatsApp number (no account); collaborators
+   from other firms by email invitation (a `COLLABORATOR` membership with a
+   grant on this project); the homeowner by a portal link (`/p/{token}`, no
+   account).
+4. **Requests come in** — a site-team member or the homeowner sends one
+   WhatsApp message; a collaborator raises one in the web app; the homeowner
+   asks from the portal; the designer pastes a contractor's message or writes
+   one. By default each becomes a **proposal**: a draft awaiting the designer's
+   review, numbered by project (`P-0004-R03`). Content that is not a request
+   (photos, files, notes) is saved to the project's From WhatsApp folder. The
+   designers are notified of everything.
+5. **Designer reviews** — completes the room, type of work, lines, price, time
+   impact and justification, then sends it or dismisses it with a reason. Only
+   the designer edits or sends. Autosaves locally and to the server; a draft
+   carries a `lockVersion` and a conflicting update shows a comparison rather
+   than overwriting.
+6. **Preview and send** — the **send button stays unavailable until the server
    has calculated the preview**. Sending freezes the version, mints a 32-byte
-   token (only its SHA-256 is stored) and opens WhatsApp with the message ready.
-   The contractor sends from their own number; ExtraWork records
+   token (its record stores only SHA-256). Automated delivery queues only
+   authenticated ciphertext and removes it once the worker finishes.
+   The designer sends from their own number; ExtraWork records
    `SHARE_INTENT_OPENED`, never "delivered".
-5. **Customer reviews** — `/r/{token}`, no account, server-rendered, no
-   third-party scripts, `Referrer-Policy: no-referrer`, `noindex`.
-6. **Decide** — approve, decline or request revision, each behind a confirmation
+7. **Homeowner reviews** — `/r/{token}`, no account, server-rendered, no
+   third-party scripts, `Referrer-Policy: no-referrer`, `noindex`. Their project
+   portal shows every sent request, the contract value history, shared files,
+   milestones and evidence packs.
+8. **Decide** — approve, decline or request revision, each behind a confirmation
    screen with a declaration that is never pre-ticked. The decision commits
    before the success response; the PDF and receipt follow asynchronously and
    their failure never reverses the approval.
-7. **Dashboard and totals** — pending decisions, overdue, approved value this
-   month, average time to decision, revised project totals.
-8. **Evidence** — a versioned PDF plus a machine-readable manifest carrying the
-   content digest, the terminal audit hash and every attachment digest.
+9. **Totals, invoicing and timeline** — the contract value and its history,
+   approved changes marked as invoiced, milestones on a timeline across
+   projects with email reminders and a private calendar feed.
+10. **Evidence** — a versioned PDF plus a machine-readable manifest carrying the
+    content digest, the terminal audit hash and every attachment digest.
+
+Firms that want the earlier direct path can set request routing to `AUTO_SEND`:
+a complete WhatsApp request from a site-team member within their ceiling is
+then sent to the homeowner without review.
 
 ---
 
@@ -356,6 +396,13 @@ added without reworking the domain:
 | WORM storage and external timestamping              | a customer requirement for proof-of-time beyond tamper-evidence                                               |
 | Native mobile apps                                  | installable PWA proving insufficient for home-screen and offline drafts                                       |
 | AI drafting, OCR, translation                       | only with a disclosed processing basis and a redaction strategy                                               |
+| Google Drive sync                                   | firms asking for it after using links; needs a Google Cloud project and OAuth verification for Drive scopes   |
+| In-browser file editing and file version history    | beta users asking for it; files are stored privately and downloaded, never rendered                           |
+| Push notifications to phones                        | the calendar feed and email proving insufficient for reminders                                                |
+| Localisation of WhatsApp replies and the portal     | the owner deciding which languages ("Code in various" in the notes is ambiguous)                              |
+| Marketplace for parts and services                  | marked future in the founder's notes; only after the single-firm product is proven                            |
+| Ads and affiliate links                             | marked future in the founder's notes; only if they serve the designer                                         |
+| A new product name                                  | the owner choosing between an Indian and an English name; "ExtraWork" is the working name until then          |
 
 ---
 
@@ -374,8 +421,11 @@ engineering's to close.
 | Backups exist and one restore completed                      | **ops task** — follow `infra/runbooks/backup-and-restore.md` and record the rehearsal |
 | Alerting on decision and audit-integrity failure             | metrics and thresholds ship here; wiring needs a real monitoring provider             |
 | Counsel review of approval copy, privacy and evidence claims | **business blocker** — cannot be closed by code                                       |
+| Live WhatsApp: Meta business account, templates, webhook     | **external blocker** — the adapter exists; until then the simulator runs the rules    |
+| Hosting provider selected and production deployed            | **business decision** — not yet made                                                  |
+| Payments wired to a provider                                 | not needed during the free beta; Razorpay code stays in place, dormant                |
 | Export available after subscription lapse                    | automated — `tests/security/token-and-files.test.ts`                                  |
-| Three or more paying pilot businesses                        | **business blocker** — cannot be closed by code                                       |
+| Three or more founding firms using it on live projects       | **business blocker** — cannot be closed by code                                       |
 
 ---
 

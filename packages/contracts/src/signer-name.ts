@@ -38,32 +38,35 @@ const HONORIFICS = new Set([
 ]);
 
 /**
- * Lowercases, strips accents and punctuation, drops honorifics, and returns the
- * remaining words. `Dr. Priyá  Mehta-Rao` becomes `['priya', 'mehta', 'rao']`.
+ * Lowercases, strips punctuation, drops honorifics, and returns Unicode words.
+ * Latin accents are folded for spelling tolerance without deleting vowel marks
+ * from Indian scripts. `Dr. Priyá Mehta-Rao` becomes
+ * `['priya', 'mehta', 'rao']`.
  */
 export function signerNameTokens(value: string): string[] {
   return (
     value
-      .normalize('NFD')
-      // Combining marks: á -> a, so an accented spelling still matches.
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      // Hyphens and dots separate words rather than joining them.
-      .replace(/[^a-z0-9]+/g, ' ')
-      .split(' ')
+      .normalize('NFC')
+      .toLocaleLowerCase('und')
+      // Keep letters, combining marks and numbers from every writing system.
+      .split(/[^\p{L}\p{M}\p{N}]+/u)
+      .map(foldLatinAccents)
       .filter((token) => token.length > 0 && !HONORIFICS.has(token))
   );
+}
+
+function foldLatinAccents(token: string): string {
+  const latin = /^[\p{Script_Extensions=Latin}\p{M}\p{N}]+$/u.test(token);
+  return latin ? token.normalize('NFD').replace(/\p{M}/gu, '') : token;
 }
 
 export function signerNameMatches(typed: string, recorded: string): boolean {
   const typedTokens = signerNameTokens(typed);
   const recordedTokens = signerNameTokens(recorded);
 
-  // A recorded name with nothing usable in it cannot be checked against, and
-  // failing every decision would be worse than not checking. This only happens
-  // if a contact was saved as punctuation or an honorific alone.
-  if (recordedTokens.length === 0) return true;
-  if (typedTokens.length === 0) return false;
+  // An unusable recorded or typed name cannot support an attributed signature.
+  // Fail closed instead of treating missing comparison material as a match.
+  if (recordedTokens.length === 0 || typedTokens.length === 0) return false;
 
   const typedSet = new Set(typedTokens);
   return recordedTokens.every((token) => typedSet.has(token));

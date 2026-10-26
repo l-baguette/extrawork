@@ -144,14 +144,15 @@ describe('employee repository', () => {
       );
     });
 
-    it('rejects the same number registered at a different organization', async () => {
-      // This is the case that makes inbound attribution unambiguous: without it
-      // a message from this number could belong to either tenant.
+    it('allows the same number on a different organization’s site team', async () => {
+      // Spec 2026-10-12, D7: a foreman routinely works with several design
+      // firms. Intake resolves the ambiguity by asking which project, so the
+      // database no longer forbids the second roster entry.
       const phone = nextPhone();
-      await addEmployee(alpha, { phoneE164: phone });
-      await expect(addEmployee(beta, { phoneE164: phone })).rejects.toThrowError(
-        expect.objectContaining({ code: 'EMPLOYEE_PHONE_TAKEN' }),
-      );
+      const first = await addEmployee(alpha, { phoneE164: phone });
+      const second = await addEmployee(beta, { phoneE164: phone });
+      expect(first.organizationId).toBe(alpha.organizationId);
+      expect(second.organizationId).toBe(beta.organizationId);
     });
 
     it('frees the number once the employee is removed', async () => {
@@ -245,12 +246,18 @@ describe('inbound message repository', () => {
   }
 
   async function record(input: {
+    provider?: string;
+    providerAccountId?: string | null;
     providerMessageId?: string;
     fromPhoneE164?: string;
     body?: string;
   }) {
     return container.uow.transaction((tx) =>
       container.repos.inboundMessages.record(tx, {
+        ...(input.provider ? { provider: input.provider } : {}),
+        ...(input.providerAccountId !== undefined
+          ? { providerAccountId: input.providerAccountId }
+          : {}),
         providerMessageId: input.providerMessageId ?? nextMessageId(),
         fromPhoneE164: input.fromPhoneE164 ?? nextPhone(),
         body: input.body ?? 'Project: Tower 4\nWhat: Two power points\nCost: 15800',
@@ -278,6 +285,25 @@ describe('inbound message repository', () => {
       [providerMessageId],
     );
     expect(rows[0]?.count).toBe('1');
+  });
+
+  it('keeps the same message id distinct across provider accounts', async () => {
+    const providerMessageId = nextMessageId();
+    const first = await record({
+      provider: 'whatsapp-cloud',
+      providerAccountId: 'phone-alpha',
+      providerMessageId,
+    });
+    const second = await record({
+      provider: 'whatsapp-cloud',
+      providerAccountId: 'phone-beta',
+      providerMessageId,
+    });
+
+    expect(second.alreadySeen).toBe(false);
+    expect(second.row.id).not.toBe(first.row.id);
+    expect(first.row.providerAccountId).toBe('phone-alpha');
+    expect(second.row.providerAccountId).toBe('phone-beta');
   });
 
   it('attributes a message to a tenant once the sender resolves', async () => {

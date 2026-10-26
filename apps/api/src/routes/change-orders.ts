@@ -5,7 +5,10 @@ import {
   CancelChangeOrderSchema,
   CreateChangeOrderSchema,
   CreateRevisionSchema,
+  DismissProposalSchema,
   ListChangeOrdersQuerySchema,
+  MarkInvoicedSchema,
+  ProposalInputSchema,
   RegisterAttachmentSchema,
   RemindSchema,
   SendChangeOrderSchema,
@@ -14,8 +17,13 @@ import {
 } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
 import { versionEtag } from '@extrawork/application';
-import { readChain, verifyAggregateChain } from '@extrawork/db';
-import { STATUS_LABEL, authorize, maskedContactLabel } from '@extrawork/domain';
+import { isAwaitingReview, readChain, verifyAggregateChain } from '@extrawork/db';
+import {
+  STATUS_LABEL,
+  authorize,
+  maskedContactLabel,
+  projectAccessFilter,
+} from '@extrawork/domain';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 import { parseLockVersion } from './customers.js';
 import { summaryDto } from './projects.js';
@@ -39,18 +47,16 @@ export async function registerChangeOrderRoutes(
     authorize(auth.actor, 'change_order:read', { organizationId: auth.actor.organizationId });
 
     const query = ListChangeOrdersQuerySchema.parse(request.query);
-    const orgWide =
-      auth.actor.role === 'OWNER' || auth.actor.role === 'ADMIN' || auth.actor.role === 'FINANCE';
-
     const result = await app.repos.changeOrders.listSummaries(auth.tenant, {
       ...(query.projectId ? { projectId: query.projectId } : {}),
       ...(query.customerId ? { customerId: query.customerId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.bucket ? { bucket: query.bucket } : {}),
+      ...(query.workCategory ? { workCategory: query.workCategory } : {}),
       ...(query.query ? { query: query.query } : {}),
       ...(query.cursor ? { cursor: query.cursor } : {}),
       limit: query.limit,
-      projectGrants: orgWide ? null : [...auth.actor.projectGrants],
+      projectGrants: projectAccessFilter(auth.actor),
     });
 
     return reply.send({
@@ -106,14 +112,16 @@ export async function registerChangeOrderRoutes(
     const version = await app.repos.changeOrders.getCurrentVersion(auth.tenant, id);
     if (!version) throw new AppError('CHANGE_ORDER_NOT_FOUND');
 
-    const [lineItems, attachments, approver, versions, decision, project] = await Promise.all([
-      app.repos.changeOrders.listLineItems(appContext.uow.db, version.id),
-      app.repos.changeOrders.listAttachments(appContext.uow.db, version.id),
-      app.repos.customers.requireContact(auth.tenant, version.approverContactId),
-      app.repos.changeOrders.listVersions(auth.tenant, id),
-      app.repos.approvals.findDecisionByVersion(appContext.uow.db, auth.tenant, version.id),
-      app.repos.projects.requireById(auth.tenant, changeOrder.projectId),
-    ]);
+    const [lineItems, attachments, approver, versions, decision, project, submitterLabel] =
+      await Promise.all([
+        app.repos.changeOrders.listLineItems(appContext.uow.db, auth.tenant, version.id),
+        app.repos.changeOrders.listAttachments(appContext.uow.db, auth.tenant, version.id),
+        app.repos.customers.requireContact(auth.tenant, version.approverContactId),
+        app.repos.changeOrders.listVersions(auth.tenant, id),
+        app.repos.approvals.findDecisionByVersion(appContext.uow.db, auth.tenant, version.id),
+        app.repos.projects.requireById(auth.tenant, changeOrder.projectId),
+        app.repos.changeOrders.findSubmitterLabel(appContext.uow.db, auth.tenant, version.id),
+      ]);
 
     return reply.header('etag', versionEtag(version.id, version.lockVersion)).send({
       id: changeOrder.id,
@@ -135,6 +143,22 @@ export async function registerChangeOrderRoutes(
         title: version.title,
         scopeDescription: version.scopeDescription,
         reason: version.reason,
+        room: version.room,
+        workCategory: version.workCategory,
+        submission: {
+          origin: version.origin,
+          submittedAt: version.submittedForReviewAt?.toISOString() ?? null,
+          label: submitterLabel,
+          awaitingReview: isAwaitingReview(version),
+          reviewedAt: version.reviewedAt?.toISOString() ?? null,
+          note: version.submissionNote,
+        },
+        invoicing: version.invoicedAt
+          ? {
+              invoicedAt: version.invoicedAt.toISOString(),
+              invoiceReference: version.invoiceReference,
+            }
+          : null,
         type: version.type,
         currency: version.currency,
         totals: {
@@ -224,6 +248,66 @@ export async function registerChangeOrderRoutes(
     });
   });
 
+  /**
+   * Raise a request for the designer to review (spec 2026-10-12, D4). Open to
+   * every role with `change_order:propose`, collaborators included. Origin is
+   * derived here, never taken from the body: a pasted message is PASTED, a
+   * collaborator's request COLLABORATOR, anything else WEB.
+   */
+  app.post('/v1/projects/:projectId/proposals', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    app.requireWrite(request, 'change_order:propose');
+    const { projectId } = ProjectIdParams.parse(request.params);
+    const input = ProposalInputSchema.parse(request.body);
+
+    const origin = input.pasted
+      ? 'PASTED'
+      : auth.actor.role === 'COLLABORATOR'
+        ? 'COLLABORATOR'
+        : 'WEB';
+    const created = await app.services.changeOrders.createProposal(auth, projectId, input, {
+      origin,
+      raisedByEmployeeId: input.raisedByEmployeeId ?? null,
+    });
+    return reply.status(201).send({
+      changeOrderId: created.changeOrderId,
+      number: created.number,
+      versionId: created.version.id,
+    });
+  });
+
+  /** The designer declines a proposal without sending it. */
+  app.post('/v1/change-orders/:id/dismiss', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    app.requireWrite(request, 'change_order:cancel');
+    const { id } = IdParams.parse(request.params);
+    const { reason } = DismissProposalSchema.parse(request.body);
+    await app.services.changeOrders.dismissProposal(auth, id, reason);
+    return reply.status(204).send();
+  });
+
+  /** Tier 1 B: mark an approved change as billed, with the firm's invoice number. */
+  app.post('/v1/change-orders/:id/invoicing', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    app.requireWrite(request, 'change_order:invoice');
+    const { id } = IdParams.parse(request.params);
+    const { invoiceReference } = MarkInvoicedSchema.parse(request.body ?? {});
+    const version = await app.services.changeOrders.markInvoiced(
+      auth,
+      id,
+      invoiceReference ?? null,
+    );
+    return reply.send(invoicingDto(version));
+  });
+
+  app.delete('/v1/change-orders/:id/invoicing', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    app.requireWrite(request, 'change_order:invoice');
+    const { id } = IdParams.parse(request.params);
+    await app.services.changeOrders.clearInvoiced(auth, id);
+    return reply.status(204).send();
+  });
+
   /** Draft autosave. Requires `If-Match` (report §7.2). */
   app.patch('/v1/change-orders/:id/draft', { preHandler: write }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
@@ -261,6 +345,7 @@ export async function registerChangeOrderRoutes(
     );
     const lineItems = await app.repos.changeOrders.listLineItems(
       appContext.uow.db,
+      auth.tenant,
       preview.version.id,
     );
 
@@ -495,6 +580,13 @@ export async function registerChangeOrderRoutes(
   });
 }
 
+function invoicingDto(version: { invoicedAt: Date | null; invoiceReference: string | null }) {
+  return {
+    invoicedAt: version.invoicedAt?.toISOString() ?? null,
+    invoiceReference: version.invoiceReference,
+  };
+}
+
 /** Human summary for the timeline; never echoes scope text or a token. */
 function summariseEvent(eventType: string, payload: Record<string, unknown>): string {
   const version = payload.versionNumber ? ` (v${String(payload.versionNumber)})` : '';
@@ -527,6 +619,16 @@ function summariseEvent(eventType: string, payload: Record<string, unknown>): st
       return 'Request cancelled';
     case 'document.evidence_generated.v1':
       return 'Evidence pack generated';
+    case 'change_order.submitted_for_review.v1':
+      return 'Raised for the designer to review';
+    case 'change_order.proposal_dismissed.v1':
+      return 'Dismissed by the designer without sending';
+    case 'change_order.invoiced.v1':
+      return payload.invoiceReference
+        ? `Marked invoiced (${String(payload.invoiceReference)})`
+        : 'Marked invoiced';
+    case 'change_order.invoice_cleared.v1':
+      return 'Invoiced mark cleared';
     default:
       return eventType;
   }

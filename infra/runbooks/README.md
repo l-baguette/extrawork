@@ -26,7 +26,8 @@ below covers one of them.
 - **Two connections.** Ordinary operations use the runtime role
   (`DATABASE_URL`). Repairs use the maintenance role
   (`DATABASE_MAINTENANCE_URL`), which is the only one that may set
-  `extrawork.allow_repair`.
+  immutable evidence triggers. There is no application-visible repair mode or
+  session setting that disables them.
 - **Verify after every repair.** Run `pnpm db:verify-chain` and the project
   integrity job before declaring an incident closed.
 - **Record what you did.** Every runbook ends with an audit step. A repair that

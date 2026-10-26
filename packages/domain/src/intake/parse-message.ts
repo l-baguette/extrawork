@@ -1,4 +1,10 @@
-import { AppError } from '@extrawork/contracts';
+import {
+  AppError,
+  ROOM_SUGGESTIONS,
+  WORK_CATEGORY_LABELS,
+  WorkCategorySchema,
+  type WorkCategory,
+} from '@extrawork/contracts';
 import { Decimal, roundHalfUpToBigint } from '../money/money.js';
 
 /**
@@ -44,10 +50,8 @@ const LABELS: Record<string, IntakeField> = {
   job: 'project',
   work_site: 'project',
   flat: 'project',
-  location: 'project',
 
   what: 'description',
-  work: 'description',
   description: 'description',
   desc: 'description',
   details: 'description',
@@ -97,6 +101,14 @@ export interface ParsedIntake {
    */
   amountAmbiguous: boolean;
   days: number | null;
+  /**
+   * Where the work is (spec 2026-10-12, D9). From a `room:` / `area:` label,
+   * a `location:` label that names a room, or exactly one room phrase in the
+   * description. Null when absent or ambiguous.
+   */
+  room: string | null;
+  /** Type of work, from a label or a keyword in the description. Null when unsure. */
+  workCategory: WorkCategory | null;
   /** Fields the parser found a label for, used to distinguish "0" from "absent". */
   present: Set<IntakeField>;
   /** Lines the parser could not attribute to any field. */
@@ -112,18 +124,47 @@ const EMPTY: ParsedIntake = {
   amountRaw: null,
   amountAmbiguous: false,
   days: null,
+  room: null,
+  workCategory: null,
   present: new Set(),
   unrecognized: [],
 };
 
-function normalizeLabel(raw: string): IntakeField | null {
+/**
+ * Labels for where the work is and what kind of work it is (spec 2026-10-12,
+ * D9). Two of them are older labels with a second meaning, resolved by what
+ * follows them rather than by the label alone:
+ *
+ *   - `location:` has always meant the project ("Location: Tower 4, 1204"). It
+ *     is read as a room only when its text *is* one of the room suggestions;
+ *     anything else stays the project, exactly as before.
+ *   - `work:` has always introduced the description ("Work: 4 extra sockets").
+ *     It is read as a type of work only when its text is nothing but a type of
+ *     work ("Work: plumbing"); anything longer stays the description.
+ */
+type DetailField = 'room' | 'workCategory' | 'location' | 'work';
+type SectionField = IntakeField | DetailField;
+
+const DETAIL_LABELS: Record<string, DetailField> = {
+  room: 'room',
+  area: 'room',
+  location: 'location',
+  category: 'workCategory',
+  type: 'workCategory',
+  type_of_work: 'workCategory',
+  work_type: 'workCategory',
+  trade: 'workCategory',
+  work: 'work',
+};
+
+function normalizeLabel(raw: string): SectionField | null {
   const key = raw
     .trim()
     .toLowerCase()
     .replace(/[^a-z\s]/g, '')
     .trim()
     .replace(/\s+/g, '_');
-  return LABELS[key] ?? null;
+  return DETAIL_LABELS[key] ?? LABELS[key] ?? null;
 }
 
 /**
@@ -276,11 +317,11 @@ export function parseIntakeMessage(body: string): ParsedIntake {
   // genuinely fits (see `parseCommaSeparated`). A labelled message never looks
   // like one, so the two formats cannot be confused.
   const csv = parseCommaSeparated(body);
-  if (csv) return csv;
+  if (csv) return inferDetails(csv, { room: false, workCategory: false });
 
   const lines = body.replace(/\r\n/g, '\n').split('\n');
-  const sections: Array<{ field: IntakeField | null; text: string[] }> = [];
-  let current: { field: IntakeField | null; text: string[] } = { field: null, text: [] };
+  const sections: Array<{ field: SectionField | null; text: string[] }> = [];
+  let current: { field: SectionField | null; text: string[] } = { field: null, text: [] };
 
   for (const line of lines) {
     const labelMatch = line.match(/^\s*\*?\*?([A-Za-z][A-Za-z\s]{0,20}?)\*?\*?\s*[:=\-–]\s*(.*)$/);
@@ -295,11 +336,29 @@ export function parseIntakeMessage(body: string): ParsedIntake {
   }
   sections.push(current);
 
+  const labelled = { room: false, workCategory: false };
+
   for (const section of sections) {
     const text = section.text.join('\n').trim();
     if (!text) continue;
 
-    if (section.field === null) {
+    // Resolve the two double-meaning labels by their text (see DETAIL_LABELS).
+    let field = section.field;
+    if (field === 'location') field = matchRoomSuggestion(text) ? 'room' : 'project';
+    if (field === 'work') field = readLabelledCategory(text, true) ? 'workCategory' : 'description';
+
+    if (field === 'room') {
+      labelled.room = true;
+      result.room = readRoom(text);
+      continue;
+    }
+    if (field === 'workCategory') {
+      labelled.workCategory = true;
+      result.workCategory = readLabelledCategory(text, false);
+      continue;
+    }
+
+    if (field === null) {
       // Unlabelled content before any label is the description — this is what
       // makes a one-line message work.
       if (!result.description) {
@@ -311,8 +370,8 @@ export function parseIntakeMessage(body: string): ParsedIntake {
       continue;
     }
 
-    result.present.add(section.field);
-    switch (section.field) {
+    result.present.add(field);
+    switch (field) {
       case 'company':
         result.company = text;
         break;
@@ -336,13 +395,13 @@ export function parseIntakeMessage(body: string): ParsedIntake {
         result.days = parseDays(text);
         break;
       default: {
-        const exhaustive: never = section.field;
+        const exhaustive: never = field;
         throw new AppError('INTERNAL_ERROR', { details: { field: exhaustive } });
       }
     }
   }
 
-  return result;
+  return inferDetails(result, labelled);
 }
 
 /**
@@ -484,6 +543,120 @@ function looksLikeAmount(raw: string): boolean {
     return true;
   }
   return /\b(approx|around|about|maybe|roughly|lagbhag|karib)\b/.test(text) && /\d/.test(text);
+}
+
+// --- Room and type of work (spec 2026-10-12, D9) ------------------------------
+//
+// Both become terms the homeowner agrees to, so the rule is the same as for
+// money: a field the parser is not sure of is left empty for the designer to
+// fill in, never guessed. Inference only runs when no label was given, and any
+// message that points two ways yields null.
+
+const ROOM_MAX_LENGTH = 80;
+
+function foldRoom(value: string): string {
+  return value.toLowerCase().replace(/['’]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** The suggestion this text names exactly ("master bedroom" → "Master bedroom"). */
+function matchRoomSuggestion(text: string): string | null {
+  const folded = foldRoom(text);
+  return ROOM_SUGGESTIONS.find((room) => foldRoom(room) === folded) ?? null;
+}
+
+/** A labelled room: free text, first line only, the suggestion's spelling when it is one. */
+function readRoom(text: string): string | null {
+  const firstLine = (text.split('\n')[0] ?? '').trim();
+  if (!firstLine) return null;
+  return matchRoomSuggestion(firstLine) ?? firstLine.slice(0, ROOM_MAX_LENGTH).trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Exactly one room suggestion named in free text, or null. */
+export function inferRoom(text: string | null): string | null {
+  if (!text) return null;
+  const folded = foldRoom(text);
+  const found = ROOM_SUGGESTIONS.filter((room) =>
+    new RegExp(`\\b${escapeRegExp(foldRoom(room))}\\b`).test(folded),
+  );
+  return found.length === 1 ? (found[0] as string) : null;
+}
+
+/**
+ * Words that identify a type of work. Matched on word boundaries; a keyword
+ * shown in capitals (POP, MS) is matched only in capitals, because in lower
+ * case it is an ordinary word.
+ */
+const CATEGORY_KEYWORDS: ReadonlyArray<{ category: WorkCategory; pattern: RegExp }> = [
+  { category: 'PLUMBING', pattern: /\b(plumbing|plumber|pipes?|piping|taps?)\b/i },
+  {
+    category: 'ELECTRICAL',
+    pattern: /\b(electrical|electrician|wiring|switch(es)?|switchboards?|sockets?|points?)\b/i,
+  },
+  { category: 'PAINTING', pattern: /\b(re)?(paint|paints|painting|painted|painter)\b/i },
+  { category: 'FLOORING', pattern: /\b(tiles?|tiling|marble|flooring)\b/i },
+  { category: 'FALSE_CEILING', pattern: /\b(false\s+ceiling|gypsum)\b/i },
+  { category: 'FALSE_CEILING', pattern: /\bPOP\b/ },
+  {
+    category: 'CARPENTRY',
+    pattern: /\b(wardrobes?|plywood|shutters?|carpentry|carpenter|woodwork)\b/i,
+  },
+  { category: 'MODULAR_KITCHEN', pattern: /\bmodular\s+kitchen\b/i },
+  { category: 'HVAC', pattern: /\b(ac|a\/c|hvac|ducts?|ducting)\b/i },
+  { category: 'WATERPROOFING', pattern: /\bwater\s*proof(ing)?\b/i },
+  { category: 'DEMOLITION', pattern: /\b(demolish|demolishing|demolition|break|breaking)\b/i },
+  { category: 'CIVIL', pattern: /\b(bricks?|brickwork|plaster|plastering|masonry|civil)\b/i },
+  { category: 'GLASS_ALUMINIUM', pattern: /\b(glass|aluminium|aluminum)\b/i },
+  { category: 'FABRICATION', pattern: /\b(grills?|grilles?|fabrication|fabricated)\b/i },
+  { category: 'FABRICATION', pattern: /\bMS\b/ },
+  { category: 'FURNITURE', pattern: /\b(sofas?|furniture)\b/i },
+];
+
+/** The one type of work this text points to, or null when none or several. */
+export function inferWorkCategory(text: string | null): WorkCategory | null {
+  if (!text) return null;
+  const found = new Set<WorkCategory>();
+  for (const { category, pattern } of CATEGORY_KEYWORDS) {
+    if (pattern.test(text)) found.add(category);
+  }
+  return found.size === 1 ? ([...found][0] as WorkCategory) : null;
+}
+
+/**
+ * A labelled type of work: the category code ("PLUMBING"), its label
+ * ("Plumbing & sanitary"), or a single keyword. `strict` is for the `work:`
+ * label, which only counts as a category when the text is short enough that it
+ * cannot be a description.
+ */
+function readLabelledCategory(text: string, strict: boolean): WorkCategory | null {
+  const value = (text.split('\n')[0] ?? '').trim();
+  if (!value) return null;
+  // "Work: plumbing" names a trade; "Work: 4 extra sockets" describes a job and
+  // must stay the description it always was. A trade name is a word or two
+  // with no quantity in it.
+  if (strict && (value.split(/\s+/).length > 2 || /\d/.test(value))) return null;
+  const code = WorkCategorySchema.safeParse(value.toUpperCase().replace(/[^A-Z]+/g, '_'));
+  if (code.success) return code.data;
+  const folded = value.toLowerCase();
+  const byLabel = (Object.entries(WORK_CATEGORY_LABELS) as Array<[WorkCategory, string]>).find(
+    ([, label]) => label.toLowerCase() === folded,
+  );
+  if (byLabel) return byLabel[0];
+  return inferWorkCategory(value);
+}
+
+function inferDetails(
+  result: ParsedIntake,
+  labelled: { room: boolean; workCategory: boolean },
+): ParsedIntake {
+  if (!labelled.room && result.room === null) result.room = inferRoom(result.description);
+  if (!labelled.workCategory && result.workCategory === null) {
+    result.workCategory = inferWorkCategory(result.description);
+  }
+  return result;
 }
 
 /**

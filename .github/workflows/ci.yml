@@ -93,12 +93,14 @@ jobs:
           SESSION_SECRET: ci-session-secret-ci-session-secret-0001
           PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
           STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+          APPROVAL_LINK_ENCRYPTION_SECRET: ci-approval-link-secret-ci-approval-link-0004
         run: pnpm db:migrate
       - name: Re-apply is a no-op (migrations are idempotent)
         env:
           SESSION_SECRET: ci-session-secret-ci-session-secret-0001
           PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
           STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+          APPROVAL_LINK_ENCRYPTION_SECRET: ci-approval-link-secret-ci-approval-link-0004
         run: |
           output=$(pnpm db:migrate)
           echo "$output"
@@ -127,6 +129,7 @@ jobs:
       SESSION_SECRET: ci-session-secret-ci-session-secret-0001
       PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
       STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+      APPROVAL_LINK_ENCRYPTION_SECRET: ci-approval-link-secret-ci-approval-link-0004
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -175,6 +178,7 @@ jobs:
           SESSION_SECRET: ci-session-secret-ci-session-secret-0001
           PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
           STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+          APPROVAL_LINK_ENCRYPTION_SECRET: ci-approval-link-secret-ci-approval-link-0004
         run: |
           pnpm openapi
           git diff --exit-code docs/openapi/openapi.json || {
@@ -222,6 +226,7 @@ jobs:
       SESSION_SECRET: ci-session-secret-ci-session-secret-0001
       PRIVACY_HASH_SECRET: ci-privacy-secret-ci-privacy-secret-0002
       STORAGE_URL_SECRET: ci-storage-secret-ci-storage-secret-0003
+      APPROVAL_LINK_ENCRYPTION_SECRET: ci-approval-link-secret-ci-approval-link-0004
       API_PUBLIC_URL: http://localhost:4000
       WEB_PUBLIC_URL: http://localhost:3000
       NEXT_PUBLIC_API_URL: http://localhost:4000

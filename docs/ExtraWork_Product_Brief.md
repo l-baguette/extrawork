@@ -1,5 +1,7 @@
 # ExtraWork — Product Brief
 
+> Superseded in part by `ExtraWork_Product_Brief_v3.md` (October 2026): the primary user is now the designer or architect; see that document.
+
 **Version 2.0 — 14 August 2026**
 
 ## What ExtraWork is

@@ -25,8 +25,39 @@ export const RATE_LIMITS = {
   OTP_SEND_WINDOW: { limit: 3, windowSeconds: 900 },
   OTP_SEND_DAILY: { limit: 10, windowSeconds: 86_400 },
   UPLOAD_CREATE: { limit: 30, windowSeconds: 3_600 },
+  /**
+   * Guards routes that SEND email — the sign-in link, registration and resend.
+   * Tight on purpose: each request puts a message in someone's inbox, so this
+   * is spam control, and five in fifteen minutes is generous for a real person.
+   */
   AUTH_MAGIC_LINK: { limit: 5, windowSeconds: 900 },
+  /**
+   * Non-sending authentication steps: OAuth start/callback and consuming a
+   * high-entropy sign-in or verification token. Keeping these separate means
+   * the action that proves an emailed link cannot be blocked by the bucket
+   * spent sending that same link.
+   */
+  AUTH_FLOW: { limit: 30, windowSeconds: 900 },
+  /**
+   * Password attempts, which send nothing.
+   *
+   * Separated because sharing the mail bucket meant a person who mistyped their
+   * password a few times was locked out of *signing in* by a limit that exists
+   * to stop mail being sent — and worse, someone who had just registered had
+   * already spent most of the allowance before their first attempt. Still
+   * bounded, because this is the brute-force surface, just not by a counter
+   * measuring a different thing.
+   */
+  AUTH_SIGN_IN_ATTEMPT: { limit: 20, windowSeconds: 900 },
   WEBHOOK: { limit: 600, windowSeconds: 60 },
+  /**
+   * "Ask for a change" on the homeowner portal (spec 2026-10-12, D5), keyed on
+   * the link alone rather than link + IP: each one lands on the designer's
+   * review queue, so the budget belongs to the household, not to whichever
+   * network they happen to be on. Generous for a real homeowner, useless for
+   * flooding a designer from a leaked link.
+   */
+  PORTAL_CHANGE_REQUEST: { limit: 10, windowSeconds: 86_400 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

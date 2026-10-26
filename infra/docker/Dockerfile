@@ -25,7 +25,6 @@ COPY packages/integrations/package.json packages/integrations/
 COPY packages/observability/package.json packages/observability/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/testkit/package.json packages/testkit/
-COPY packages/ui/package.json packages/ui/
 RUN pnpm install --frozen-lockfile
 
 # --- Build ------------------------------------------------------------------
@@ -60,7 +59,7 @@ CMD ["node", "apps/worker/dist/main.js"]
 # --- Web --------------------------------------------------------------------
 FROM deps AS web-build
 COPY . .
-RUN pnpm --filter @extrawork/web build
+RUN pnpm build:packages && pnpm --filter @extrawork/web build
 
 FROM base AS web
 ENV NODE_ENV=production

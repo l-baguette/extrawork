@@ -11,6 +11,11 @@ import { GoogleOAuthProvider } from './identity/google-oauth.js';
 import { AuthService, type AuthProvider } from './identity/auth-service.js';
 import { LocalMagicLinkProvider, ManagedJwtProvider } from './identity/providers.js';
 import { ProjectService } from './projects/service.js';
+import { NotificationService } from './notifications/service.js';
+import { CollaborationService } from './collaboration/service.js';
+import { WorkspaceService } from './workspace/service.js';
+import { TimelineService } from './timeline/service.js';
+import { PortalService } from './portal/service.js';
 
 /** The use-case surface the API and worker consume. */
 export interface Services {
@@ -24,21 +29,27 @@ export interface Services {
   files: FileService;
   employees: EmployeeService;
   intake: IntakeService;
+  // Three-party workspace (spec 2026-10-12).
+  notifications: NotificationService;
+  collaboration: CollaborationService;
+  workspace: WorkspaceService;
+  timeline: TimelineService;
+  portal: PortalService;
   /** Null when GOOGLE_CLIENT_ID/SECRET are not configured. */
   google: GoogleOAuthProvider | null;
 }
 
 export function createAuthProvider(app: AppContext): AuthProvider {
   if (app.env.AUTH_DRIVER === 'supabase' || app.env.AUTH_DRIVER === 'clerk') {
-    if (!app.env.AUTH_JWKS_URL || !app.env.AUTH_JWT_ISSUER) {
+    if (!app.env.AUTH_JWKS_URL || !app.env.AUTH_JWT_ISSUER || !app.env.AUTH_JWT_AUDIENCE) {
       throw new Error(
-        `AUTH_DRIVER=${app.env.AUTH_DRIVER} requires AUTH_JWKS_URL and AUTH_JWT_ISSUER`,
+        `AUTH_DRIVER=${app.env.AUTH_DRIVER} requires AUTH_JWKS_URL, AUTH_JWT_ISSUER and AUTH_JWT_AUDIENCE`,
       );
     }
     return new ManagedJwtProvider({
       jwksUrl: app.env.AUTH_JWKS_URL,
       issuer: app.env.AUTH_JWT_ISSUER,
-      ...(app.env.AUTH_JWT_AUDIENCE ? { audience: app.env.AUTH_JWT_AUDIENCE } : {}),
+      audience: app.env.AUTH_JWT_AUDIENCE,
       providerName: app.env.AUTH_DRIVER,
     });
   }
@@ -52,6 +63,9 @@ export function createAuthProvider(app: AppContext): AuthProvider {
 export function createServices(app: AppContext): Services {
   const changeOrders = new ChangeOrderService(app);
   const send = new SendService(app);
+  // Constructed first: intake mints portal links when a homeowner texts
+  // "contracts" (spec 2026-10-12, D5).
+  const portal = new PortalService(app, changeOrders);
   return {
     auth: new AuthService(app, createAuthProvider(app)),
     projects: new ProjectService(app),
@@ -62,7 +76,12 @@ export function createServices(app: AppContext): Services {
     otp: new OtpService(app),
     files: new FileService(app),
     employees: new EmployeeService(app),
-    intake: new IntakeService(app, changeOrders, send),
+    intake: new IntakeService(app, changeOrders, send, portal),
+    notifications: new NotificationService(app),
+    collaboration: new CollaborationService(app),
+    workspace: new WorkspaceService(app),
+    timeline: new TimelineService(app),
+    portal,
     google:
       app.env.GOOGLE_CLIENT_ID && app.env.GOOGLE_CLIENT_SECRET
         ? new GoogleOAuthProvider({

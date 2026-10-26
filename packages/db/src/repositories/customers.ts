@@ -5,6 +5,7 @@ import type { Database, TransactionContext } from '../client.js';
 import { newId } from '../ids.js';
 import { requireRow } from './organizations.js';
 import { toDate, toDateOrNull } from '../row-types.js';
+import { runInScope, SYSTEM_SCOPE } from '../tenant-scope.js';
 
 /**
  * Customers and contacts. Report §7.1 (Customers module), §9.5 (normalization,
@@ -68,7 +69,15 @@ export class CustomerRepository {
   }
 
   async findById(ctx: TenantContext, id: string): Promise<CustomerRow | null> {
-    const result = await this.db.execute<CustomerRecord>(sql`
+    return this.findByIdIn(this.db, ctx, id);
+  }
+
+  private async findByIdIn(
+    db: Database,
+    ctx: TenantContext,
+    id: string,
+  ): Promise<CustomerRow | null> {
+    const result = await db.execute<CustomerRecord>(sql`
       SELECT ${CUSTOMER_COLUMNS} FROM customers
       WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
     `);
@@ -78,6 +87,18 @@ export class CustomerRepository {
 
   async requireById(ctx: TenantContext, id: string): Promise<CustomerRow> {
     const row = await this.findById(ctx, id);
+    if (!row) throw new AppError('CUSTOMER_NOT_FOUND');
+    return row;
+  }
+
+  async lockById(tx: TransactionContext, ctx: TenantContext, id: string): Promise<CustomerRow> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM customers
+      WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) throw new AppError('CUSTOMER_NOT_FOUND');
+    const row = await this.findByIdIn(tx.db, ctx, id);
     if (!row) throw new AppError('CUSTOMER_NOT_FOUND');
     return row;
   }
@@ -239,8 +260,40 @@ export class CustomerRepository {
     return result.rows.map(mapContact);
   }
 
+  /**
+   * Every contact with this phone number, across organizations, with whatever
+   * workspace it belongs to — the homeowner half of WhatsApp sender
+   * resolution (spec 2026-10-12, D6).
+   *
+   * System-scoped and without a TenantContext for the same reason as
+   * `employees.findAllByPhone`: the phone number is what derives the tenant.
+   * Erased contacts carry no phone and so never match; closed or suspended
+   * workspaces are left out.
+   */
+  async findContactsByPhoneGlobal(phoneE164: string): Promise<ContactRow[]> {
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<ContactRecord>(sql`
+        SELECT ${CONTACT_COLUMNS_QUALIFIED} FROM contacts c
+        JOIN organizations o ON o.id = c.organization_id
+        WHERE c.phone_e164 = ${phoneE164}
+          AND c.erased_at IS NULL
+          AND o.status = 'ACTIVE'
+        ORDER BY c.created_at, c.id
+      `),
+    );
+    return result.rows.map(mapContact);
+  }
+
   async findContact(ctx: TenantContext, contactId: string): Promise<ContactRow | null> {
-    const result = await this.db.execute<ContactRecord>(sql`
+    return this.findContactIn(this.db, ctx, contactId);
+  }
+
+  private async findContactIn(
+    db: Database,
+    ctx: TenantContext,
+    contactId: string,
+  ): Promise<ContactRow | null> {
+    const result = await db.execute<ContactRecord>(sql`
       SELECT ${CONTACT_COLUMNS} FROM contacts
       WHERE id = ${contactId}::uuid AND organization_id = ${ctx.organizationId}::uuid
     `);
@@ -250,6 +303,22 @@ export class CustomerRepository {
 
   async requireContact(ctx: TenantContext, contactId: string): Promise<ContactRow> {
     const row = await this.findContact(ctx, contactId);
+    if (!row) throw new AppError('CONTACT_NOT_FOUND');
+    return row;
+  }
+
+  async lockContact(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    contactId: string,
+  ): Promise<ContactRow> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM contacts
+      WHERE id = ${contactId}::uuid AND organization_id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) throw new AppError('CONTACT_NOT_FOUND');
+    const row = await this.findContactIn(tx.db, ctx, contactId);
     if (!row) throw new AppError('CONTACT_NOT_FOUND');
     return row;
   }
@@ -444,6 +513,12 @@ const CONTACT_COLUMNS = sql`
   is_default_approver, authority_note, whatsapp_opt_in_status, whatsapp_opt_in_at, created_at
 `;
 
+const CONTACT_COLUMNS_QUALIFIED = sql`
+  c.id, c.organization_id, c.customer_id, c.name, c.phone_e164, c.email_normalized,
+  c.is_default_approver, c.authority_note, c.whatsapp_opt_in_status, c.whatsapp_opt_in_at,
+  c.created_at
+`;
+
 type CustomerRecord = {
   id: string;
   organization_id: string;
@@ -500,8 +575,18 @@ function mapContact(row: ContactRecord): ContactRow {
   };
 }
 
-export function encodeCursor(updatedAt: Date, id: string): string {
-  return Buffer.from(`${updatedAt.toISOString()}|${id}`).toString('base64url');
+/**
+ * Accepts what the driver actually hands back, not what the row type claims.
+ *
+ * `timestamptz` arrives as a string on this path, and both callers pass the raw
+ * column rather than the mapped row — so the previous `Date`-only signature
+ * threw `updatedAt.toISOString is not a function` the moment a list was long
+ * enough to need a second page. TypeScript could not see it because the record
+ * types declare these columns as `Date`.
+ */
+export function encodeCursor(updatedAt: Date | string, id: string): string {
+  const at = updatedAt instanceof Date ? updatedAt : new Date(updatedAt);
+  return Buffer.from(`${at.toISOString()}|${id}`).toString('base64url');
 }
 
 export function decodeCursor(cursor: string | undefined): { updatedAt: string; id: string } | null {

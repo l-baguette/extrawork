@@ -124,8 +124,9 @@ export function SharePanel({
           {result.approvalUrl}
         </p>
         <p className="small muted">
-          This link is shown once. ExtraWork stores only a hash of it, so it cannot be recovered
-          later — but you can always send a reminder or a new version.
+          This link is shown once. Its approval record keeps only a hash; any automated-delivery
+          copy is encrypted and removed when the worker finishes. You can still send a reminder or a
+          new version later.
         </p>
       </details>
 

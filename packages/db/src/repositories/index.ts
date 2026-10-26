@@ -15,10 +15,18 @@ import { FileRepository } from './files.js';
 import { IdentityRepository } from './identity.js';
 import { InboundMessageRepository } from './inbound-messages.js';
 import { OrganizationRepository } from './organizations.js';
+import { PaymentRepository } from './payments.js';
 import { ProjectRepository } from './projects.js';
 import { ReminderRepository } from './reminders.js';
 import { ReportingRepository, SupportRepository } from './reporting.js';
 import { RequestTemplateRepository } from './request-templates.js';
+import { NotificationRepository } from './notifications.js';
+import { CollaborationRepository } from './collaboration.js';
+import { WorkspaceRepository } from './workspace.js';
+import { MilestoneRepository } from './milestones.js';
+import { PortalRepository } from './portal.js';
+import { CalendarRepository } from './calendar.js';
+import { ConversationRepository } from './conversations.js';
 
 /**
  * One assembled repository set, constructed once per process and injected into
@@ -37,12 +45,21 @@ export interface Repositories {
   messages: MessageRepository;
   webhooks: WebhookInboxRepository;
   reminders: ReminderRepository;
+  payments: PaymentRepository;
   reporting: ReportingRepository;
   support: SupportRepository;
   // WhatsApp intake (migration 0005).
   employees: EmployeeRepository;
   inboundMessages: InboundMessageRepository;
   requestTemplates: RequestTemplateRepository;
+  // Three-party workspace (migrations 0020–0023).
+  notifications: NotificationRepository;
+  collaboration: CollaborationRepository;
+  workspace: WorkspaceRepository;
+  milestones: MilestoneRepository;
+  portal: PortalRepository;
+  calendar: CalendarRepository;
+  conversations: ConversationRepository;
   audit: AuditWriter;
   rateLimiter: RateLimiter;
 }
@@ -65,11 +82,19 @@ export function createRepositories(
     messages: new MessageRepository(db),
     webhooks: new WebhookInboxRepository(db),
     reminders: new ReminderRepository(db),
+    payments: new PaymentRepository(),
     reporting: new ReportingRepository(db),
     support: new SupportRepository(db),
     employees: new EmployeeRepository(db),
     inboundMessages: new InboundMessageRepository(db),
     requestTemplates: new RequestTemplateRepository(db),
+    notifications: new NotificationRepository(db),
+    collaboration: new CollaborationRepository(db),
+    workspace: new WorkspaceRepository(db),
+    milestones: new MilestoneRepository(db),
+    portal: new PortalRepository(db),
+    calendar: new CalendarRepository(db),
+    conversations: new ConversationRepository(db),
     audit: auditWriter,
     rateLimiter: options.localAuthenticatedReads
       ? new LocalReadRateLimiter(distributedRateLimiter, new InMemoryRateLimiter(rateLimitEnabled))

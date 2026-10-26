@@ -47,7 +47,10 @@ export async function beginIdempotent(
 ): Promise<IdempotencyBeginResult> {
   const requestHash = hashRequest(params.payload);
   const id = newId();
-  const expiresAt = new Date(Date.now() + (params.ttlHours ?? DEFAULT_TTL_HOURS) * 3_600_000);
+  const ttlSeconds = (params.ttlHours ?? DEFAULT_TTL_HOURS) * 3_600;
+  if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) {
+    throw new TypeError('Idempotency TTL must be a positive duration');
+  }
 
   // Claim the key. ON CONFLICT DO NOTHING means the winner proceeds and any
   // concurrent caller falls through to the SELECT ... FOR UPDATE below.
@@ -56,7 +59,7 @@ export async function beginIdempotent(
       (id, scope, subject_id, idempotency_key, request_hash, status, expires_at)
     VALUES (
       ${id}::uuid, ${params.scope}, ${params.subjectId}, ${params.key},
-      ${requestHash}, 'IN_PROGRESS', ${expiresAt.toISOString()}::timestamptz
+      ${requestHash}, 'IN_PROGRESS', now() + make_interval(secs => ${ttlSeconds})
     )
     ON CONFLICT (scope, subject_id, idempotency_key) DO NOTHING
     RETURNING id
@@ -74,8 +77,10 @@ export async function beginIdempotent(
     response_status: number | null;
     response_body: unknown;
     resource_id: string | null;
+    expired: boolean;
   }>(sql`
-    SELECT id, request_hash, status, response_status, response_body, resource_id
+    SELECT id, request_hash, status, response_status, response_body, resource_id,
+           expires_at <= now() AS expired
     FROM idempotency_records
     WHERE scope = ${params.scope}
       AND subject_id = ${params.subjectId}
@@ -87,6 +92,21 @@ export async function beginIdempotent(
   if (!row) {
     // The record expired and was cleaned up between the two statements.
     throw new AppError('IDEMPOTENCY_IN_PROGRESS');
+  }
+
+  if (row.expired) {
+    // Expiry ends the key's contract. Reuse after this point is a fresh claim,
+    // even when the new request body differs from the old one. The row lock
+    // makes exactly one concurrent caller the new owner.
+    await tx.db.execute(sql`
+      UPDATE idempotency_records
+         SET request_hash = ${requestHash}, status = 'IN_PROGRESS',
+             resource_id = NULL, response_status = NULL, response_body = NULL,
+             completed_at = NULL,
+             expires_at = now() + make_interval(secs => ${ttlSeconds})
+       WHERE id = ${row.id}::uuid
+    `);
+    return { id: row.id, replay: false, response: null };
   }
 
   const storedHash = Buffer.isBuffer(row.request_hash)
@@ -138,18 +158,6 @@ export async function completeIdempotent(
            response_body = ${JSON.stringify(result.body ?? null)}::jsonb,
            resource_id = ${result.resourceId ?? null}::uuid,
            completed_at = now()
-     WHERE id = ${id}::uuid
-  `);
-}
-
-export async function failIdempotent(
-  tx: TransactionContext,
-  id: string,
-  status: number,
-): Promise<void> {
-  await tx.db.execute(sql`
-    UPDATE idempotency_records
-       SET status = 'FAILED', response_status = ${status}, completed_at = now()
      WHERE id = ${id}::uuid
   `);
 }

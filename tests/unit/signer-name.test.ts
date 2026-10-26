@@ -52,10 +52,18 @@ describe('signer name matching', () => {
     expect(signerNameMatches('Priya Mehta Rao', 'Priya Mehta-Rao')).toBe(true);
   });
 
-  it('does not lock out a contact recorded as an honorific alone', () => {
-    // Nothing usable to compare against, and failing every decision would be
-    // worse than not checking this one.
-    expect(signerNameMatches('Anyone', 'Mr.')).toBe(true);
+  it('fails closed when the recorded contact has no usable name', () => {
+    expect(signerNameMatches('Anyone', 'Mr.')).toBe(false);
+    expect(signerNameMatches('Anyone', '...')).toBe(false);
+  });
+
+  it('matches names written in Indian scripts without discarding their letters or marks', () => {
+    expect(signerNameTokens('वेदांत सचीन्द्रन')).toEqual(['वेदांत', 'सचीन्द्रन']);
+    expect(signerNameMatches('वेदांत सचीन्द्रन', 'वेदांत सचीन्द्रन')).toBe(true);
+    expect(signerNameMatches('वेदांत कुमार', 'वेदांत सचीन्द्रन')).toBe(false);
+
+    expect(signerNameMatches('வேதாந்த் சச்சீந்திரன்', 'வேதாந்த் சச்சீந்திரன்')).toBe(true);
+    expect(signerNameMatches('வேதாந்த் குமார்', 'வேதாந்த் சச்சீந்திரன்')).toBe(false);
   });
 
   it('handles a company name as the approver', () => {

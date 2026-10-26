@@ -132,9 +132,11 @@ function decorate(rows: InboundMessageRow[]): InboundMessageDto[] {
     fromPhoneMasked: maskPhone(row.fromPhoneE164) ?? '',
     employeeId: row.employeeId,
     employeeName: row.employeeName,
+    contactName: row.contactName,
     projectId: row.projectId,
     projectTitle: row.projectTitle,
     changeOrderId: row.changeOrderId,
+    documentId: row.documentId,
     body: row.body,
     mediaCount: row.mediaCount,
     rejectionReason: row.rejectionReason,
@@ -156,6 +158,9 @@ function toEmployeeDto(row: EmployeeWithAssignments): EmployeeDto {
     projectIds: row.projectIds,
     // Ceilings are well under Number.MAX_SAFE_INTEGER; the wire format is JSON.
     maxRequestMinor: row.maxRequestMinor === null ? null : Number(row.maxRequestMinor),
+    party: row.party,
+    companyName: row.companyName,
+    teamRole: row.teamRole,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

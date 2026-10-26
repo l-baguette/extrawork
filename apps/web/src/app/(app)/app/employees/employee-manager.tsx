@@ -1,9 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import type { EmployeeDto } from '@extrawork/contracts';
+import {
+  TEAM_ROLE_LABELS,
+  type EmployeeDto,
+  type TeamParty,
+  type TeamRole,
+} from '@extrawork/contracts';
 import { ApiError, api, newIdempotencyKey } from '@/lib/api';
 import { formatMoney, minorToInput, parseMoneyToMinor } from '@/lib/format';
+import { TEAM_PARTY_LABELS } from '@/components/team-labels';
+
+const TEAM_PARTIES = Object.entries(TEAM_PARTY_LABELS) as Array<[TeamParty, string]>;
+const TEAM_ROLES = Object.entries(TEAM_ROLE_LABELS) as Array<[TeamRole, string]>;
 
 export interface ProjectOption {
   id: string;
@@ -18,6 +27,9 @@ interface FormState {
   allProjects: boolean;
   projectIds: string[];
   ceiling: string;
+  party: TeamParty;
+  companyName: string;
+  teamRole: TeamRole;
 }
 
 const EMPTY: FormState = {
@@ -27,6 +39,9 @@ const EMPTY: FormState = {
   allProjects: true,
   projectIds: [],
   ceiling: '',
+  party: 'INTERNAL',
+  companyName: '',
+  teamRole: 'SITE_SUPERVISOR',
 };
 
 /**
@@ -64,6 +79,9 @@ export function EmployeeManager({
       allProjects: employee.allProjects,
       projectIds: employee.projectIds,
       ceiling: employee.maxRequestMinor === null ? '' : minorToInput(employee.maxRequestMinor),
+      party: employee.party,
+      companyName: employee.companyName ?? '',
+      teamRole: employee.teamRole,
     });
   }
 
@@ -91,6 +109,13 @@ export function EmployeeManager({
         allProjects: form.allProjects,
         projectIds: form.allProjects ? [] : form.projectIds,
         maxRequestMinor,
+        party: form.party,
+        // Only another firm's people carry a company name; ours is the workspace.
+        companyName:
+          form.party === 'INTERNAL' || form.companyName.trim() === ''
+            ? null
+            : form.companyName.trim(),
+        teamRole: form.teamRole,
       };
 
       if (editingId) {
@@ -147,7 +172,7 @@ export function EmployeeManager({
   return (
     <>
       <section className="card" style={{ marginBottom: 'var(--space-4)' }}>
-        <h2>{editingId ? 'Edit employee' : 'Add an employee'}</h2>
+        <h2>{editingId ? 'Edit site team member' : 'Add someone to the site team'}</h2>
 
         <form onSubmit={submit}>
           <div className="field">
@@ -175,19 +200,63 @@ export function EmployeeManager({
               aria-describedby="employee-phone-help"
             />
             <p id="employee-phone-help" className="small muted">
-              This is how they are recognised — messages from any other number are rejected. Indian
-              numbers can be typed without +91.
+              This is how they are recognised. A number can be on your team once; the same person
+              may also be on another firm&rsquo;s team. Indian numbers can be typed without +91.
             </p>
           </div>
 
           <div className="field">
-            <label htmlFor="employee-role">Role or site note (optional)</label>
+            <label htmlFor="employee-party">Works for</label>
+            <select
+              id="employee-party"
+              value={form.party}
+              onChange={(e) => setForm({ ...form, party: e.target.value as TeamParty })}
+            >
+              {TEAM_PARTIES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {form.party !== 'INTERNAL' ? (
+            <div className="field">
+              <label htmlFor="employee-company">Company</label>
+              <input
+                id="employee-company"
+                value={form.companyName}
+                onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                maxLength={200}
+                placeholder="Kumar Constructions"
+                autoComplete="off"
+              />
+            </div>
+          ) : null}
+
+          <div className="field">
+            <label htmlFor="employee-team-role">Role on site</label>
+            <select
+              id="employee-team-role"
+              value={form.teamRole}
+              onChange={(e) => setForm({ ...form, teamRole: e.target.value as TeamRole })}
+            >
+              {TEAM_ROLES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="employee-role">Site note (optional)</label>
             <input
               id="employee-role"
               value={form.roleNote}
               onChange={(e) => setForm({ ...form, roleNote: e.target.value })}
               maxLength={200}
-              placeholder="Site supervisor, Tower 4"
+              placeholder="Tower 4, evenings"
               autoComplete="off"
             />
           </div>
@@ -252,7 +321,7 @@ export function EmployeeManager({
 
           <div className="actions">
             <button type="submit" className="button" disabled={busy}>
-              {busy ? 'Saving…' : editingId ? 'Save changes' : 'Add employee'}
+              {busy ? 'Saving…' : editingId ? 'Save changes' : 'Add to site team'}
             </button>
             {editingId ? (
               <button
@@ -270,10 +339,11 @@ export function EmployeeManager({
 
       {employees.length === 0 ? (
         <div className="card">
-          <h2>No employees yet</h2>
+          <h2>No one on the site team yet</h2>
           <p className="muted">
-            Add the people on site who should be able to request approval for extra work. Once
-            added, they just send a WhatsApp message — nothing to install, no account to create.
+            Add the supervisors, foremen and contractors who should be able to send requests and
+            photos for your projects. Once added, they just send a WhatsApp message — nothing to
+            install, no account to create.
           </p>
         </div>
       ) : (
@@ -283,6 +353,7 @@ export function EmployeeManager({
               <thead>
                 <tr>
                   <th scope="col">Name</th>
+                  <th scope="col">Works for</th>
                   <th scope="col">Number</th>
                   <th scope="col">Projects</th>
                   <th scope="col" style={{ textAlign: 'right' }}>
@@ -299,9 +370,16 @@ export function EmployeeManager({
                   <tr key={employee.id}>
                     <td>
                       <strong>{employee.name}</strong>
-                      {employee.roleNote ? (
-                        <div className="small muted">{employee.roleNote}</div>
-                      ) : null}
+                      <div className="small muted">
+                        {[TEAM_ROLE_LABELS[employee.teamRole], employee.roleNote]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </td>
+                    <td className="small">
+                      {employee.party === 'INTERNAL'
+                        ? TEAM_PARTY_LABELS.INTERNAL
+                        : (employee.companyName ?? TEAM_PARTY_LABELS[employee.party])}
                     </td>
                     <td className="small tabular">{employee.phoneMasked}</td>
                     <td className="small">
@@ -357,14 +435,14 @@ export function EmployeeManager({
 }
 
 /**
- * EMPLOYEE_PHONE_TAKEN can fire because the number belongs to *another*
- * organization, which the owner cannot see. The wording deliberately does not
- * say where it is registered — that would confirm another tenant exists.
+ * Since spec 2026-10-12 (D7) EMPLOYEE_PHONE_TAKEN means the number is already
+ * on *this* team — including someone removed earlier, whose row is kept so the
+ * message log still names them. Another firm having the same number is fine.
  */
 function messageFor(cause: unknown): string {
   if (cause instanceof ApiError) {
     if (cause.code === 'EMPLOYEE_PHONE_TAKEN') {
-      return 'That number is already registered to an employee. Each number can belong to only one person.';
+      return 'That number is already on your site team. Edit that person instead of adding them again.';
     }
     return cause.message;
   }

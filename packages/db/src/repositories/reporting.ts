@@ -18,42 +18,89 @@ export interface DashboardData {
   overdueOrExpiring: number;
   approvedValueThisMonthMinor: bigint;
   averageHoursToDecision: number | null;
-  projectsWithUnbilledApprovedExtras: number;
+  /** Tier 1 B: approved and not yet marked invoiced. */
+  unbilledApprovedTotalMinor: bigint;
+  unbilledApprovedCount: number;
+  /** Spec D4: proposals waiting for the designer. */
+  awaitingReviewCount: number;
 }
 
 export class ReportingRepository {
   constructor(private readonly db: Database) {}
 
-  async dashboard(ctx: TenantContext, timezone: string): Promise<DashboardData> {
+  async dashboard(
+    ctx: TenantContext,
+    timezone: string,
+    projectGrants?: readonly string[] | null,
+    options: {
+      /**
+       * Count only the proposals this user raised. A collaborator's queue is
+       * what they are waiting on, not the designer's review backlog.
+       */
+      submittedByUserId?: string | null;
+    } = {},
+  ): Promise<DashboardData> {
+    const grantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND project_id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
     const result = await this.db.execute<{
       currency: string | null;
       pending_decisions: string;
       overdue_or_expiring: string;
       approved_value_month: string;
       average_hours: string | null;
-      projects_unbilled: string;
+      unbilled_total: string;
+      unbilled_count: string;
+      awaiting_review: string;
     }>(sql`
       SELECT
         (SELECT default_currency FROM organizations WHERE id = ${ctx.organizationId}::uuid) AS currency,
         (SELECT count(*) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status IN ('SENT','VIEWED'))::text AS pending_decisions,
         (SELECT count(*) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status IN ('SENT','VIEWED')
             AND expires_at < now() + interval '48 hours')::text AS overdue_or_expiring,
         (SELECT COALESCE(sum(total_delta_minor), 0) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND status = 'APPROVED'
             AND decided_at >= date_trunc('month', now() AT TIME ZONE ${timezone})
                               AT TIME ZONE ${timezone})::text AS approved_value_month,
         (SELECT AVG(EXTRACT(EPOCH FROM (decided_at - sent_at)) / 3600.0)::text
            FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
             AND decided_at IS NOT NULL AND sent_at IS NOT NULL) AS average_hours,
-        (SELECT count(DISTINCT project_id) FROM change_order_versions
+        -- Tier 1 B: the old figure counted every project that had ever had an
+        -- approval and could never go down. This one falls as changes are billed.
+        (SELECT COALESCE(sum(total_delta_minor), 0) FROM change_order_versions
           WHERE organization_id = ${ctx.organizationId}::uuid
-            AND status = 'APPROVED')::text AS projects_unbilled
+            ${grantFilter}
+            AND status = 'APPROVED' AND invoiced_at IS NULL)::text AS unbilled_total,
+        (SELECT count(*) FROM change_order_versions
+          WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
+            AND status = 'APPROVED' AND invoiced_at IS NULL)::text AS unbilled_count,
+        (SELECT count(*) FROM change_order_versions
+          WHERE organization_id = ${ctx.organizationId}::uuid
+            ${grantFilter}
+            AND status = 'DRAFT'
+            AND submitted_for_review_at IS NOT NULL
+            AND reviewed_at IS NULL
+            ${
+              options.submittedByUserId
+                ? sql`AND submitted_by_user_id = ${options.submittedByUserId}::uuid`
+                : sql``
+            })::text AS awaiting_review
     `);
 
     const row = result.rows[0];
@@ -63,7 +110,9 @@ export class ReportingRepository {
       overdueOrExpiring: Number.parseInt(row?.overdue_or_expiring ?? '0', 10),
       approvedValueThisMonthMinor: BigInt(row?.approved_value_month ?? '0'),
       averageHoursToDecision: row?.average_hours ? Number.parseFloat(row.average_hours) : null,
-      projectsWithUnbilledApprovedExtras: Number.parseInt(row?.projects_unbilled ?? '0', 10),
+      unbilledApprovedTotalMinor: BigInt(row?.unbilled_total ?? '0'),
+      unbilledApprovedCount: Number.parseInt(row?.unbilled_count ?? '0', 10),
+      awaitingReviewCount: Number.parseInt(row?.awaiting_review ?? '0', 10),
     };
   }
 
@@ -76,6 +125,7 @@ export class ReportingRepository {
     ctx: TenantContext,
     query: string,
     limit: number,
+    projectGrants?: readonly string[] | null,
   ): Promise<{
     customers: Array<{ id: string; displayName: string; snippet: string | null }>;
     projects: Array<{ id: string; projectNumber: string; title: string; customerName: string }>;
@@ -89,6 +139,22 @@ export class ReportingRepository {
     }>;
   }> {
     const like = `%${query}%`;
+    const projectGrantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND p.id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
+    const changeGrantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND co.project_id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
 
     const customers = await this.db.execute<{ id: string; display_name: string }>(sql`
       SELECT id, display_name FROM customers
@@ -110,6 +176,7 @@ export class ReportingRepository {
       FROM projects p
       JOIN customers c ON c.id = p.customer_id
       WHERE p.organization_id = ${ctx.organizationId}::uuid
+        ${projectGrantFilter}
         AND (p.search_document @@ plainto_tsquery('simple', extrawork_unaccent(lower(${query})))
              OR p.title ILIKE ${like} OR p.project_number ILIKE ${like})
       ORDER BY p.updated_at DESC
@@ -129,6 +196,7 @@ export class ReportingRepository {
       JOIN change_order_versions v ON v.id = co.current_version_id
       JOIN projects p ON p.id = co.project_id
       WHERE co.organization_id = ${ctx.organizationId}::uuid
+        ${changeGrantFilter}
         AND (co.search_document @@ plainto_tsquery('simple', extrawork_unaccent(lower(${query})))
              OR v.title ILIKE ${like} OR co.number ILIKE ${like})
       ORDER BY v.updated_at DESC
@@ -169,6 +237,7 @@ export class ReportingRepository {
       createdByUserId?: string;
       status: 'APPROVED' | 'DECLINED' | 'PENDING' | 'ALL';
     },
+    projectGrants?: readonly string[] | null,
   ): Promise<ReportRow[]> {
     const statusFilter = (() => {
       switch (filters.status) {
@@ -182,6 +251,14 @@ export class ReportingRepository {
           return sql`AND v.status <> 'DRAFT'`;
       }
     })();
+    const grantFilter = projectGrants
+      ? projectGrants.length > 0
+        ? sql`AND co.project_id IN (${sql.join(
+            projectGrants.map((grant) => sql`${grant}::uuid`),
+            sql`, `,
+          )})`
+        : sql`AND false`
+      : sql``;
 
     const result = await this.db.execute<ReportRecord>(sql`
       SELECT co.id AS change_order_id, co.number, v.version_number, p.id AS project_id,
@@ -190,14 +267,18 @@ export class ReportingRepository {
              v.subtotal_delta_minor, v.tax_delta_minor, v.total_delta_minor,
              v.schedule_delta_days, v.sent_at, v.decided_at,
              d.type::text AS decision_type, d.assurance_achieved::text,
-             u.display_name AS created_by
+             COALESCE(u.display_name, e.name, 'WhatsApp intake') AS created_by
       FROM change_orders co
       JOIN change_order_versions v ON v.id = co.current_version_id
       JOIN projects p ON p.id = co.project_id
       JOIN customers cu ON cu.id = p.customer_id
-      JOIN users u ON u.id = co.created_by_user_id
+      LEFT JOIN users u ON u.id = co.created_by_user_id
+      LEFT JOIN employees e
+        ON e.id = v.raised_by_employee_id
+       AND e.organization_id = co.organization_id
       LEFT JOIN decisions d ON d.version_id = v.id
       WHERE co.organization_id = ${ctx.organizationId}::uuid
+        ${grantFilter}
         ${statusFilter}
         ${filters.projectId ? sql`AND co.project_id = ${filters.projectId}::uuid` : sql``}
         ${filters.customerId ? sql`AND p.customer_id = ${filters.customerId}::uuid` : sql``}

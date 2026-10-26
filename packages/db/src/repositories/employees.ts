@@ -1,9 +1,10 @@
 import { sql } from 'drizzle-orm';
-import { AppError } from '@extrawork/contracts';
+import { AppError, type TeamParty, type TeamRole } from '@extrawork/contracts';
 import type { TenantContext } from '@extrawork/domain';
 import type { Database, TransactionContext } from '../client.js';
 import { newId } from '../ids.js';
 import { toBigIntOrNull, toDate } from '../row-types.js';
+import { runInScope, SYSTEM_SCOPE } from '../tenant-scope.js';
 
 /**
  * Employees: the people allowed to raise a change request by WhatsApp.
@@ -12,15 +13,15 @@ import { toBigIntOrNull, toDate } from '../row-types.js';
  *
  *   1. **No login.** An employee is identified by the phone number the owner
  *      registered, nothing else. There is no user row, no password, no session.
- *   2. **One phone, one employee, system-wide.** `employees_phone_global_idx`
- *      enforces uniqueness across every organization for any non-REMOVED row.
- *      An inbound message from a number registered at two companies cannot be
- *      attributed to a tenant, and picking one is exactly the cross-tenant
- *      guess report §3.2 forbids.
+ *   2. **One phone, one employee, per organization.** Until October the
+ *      number was unique system-wide; spec 2026-10-12 D7 dropped that, because
+ *      the same foreman routinely works with two design firms. An inbound
+ *      message from a number on two rosters is resolved by asking the sender
+ *      which project it is for, never by picking a tenant.
  *
- * Every method here takes a `TenantContext` except `findByPhoneGlobal`, which
- * is the one place that cannot: it is what *resolves* the tenant from an
- * inbound message. See the comment on that method.
+ * Every method here takes a `TenantContext` except `findByPhoneGlobal` and
+ * `findAllByPhone`, which cannot: they are what *resolve* the tenant from an
+ * inbound message. See the comments on those methods.
  */
 
 export type EmployeeStatus = 'ACTIVE' | 'SUSPENDED' | 'REMOVED';
@@ -35,6 +36,10 @@ export interface EmployeeRow {
   allProjects: boolean;
   /** Per-request ceiling in minor units. Null means no ceiling. */
   maxRequestMinor: bigint | null;
+  /** Migration 0020: which firm they belong to, and what they do on site. */
+  party: TeamParty;
+  companyName: string | null;
+  teamRole: TeamRole;
   createdByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -59,6 +64,9 @@ export class EmployeeRepository {
       allProjects: boolean;
       maxRequestMinor: bigint | null;
       projectIds: string[];
+      party?: TeamParty;
+      companyName?: string | null;
+      teamRole?: TeamRole;
     },
   ): Promise<EmployeeWithAssignments> {
     const id = newId();
@@ -66,12 +74,14 @@ export class EmployeeRepository {
       await tx.db.execute(sql`
         INSERT INTO employees (
           id, organization_id, name, phone_e164, role_note,
-          all_projects, max_request_minor, created_by_user_id
+          all_projects, max_request_minor, created_by_user_id,
+          party, company_name, team_role
         ) VALUES (
           ${id}::uuid, ${ctx.organizationId}::uuid, ${input.name}, ${input.phoneE164},
           ${input.roleNote}, ${input.allProjects},
           ${input.maxRequestMinor === null ? null : input.maxRequestMinor.toString()}::bigint,
-          ${ctx.userId}::uuid
+          ${ctx.userId}::uuid,
+          ${input.party ?? 'INTERNAL'}, ${input.companyName ?? null}, ${input.teamRole ?? 'OTHER'}
         )
       `);
     } catch (error) {
@@ -137,6 +147,48 @@ export class EmployeeRepository {
     return mapEmployeeWithAssignments(row);
   }
 
+  /**
+   * Every ACTIVE roster entry for a phone number, across organizations — the
+   * WhatsApp channel's sender resolution (spec 2026-10-12, D6/D7).
+   *
+   * System-scoped, and the second deliberate exception to "every method takes
+   * a TenantContext": an inbound message carries only a phone number, and this
+   * is what turns it into the workspaces the sender belongs to. Returning all
+   * of them rather than one is the point — the intake then offers the sender
+   * their projects across those workspaces instead of guessing a tenant.
+   * Workspaces that are closed or suspended are left out: nobody can file
+   * into them.
+   */
+  async findAllByPhone(phoneE164: string): Promise<EmployeeWithAssignments[]> {
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<EmployeeRecord>(sql`
+        SELECT ${EMPLOYEE_WITH_ASSIGNMENTS_COLUMNS}
+        FROM employees e
+        JOIN organizations o ON o.id = e.organization_id
+        WHERE e.phone_e164 = ${phoneE164}
+          AND e.status = 'ACTIVE'
+          AND o.status = 'ACTIVE'
+        ORDER BY e.created_at, e.id
+      `),
+    );
+    return result.rows.map(mapEmployeeWithAssignments);
+  }
+
+  /**
+   * Whether the number is on any roster in a non-ACTIVE state, for the
+   * operator-facing rejection reason only. System-scoped like the above.
+   */
+  async inactiveStatusForPhone(phoneE164: string): Promise<EmployeeStatus | null> {
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<{ status: EmployeeStatus }>(sql`
+        SELECT status FROM employees
+        WHERE phone_e164 = ${phoneE164} AND status <> 'ACTIVE' AND status <> 'REMOVED'
+        LIMIT 1
+      `),
+    );
+    return result.rows[0]?.status ?? null;
+  }
+
   async list(
     ctx: TenantContext,
     options: { status?: EmployeeStatus; query?: string } = {},
@@ -166,6 +218,9 @@ export class EmployeeRepository {
       allProjects: boolean;
       maxRequestMinor: bigint | null;
       projectIds: string[];
+      party: TeamParty;
+      companyName: string | null;
+      teamRole: TeamRole;
     }>,
   ): Promise<EmployeeWithAssignments> {
     let result;
@@ -182,6 +237,11 @@ export class EmployeeRepository {
               ? sql`max_request_minor`
               : sql`${patch.maxRequestMinor === null ? null : patch.maxRequestMinor.toString()}::bigint`
           },
+          party = COALESCE(${patch.party ?? null}, party),
+          company_name = ${
+            patch.companyName === undefined ? sql`company_name` : sql`${patch.companyName}`
+          },
+          team_role = COALESCE(${patch.teamRole ?? null}, team_role),
           updated_at = now(),
           lock_version = lock_version + 1
         WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
@@ -296,6 +356,7 @@ function translateUniqueViolation(error: unknown): unknown {
 const EMPLOYEE_COLUMNS = sql`
   e.id, e.organization_id, e.name, e.phone_e164, e.role_note, e.status,
   e.all_projects, e.max_request_minor, e.created_by_user_id,
+  e.party, e.company_name, e.team_role,
   e.created_at, e.updated_at, e.lock_version
 `;
 
@@ -319,6 +380,9 @@ type EmployeeRecord = {
   all_projects: boolean;
   max_request_minor: string | null;
   created_by_user_id: string | null;
+  party: TeamParty;
+  company_name: string | null;
+  team_role: TeamRole;
   created_at: Date;
   updated_at: Date;
   lock_version: number;
@@ -335,6 +399,9 @@ function mapEmployee(row: EmployeeRecord): EmployeeRow {
     status: row.status,
     allProjects: row.all_projects,
     maxRequestMinor: toBigIntOrNull(row.max_request_minor),
+    party: row.party,
+    companyName: row.company_name,
+    teamRole: row.team_role,
     createdByUserId: row.created_by_user_id,
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),

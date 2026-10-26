@@ -4,6 +4,8 @@ import {
   TOKEN_LENGTH,
   assertTokenUsable,
   buildApprovalUrl,
+  decryptApprovalUrl,
+  encryptApprovalUrl,
   generateApprovalToken,
   hashToken,
   hashesEqual,
@@ -12,6 +14,12 @@ import {
   resolveExpiry,
   type TokenRecord,
 } from '@extrawork/domain';
+
+const LINK_SECRET = 'unit-approval-link-secret-unit-approval-link-0001';
+const LINK_CONTEXT = {
+  organizationId: '019fffbd-ccf5-7523-afba-720f39b990da',
+  versionId: '019fffbd-ccf5-7523-afba-720f39b990db',
+};
 
 /**
  * Public-token security — report §3.4 and §14.5 ("Token expiry/revocation and
@@ -143,6 +151,70 @@ describe('links', () => {
     expect(buildApprovalUrl('https://app.example.com/', 'abc')).toBe(
       'https://app.example.com/r/abc',
     );
+  });
+});
+
+describe('durable approval-link encryption', () => {
+  it('round-trips without placing the plaintext in the envelope', () => {
+    const url = `https://app.example.com/r/${generateApprovalToken().plaintext}`;
+    const sealed = encryptApprovalUrl(url, LINK_SECRET, LINK_CONTEXT);
+    expect(sealed).not.toContain(url);
+    expect(sealed).not.toContain(url.split('/').at(-1));
+    expect(decryptApprovalUrl(sealed, LINK_SECRET, LINK_CONTEXT)).toBe(url);
+  });
+
+  it('uses a fresh nonce for every encryption', () => {
+    const url = 'https://app.example.com/r/one-time-link';
+    expect(encryptApprovalUrl(url, LINK_SECRET, LINK_CONTEXT)).not.toBe(
+      encryptApprovalUrl(url, LINK_SECRET, LINK_CONTEXT),
+    );
+  });
+
+  it('rejects ciphertext copied to another tenant or version', () => {
+    const sealed = encryptApprovalUrl(
+      'https://app.example.com/r/private',
+      LINK_SECRET,
+      LINK_CONTEXT,
+    );
+    expect(() =>
+      decryptApprovalUrl(sealed, LINK_SECRET, {
+        ...LINK_CONTEXT,
+        organizationId: '019fffbd-ccf5-7523-afba-720f39b990dc',
+      }),
+    ).toThrow(/invalid|another request/i);
+    expect(() =>
+      decryptApprovalUrl(sealed, LINK_SECRET, {
+        ...LINK_CONTEXT,
+        versionId: '019fffbd-ccf5-7523-afba-720f39b990dd',
+      }),
+    ).toThrow(/invalid|another request/i);
+  });
+
+  it('rejects a wrong key, malformed envelope, or modified ciphertext', () => {
+    const sealed = encryptApprovalUrl(
+      'https://app.example.com/r/private',
+      LINK_SECRET,
+      LINK_CONTEXT,
+    );
+    const parts = sealed.split('.');
+    const ciphertext = parts[2]!;
+    parts[2] = `${ciphertext[0] === 'A' ? 'B' : 'A'}${ciphertext.slice(1)}`;
+
+    expect(() =>
+      decryptApprovalUrl(sealed, 'different-approval-link-secret-different-0002', LINK_CONTEXT),
+    ).toThrow(/invalid|another request/i);
+    expect(() => decryptApprovalUrl(parts.join('.'), LINK_SECRET, LINK_CONTEXT)).toThrow(
+      /invalid|another request/i,
+    );
+    expect(() => decryptApprovalUrl('not-an-envelope', LINK_SECRET, LINK_CONTEXT)).toThrow(
+      /invalid|another request/i,
+    );
+  });
+
+  it('refuses undersized encryption secrets', () => {
+    expect(() =>
+      encryptApprovalUrl('https://app.example.com/r/private', 'short', LINK_CONTEXT),
+    ).toThrow(/at least 32 bytes/i);
   });
 });
 

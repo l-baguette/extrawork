@@ -1,16 +1,23 @@
-import type { MembershipDto, OrganizationDto } from '@extrawork/contracts';
+import Link from 'next/link';
+import type { CurrentUserDto, MembershipDto, OrganizationDto } from '@extrawork/contracts';
 import { serverGet } from '@/lib/server-fetch';
 import { formatDate } from '@/lib/format';
 import { SignInPrompt } from '@/components/sign-in-prompt';
 import { ErrorPanel } from '@/components/error-panel';
+import { Block, Figure, SheetTop } from '@/components/sheet';
+import { BusinessForm } from './business-form';
+import { CloseAccount } from './close-account';
+import { PeopleRoles } from './people-roles';
+import { WorkspaceForm } from './workspace-form';
 
 /** Organization policy, team and plan — report §6.2 `/app/settings/*`. */
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const [orgResult, membersResult] = await Promise.all([
+  const [orgResult, membersResult, meResult] = await Promise.all([
     serverGet<OrganizationDto>('/v1/organizations/current'),
     serverGet<{ items: MembershipDto[] }>('/v1/memberships'),
+    serverGet<CurrentUserDto>('/v1/auth/me'),
   ]);
 
   if (!orgResult.ok && orgResult.status === 401) return <SignInPrompt />;
@@ -19,141 +26,150 @@ export default async function SettingsPage() {
   const organization = orgResult.data;
   const subscription = organization.subscription;
   const members = membersResult.ok ? membersResult.data.items : [];
+  // Closing the account is owner-only; the API enforces that independently, so
+  // hiding it here is about not offering a control that would be refused.
+  const myRole = meResult.ok
+    ? (meResult.data.memberships.find((m) => m.organizationId === organization.id)?.role ?? null)
+    : null;
+  const isOwner = myRole === 'OWNER';
+  // Workspace settings and role changes are owner/admin actions; the API
+  // enforces it, the page just does not offer what would be refused.
+  const isAdmin = myRole === 'OWNER' || myRole === 'ADMIN';
 
   return (
-    <main className="page page-wide">
-      <h1 style={{ marginBottom: 'var(--space-4)' }}>Settings</h1>
+    <>
+      <SheetTop
+        title="Settings"
+        meta={`${organization.displayName} · since ${formatDate(organization.createdAt)}`}
+        actions={
+          <>
+            <Link className="btn btn-sm" href="/app/settings/profile">
+              Your details
+            </Link>
+            <Link className="btn btn-sm" href="/app/settings/notifications">
+              Notifications
+            </Link>
+          </>
+        }
+      />
 
-      {subscription.readOnly ? (
-        <div className="banner banner-warn" role="status">
-          <strong>Your subscription is inactive.</strong> Existing records stay readable and
-          exportable — nothing is hidden or deleted. New requests cannot be sent until billing is
-          brought up to date.
-        </div>
-      ) : null}
+      <main className="sheet rule-in">
+        {subscription.readOnly ? (
+          <div className="banner banner-warn" role="status">
+            <strong>Your subscription is inactive.</strong> Existing records stay readable and
+            exportable — nothing is hidden or deleted. New requests cannot be sent until billing is
+            brought up to date.
+          </div>
+        ) : null}
 
-      <section className="card" aria-labelledby="business">
-        <h2 id="business">Business</h2>
-        <table className="totals">
-          <tbody>
-            <tr>
-              <td>Display name</td>
-              <td>{organization.displayName}</td>
-            </tr>
-            <tr>
-              <td>Legal name</td>
-              <td>{organization.legalName ?? '—'}</td>
-            </tr>
-            <tr>
-              <td>GSTIN</td>
-              <td className="tabular">{organization.gstin ?? '—'}</td>
-            </tr>
-            <tr>
-              <td>Timezone</td>
-              <td>{organization.timezone}</td>
-            </tr>
-            <tr>
-              <td>Currency</td>
-              <td>{organization.defaultCurrency}</td>
-            </tr>
-            <tr>
-              <td>Evidence retention</td>
-              <td>{organization.retentionMonths} months after a project closes</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <Block title="Business details">
+          <BusinessForm organization={organization} />
+        </Block>
 
-      <section className="card" aria-labelledby="plan">
-        <h2 id="plan">Plan</h2>
-        <table className="totals">
-          <tbody>
-            <tr>
-              <td>Plan</td>
-              <td>{subscription.planCode}</td>
-            </tr>
-            <tr>
-              <td>Status</td>
-              <td>{subscription.status}</td>
-            </tr>
-            <tr>
-              <td>Current period ends</td>
-              <td>{formatDate(subscription.currentPeriodEnd)}</td>
-            </tr>
-            <tr>
-              <td>Active projects</td>
-              <td className="tabular">
-                {subscription.usage.activeProjects} of{' '}
-                {limit(subscription.entitlements.activeProjects)}
-              </td>
-            </tr>
-            <tr>
-              <td>Decisions this period</td>
-              <td className="tabular">
-                {subscription.usage.completedDecisionsThisPeriod} of{' '}
-                {limit(subscription.entitlements.completedDecisionsPerPeriod)}
-              </td>
-            </tr>
-            <tr>
-              <td>Team members</td>
-              <td className="tabular">
-                {subscription.usage.teamMembers} of {limit(subscription.entitlements.teamMembers)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <Block title="How your workspace works">
+          <WorkspaceForm organization={organization} canEdit={isAdmin} />
+        </Block>
 
-        <h3 style={{ marginTop: 'var(--space-4)' }}>Included</h3>
-        <ul className="small">
-          <li>
-            Phone-verified approval (A1):{' '}
-            {subscription.entitlements.otpApprovals ? 'included' : 'not included'}
-          </li>
-          <li>
-            Automated WhatsApp sending:{' '}
-            {subscription.entitlements.automatedWhatsApp ? 'included' : 'not included'}
-          </li>
-          <li>
-            Custom branding:{' '}
-            {subscription.entitlements.customBranding ? 'included' : 'not included'}
-          </li>
-        </ul>
-        <p className="small muted" style={{ marginBottom: 0 }}>
-          Licensed electronic signature (A2) is not available in this release. ExtraWork records a
-          secure-link record of assent, which is described accurately on every approval page and in
-          every evidence pack.
-        </p>
-      </section>
+        <Block title="People & roles">
+          <PeopleRoles
+            members={members}
+            canChangeRoles={isAdmin}
+            currentUserId={meResult.ok ? meResult.data.user.id : null}
+          />
+        </Block>
 
-      <section className="card" aria-labelledby="team">
-        <h2 id="team">Team</h2>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Role</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member) => (
-                <tr key={member.userId}>
-                  <td>{member.displayName}</td>
-                  <td className="small">{member.email}</td>
-                  <td>{member.role}</td>
-                  <td className="small muted">{member.status}</td>
+        <Block
+          title="Customer message"
+          action={
+            <Link className="btn btn-sm" href="/app/settings/request-template">
+              Edit template
+            </Link>
+          }
+        >
+          <div className="panel panel-pad">
+            <p className="small muted" style={{ marginBottom: 0 }}>
+              The wording your customers see when a request arrives. The assurance language and the
+              evidence disclaimer are deliberately not editable — they describe what the record
+              actually is, and a seller cannot be the one who rewords them.
+            </p>
+          </div>
+        </Block>
+
+        <Block title="Plan and usage">
+          <div className="figures figures-3" style={{ marginBottom: 'var(--s4)' }}>
+            <Figure
+              label="Active projects"
+              small
+              value={`${subscription.usage.activeProjects} / ${limit(subscription.entitlements.activeProjects)}`}
+            />
+            <Figure
+              label="Decisions this period"
+              small
+              value={`${subscription.usage.completedDecisionsThisPeriod} / ${limit(subscription.entitlements.completedDecisionsPerPeriod)}`}
+            />
+            <Figure
+              label="Team members"
+              small
+              value={`${subscription.usage.teamMembers} / ${limit(subscription.entitlements.teamMembers)}`}
+            />
+          </div>
+
+          <div className="panel">
+            <table className="data-table">
+              <tbody>
+                <tr>
+                  <td>Plan</td>
+                  <td className="num">{planLabel(subscription.planCode)}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+                <tr>
+                  <td>Status</td>
+                  <td className="num">{subscription.status}</td>
+                </tr>
+                <tr>
+                  <td>Current period ends</td>
+                  <td className="num">{formatDate(subscription.currentPeriodEnd)}</td>
+                </tr>
+                <tr>
+                  <td>Phone-verified approval (A1)</td>
+                  <td className="num">
+                    {subscription.entitlements.otpApprovals ? 'Included' : 'Not included'}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Automated WhatsApp sending</td>
+                  <td className="num">
+                    {subscription.entitlements.automatedWhatsApp ? 'Included' : 'Not included'}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Licensed e-signature (A2)</td>
+                  <td className="num">Not in this release</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="hint">
+            ExtraWork records a secure-link record of assent. That is described accurately on every
+            approval page and in every evidence pack, and it is not a licensed electronic signature.
+          </p>
+        </Block>
+
+        {isOwner ? (
+          <Block title="Close this account">
+            <CloseAccount organization={organization} />
+          </Block>
+        ) : null}
+      </main>
+    </>
   );
 }
 
+/** Spec D13: early workspaces are on the free founding beta. */
+function planLabel(planCode: OrganizationDto['subscription']['planCode']): string {
+  if (planCode === 'BETA') return 'Founding beta — free';
+  return planCode.replace(/_/g, ' ');
+}
+
 function limit(value: number): string {
-  return value < 0 ? 'unlimited' : String(value);
+  return value < 0 ? '∞' : String(value);
 }

@@ -1,6 +1,7 @@
 import { JOB_KINDS, type JobKind } from '@extrawork/contracts';
 import { createContainer } from '@extrawork/runtime';
 import { workerContext } from './context.js';
+import { SYSTEM_SCOPE, assertRlsEnforceable, setProcessDefaultScope } from '@extrawork/db';
 import { JobRunner, startLeaseReaper, type JobHandler } from './runner.js';
 import { OutboxPump } from './outbox-pump.js';
 import { ChromiumPdfRenderer, UnavailablePdfRenderer, type PdfRenderer } from './pdf/renderer.js';
@@ -8,6 +9,7 @@ import { generateEvidence } from './jobs/evidence.js';
 import {
   notifyTeamDecision,
   sendDecisionReceipt,
+  sendMessageDelivery,
   sendReminder,
   sendRequestMessage,
 } from './jobs/messaging.js';
@@ -21,6 +23,9 @@ import {
 import { scanFile } from './jobs/files.js';
 import { generateExport } from './jobs/exports.js';
 import { normalizeWebhook } from './jobs/webhooks.js';
+import { sendNotificationEmail } from './jobs/notifications.js';
+import { sendInvitation } from './jobs/invitations.js';
+import { sendDueReminders } from './jobs/reminders.js';
 
 /**
  * Worker entrypoint — a second process from the same image as the API
@@ -45,6 +50,7 @@ const handlers: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KINDS.GENERATE_EVIDENCE]: generateEvidence,
   [JOB_KINDS.SEND_DECISION_RECEIPT]: sendDecisionReceipt,
   [JOB_KINDS.NOTIFY_TEAM_DECISION]: notifyTeamDecision,
+  [JOB_KINDS.SEND_MESSAGE_DELIVERY]: sendMessageDelivery,
   [JOB_KINDS.SEND_REQUEST_MESSAGE]: sendRequestMessage,
   [JOB_KINDS.SEND_REMINDER]: sendReminder,
   [JOB_KINDS.SCAN_FILE]: scanFile,
@@ -53,7 +59,17 @@ const handlers: Partial<Record<JobKind, JobHandler>> = {
   [JOB_KINDS.EXPIRE_REQUESTS]: expireRequests,
   [JOB_KINDS.CHECK_PROJECT_INTEGRITY]: checkProjectIntegrity,
   [JOB_KINDS.APPLY_RETENTION]: applyRetention,
+  [JOB_KINDS.SEND_NOTIFICATION_EMAIL]: sendNotificationEmail,
+  [JOB_KINDS.SEND_INVITATION]: sendInvitation,
+  [JOB_KINDS.SEND_DUE_REMINDERS]: sendDueReminders,
 };
+
+// The worker is system-level end to end: it drains a queue and an outbox that
+// are not per-tenant, and sweeps every organization on a schedule. Individual
+// jobs still narrow to their own tenant in the runner below.
+setProcessDefaultScope(SYSTEM_SCOPE);
+
+await assertRlsEnforceable(ctx.app.uow, ctx.app.env.APP_ENV);
 
 const runner = new JobRunner(ctx, handlers, {
   concurrency: env.WORKER_CONCURRENCY,

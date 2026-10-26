@@ -1,6 +1,7 @@
 export * from './errors.js';
 export * from './primitives.js';
 export * from './assurance.js';
+export * from './legal.js';
 export * from './signer-name.js';
 export * from './events.js';
 export * from './api/common.js';
@@ -12,3 +13,8 @@ export * from './api/public-approval.js';
 export * from './api/files.js';
 export * from './api/reports.js';
 export * from './api/employees.js';
+export * from './api/collaboration.js';
+export * from './api/workspace.js';
+export * from './api/notifications.js';
+export * from './api/portal.js';
+export * from './api/intake.js';

@@ -1,5 +1,11 @@
 import { sql } from 'drizzle-orm';
-import { AppError, type MembershipRole } from '@extrawork/contracts';
+import {
+  AppError,
+  type BusinessType,
+  type CollaboratorParty,
+  type MembershipRole,
+  type RequestRouting,
+} from '@extrawork/contracts';
 import {
   entitlementsFor,
   isReadOnly,
@@ -31,10 +37,18 @@ export interface OrganizationRow {
   defaultCurrency: string;
   retentionMonths: number;
   status: string;
+  /** Set only while `status` is CLOSED; see migration 0016. */
+  closedAt: Date | null;
+  /** The moment after which a closed account may be purged. */
+  purgeAfter: Date | null;
+  closureReason: string | null;
   brandPrimaryColor: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
   reminderPolicyHours: number[];
+  businessType: BusinessType | null;
+  requestRouting: RequestRouting;
+  storageQuotaBytes: bigint;
   createdAt: Date;
   lockVersion: number;
 }
@@ -57,15 +71,17 @@ export class OrganizationRepository {
       gstin: string | null;
       timezone: string;
       defaultCurrency: string;
+      businessType?: BusinessType | null;
     },
   ): Promise<OrganizationRow> {
     const id = newId();
     const result = await tx.db.execute<OrganizationRecord>(sql`
       INSERT INTO organizations
-        (id, display_name, legal_name, gstin, timezone, default_currency, reminder_policy_hours)
+        (id, display_name, legal_name, gstin, timezone, default_currency, reminder_policy_hours,
+         business_type)
       VALUES (
         ${id}::uuid, ${input.displayName}, ${input.legalName}, ${input.gstin},
-        ${input.timezone}, ${input.defaultCurrency}, ARRAY[24, 72]
+        ${input.timezone}, ${input.defaultCurrency}, ARRAY[24, 72], ${input.businessType ?? null}
       )
       RETURNING ${ORG_COLUMNS}
     `);
@@ -73,11 +89,26 @@ export class OrganizationRepository {
   }
 
   async findById(ctx: TenantContext): Promise<OrganizationRow | null> {
-    const result = await this.db.execute<OrganizationRecord>(sql`
+    return this.findByIdIn(this.db, ctx);
+  }
+
+  private async findByIdIn(db: Database, ctx: TenantContext): Promise<OrganizationRow | null> {
+    const result = await db.execute<OrganizationRecord>(sql`
       SELECT ${ORG_COLUMNS} FROM organizations WHERE id = ${ctx.organizationId}::uuid
     `);
     const row = result.rows[0];
     return row ? mapOrganization(row) : null;
+  }
+
+  async lockById(tx: TransactionContext, ctx: TenantContext): Promise<OrganizationRow> {
+    const locked = await tx.db.execute<{ id: string }>(sql`
+      SELECT id FROM organizations WHERE id = ${ctx.organizationId}::uuid
+      FOR UPDATE
+    `);
+    if (!locked.rows[0]) throw new AppError('ORGANIZATION_REQUIRED');
+    const row = await this.findByIdIn(tx.db, ctx);
+    if (!row) throw new AppError('ORGANIZATION_REQUIRED');
+    return row;
   }
 
   async update(
@@ -93,6 +124,8 @@ export class OrganizationRepository {
       contactPhone: string | null;
       contactEmail: string | null;
       reminderPolicyHours: number[];
+      businessType: BusinessType | null;
+      requestRouting: RequestRouting;
     }>,
   ): Promise<OrganizationRow> {
     const result = await tx.db.execute<OrganizationRecord>(sql`
@@ -111,11 +144,80 @@ export class OrganizationRepository {
           ${patch.reminderPolicyHours ? sql`${`{${patch.reminderPolicyHours.join(',')}}`}::integer[]` : null},
           reminder_policy_hours
         ),
+        business_type = ${patch.businessType === undefined ? sql`business_type` : patch.businessType},
+        request_routing = COALESCE(${patch.requestRouting ?? null}, request_routing),
         lock_version = lock_version + 1
       WHERE id = ${ctx.organizationId}::uuid
       RETURNING ${ORG_COLUMNS}
     `);
     return mapOrganization(requireRow(result.rows[0], 'organization'));
+  }
+
+  // --- Closure -------------------------------------------------------------
+
+  /**
+   * Marks the account closed and arms the purge.
+   *
+   * Guarded on the current status inside the UPDATE rather than checked first
+   * and written after: two owners clicking Close at the same moment would
+   * otherwise both pass the check and the second would silently push the purge
+   * date 30 days further out.
+   */
+  async close(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    input: { closedAt: Date; purgeAfter: Date; reason: string | null },
+  ): Promise<OrganizationRow | null> {
+    const result = await tx.db.execute<OrganizationRecord>(sql`
+      UPDATE organizations SET
+        status = 'CLOSED',
+        closed_at = ${input.closedAt.toISOString()}::timestamptz,
+        purge_after = ${input.purgeAfter.toISOString()}::timestamptz,
+        closure_reason = ${input.reason},
+        lock_version = lock_version + 1
+      WHERE id = ${ctx.organizationId}::uuid AND status <> 'CLOSED'
+      RETURNING ${ORG_COLUMNS}
+    `);
+    const row = result.rows[0];
+    return row ? mapOrganization(row) : null;
+  }
+
+  /** Cancels a pending closure. Only meaningful before the purge has run. */
+  async reopen(tx: TransactionContext, ctx: TenantContext): Promise<OrganizationRow | null> {
+    const result = await tx.db.execute<OrganizationRecord>(sql`
+      UPDATE organizations SET
+        status = 'ACTIVE',
+        closed_at = NULL,
+        purge_after = NULL,
+        closure_reason = NULL,
+        lock_version = lock_version + 1
+      WHERE id = ${ctx.organizationId}::uuid AND status = 'CLOSED'
+      RETURNING ${ORG_COLUMNS}
+    `);
+    const row = result.rows[0];
+    return row ? mapOrganization(row) : null;
+  }
+
+  /**
+   * Closed accounts whose recovery window has elapsed and that no legal hold
+   * covers. Not tenant-scoped: the retention job sweeps every tenant, which is
+   * why it takes no `TenantContext` and returns ids for the caller to act on
+   * one at a time.
+   */
+  async findPurgeable(now: Date, limit: number): Promise<Array<{ id: string; closedAt: Date }>> {
+    const result = await this.db.execute<{ id: string; closed_at: Date }>(sql`
+      SELECT o.id, o.closed_at
+      FROM organizations o
+      WHERE o.status = 'CLOSED'
+        AND o.purge_after <= ${now.toISOString()}::timestamptz
+        AND NOT EXISTS (
+          SELECT 1 FROM legal_holds h
+          WHERE h.organization_id = o.id AND h.released_at IS NULL
+        )
+      ORDER BY o.purge_after
+      LIMIT ${limit}
+    `);
+    return result.rows.map((row) => ({ id: row.id, closedAt: toDate(row.closed_at) }));
   }
 
   // --- Memberships ---------------------------------------------------------
@@ -128,17 +230,61 @@ export class OrganizationRepository {
       role: MembershipRole;
       status?: 'ACTIVE' | 'INVITED';
       invitedByUserId?: string | null;
+      collaboratorParty?: CollaboratorParty | null;
+      companyName?: string | null;
     },
   ): Promise<void> {
     await tx.db.execute(sql`
-      INSERT INTO memberships (organization_id, user_id, role, status, invited_by_user_id)
+      INSERT INTO memberships
+        (organization_id, user_id, role, status, invited_by_user_id, collaborator_party, company_name)
       VALUES (
         ${input.organizationId}::uuid, ${input.userId}::uuid, ${input.role}::membership_role,
-        ${input.status ?? 'ACTIVE'}, ${input.invitedByUserId ?? null}::uuid
+        ${input.status ?? 'ACTIVE'}, ${input.invitedByUserId ?? null}::uuid,
+        ${input.collaboratorParty ?? null}, ${input.companyName ?? null}
       )
       ON CONFLICT (organization_id, user_id)
-      DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, updated_at = now()
+      DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status,
+                    collaborator_party = EXCLUDED.collaborator_party,
+                    company_name = EXCLUDED.company_name, updated_at = now()
     `);
+  }
+
+  /**
+   * Grants a collaborator access through an invitation without ever demoting
+   * an existing member: someone already on the firm's staff who is invited to
+   * a project keeps their role and simply gains the project grant.
+   */
+  async ensureCollaboratorMembership(
+    tx: TransactionContext,
+    input: {
+      organizationId: string;
+      userId: string;
+      invitedByUserId: string | null;
+      collaboratorParty: CollaboratorParty;
+      companyName: string | null;
+    },
+  ): Promise<{ role: MembershipRole; created: boolean }> {
+    const existing = await tx.db.execute<{ role: MembershipRole; status: string }>(sql`
+      SELECT role, status FROM memberships
+      WHERE organization_id = ${input.organizationId}::uuid AND user_id = ${input.userId}::uuid
+      FOR UPDATE
+    `);
+    const row = existing.rows[0];
+    if (row && row.status === 'ACTIVE') return { role: row.role, created: false };
+    // Anyone not currently active — never a member, removed, or a staff
+    // invitation never taken up — joins as a collaborator. Reviving a revoked
+    // or unaccepted staff role here would let a project invitation, which a
+    // designer may send, restore an admin the owner removed.
+    await this.addMembership(tx, {
+      organizationId: input.organizationId,
+      userId: input.userId,
+      role: 'COLLABORATOR',
+      status: 'ACTIVE',
+      invitedByUserId: input.invitedByUserId,
+      collaboratorParty: input.collaboratorParty,
+      companyName: input.companyName,
+    });
+    return { role: 'COLLABORATOR', created: true };
   }
 
   async listMembers(ctx: TenantContext): Promise<
@@ -149,6 +295,8 @@ export class OrganizationRepository {
       email: string;
       role: MembershipRole;
       status: string;
+      collaboratorParty: CollaboratorParty | null;
+      companyName: string | null;
       createdAt: Date;
     }>
   > {
@@ -159,10 +307,12 @@ export class OrganizationRepository {
       email_normalized: string;
       role: MembershipRole;
       status: string;
+      collaborator_party: CollaboratorParty | null;
+      company_name: string | null;
       created_at: Date;
     }>(sql`
       SELECT m.user_id, m.organization_id, u.display_name, u.email_normalized,
-             m.role, m.status, m.created_at
+             m.role, m.status, m.collaborator_party, m.company_name, m.created_at
       FROM memberships m
       JOIN users u ON u.id = m.user_id
       WHERE m.organization_id = ${ctx.organizationId}::uuid
@@ -175,6 +325,8 @@ export class OrganizationRepository {
       email: r.email_normalized,
       role: r.role,
       status: r.status,
+      collaboratorParty: r.collaborator_party,
+      companyName: r.company_name,
       createdAt: toDate(r.created_at),
     }));
   }
@@ -220,6 +372,44 @@ export class OrganizationRepository {
 
   // --- Subscription and entitlements ---------------------------------------
 
+  /**
+   * The subscription a new workspace starts with. BETA (spec D13) is active
+   * with a period long enough that no renewal logic ever engages; TRIAL keeps
+   * the original fourteen-day evaluation for anyone who switches it back on.
+   */
+  async createInitialSubscription(
+    tx: TransactionContext,
+    organizationId: string,
+    planCode: PlanCode,
+  ): Promise<void> {
+    if (planCode !== 'BETA') {
+      await this.createTrialSubscription(tx, organizationId);
+      return;
+    }
+    const now = new Date();
+    const end = new Date(now.getTime() + 10 * 365 * 86_400_000);
+    await tx.db.execute(sql`
+      INSERT INTO subscriptions
+        (id, organization_id, plan_code, status, current_period_start, current_period_end)
+      VALUES (
+        ${newId()}::uuid, ${organizationId}::uuid, 'BETA', 'ACTIVE',
+        ${now.toISOString()}::timestamptz, ${end.toISOString()}::timestamptz
+      )
+      ON CONFLICT (organization_id) DO NOTHING
+    `);
+  }
+
+  /** Bytes stored by the workspace, excluding files the scanner refused. */
+  async storageUsedBytes(ctx: TenantContext, db: Database = this.db): Promise<bigint> {
+    const result = await db.execute<{ used: string | null }>(sql`
+      SELECT COALESCE(SUM(byte_size), 0)::text AS used
+      FROM file_objects
+      WHERE organization_id = ${ctx.organizationId}::uuid
+        AND scan_status <> 'REJECTED'
+    `);
+    return BigInt(result.rows[0]?.used ?? '0');
+  }
+
   async createTrialSubscription(
     tx: TransactionContext,
     organizationId: string,
@@ -238,8 +428,11 @@ export class OrganizationRepository {
     `);
   }
 
-  async getSubscription(ctx: TenantContext): Promise<SubscriptionRow | null> {
-    const result = await this.db.execute<{
+  async getSubscription(
+    ctx: TenantContext,
+    db: Database = this.db,
+  ): Promise<SubscriptionRow | null> {
+    const result = await db.execute<{
       id: string;
       organization_id: string;
       plan_code: PlanCode;
@@ -313,8 +506,12 @@ export class OrganizationRepository {
     return result.rows.map((r) => r.id);
   }
 
-  async getUsage(ctx: TenantContext, periodStart: Date): Promise<UsageCounters> {
-    const result = await this.db.execute<{
+  async getUsage(
+    ctx: TenantContext,
+    periodStart: Date,
+    db: Database = this.db,
+  ): Promise<UsageCounters> {
+    const result = await db.execute<{
       active_projects: string;
       team_members: string;
       completed_decisions: string;
@@ -355,19 +552,22 @@ export class OrganizationRepository {
   }
 
   /** One call resolving the entitlement picture used by the API middleware. */
-  async resolveEntitlements(ctx: TenantContext): Promise<{
+  async resolveEntitlements(
+    ctx: TenantContext,
+    db: Database = this.db,
+  ): Promise<{
     subscription: SubscriptionRow;
     entitlements: Entitlements;
     usage: UsageCounters;
     readOnly: boolean;
   }> {
-    const subscription = await this.getSubscription(ctx);
+    const subscription = await this.getSubscription(ctx, db);
     if (!subscription) {
       throw new AppError('INTERNAL_ERROR', {
         message: 'Organization has no subscription record',
       });
     }
-    const usage = await this.getUsage(ctx, subscription.currentPeriodStart);
+    const usage = await this.getUsage(ctx, subscription.currentPeriodStart, db);
     return {
       subscription,
       entitlements: entitlementsFor(subscription),
@@ -379,7 +579,9 @@ export class OrganizationRepository {
 
 const ORG_COLUMNS = sql`
   id, display_name, legal_name, gstin, timezone, default_currency, retention_months,
-  status, brand_primary_color, contact_phone, contact_email, reminder_policy_hours,
+  status, closed_at, purge_after, closure_reason,
+  brand_primary_color, contact_phone, contact_email, reminder_policy_hours,
+  business_type, request_routing, storage_quota_bytes,
   created_at, lock_version
 `;
 
@@ -392,10 +594,16 @@ type OrganizationRecord = {
   default_currency: string;
   retention_months: number;
   status: string;
+  closed_at: Date | null;
+  purge_after: Date | null;
+  closure_reason: string | null;
   brand_primary_color: string | null;
   contact_phone: string | null;
   contact_email: string | null;
   reminder_policy_hours: number[] | string;
+  business_type: BusinessType | null;
+  request_routing: RequestRouting;
+  storage_quota_bytes: string | number;
   created_at: Date;
   lock_version: number;
 };
@@ -420,6 +628,12 @@ function mapOrganization(row: OrganizationRecord): OrganizationRow {
           .split(',')
           .filter(Boolean)
           .map((v) => Number.parseInt(v, 10)),
+    closedAt: row.closed_at ? toDate(row.closed_at) : null,
+    purgeAfter: row.purge_after ? toDate(row.purge_after) : null,
+    closureReason: row.closure_reason,
+    businessType: row.business_type,
+    requestRouting: row.request_routing,
+    storageQuotaBytes: BigInt(row.storage_quota_bytes),
     createdAt: toDate(row.created_at),
     lockVersion: row.lock_version,
   };

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { AppError } from '@extrawork/contracts';
@@ -22,6 +23,8 @@ export interface EmailMessage {
   subject: string;
   text: string;
   from: string;
+  /** Stable across retries; used as the RFC Message-ID. */
+  idempotencyKey: string;
 }
 
 export interface EmailDriver {
@@ -63,7 +66,7 @@ export class FileEmailDriver implements EmailDriver {
 
   async deliver(message: EmailMessage): Promise<{ messageId: string | null }> {
     await mkdir(this.directory, { recursive: true });
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const id = emailMessageId(message.idempotencyKey);
     const filename = path.join(this.directory, `${id}.eml`);
     const content = [
       `From: ${message.from}`,
@@ -94,6 +97,10 @@ export class SmtpEmailDriver implements EmailDriver {
         to: message.to,
         subject: message.subject,
         text: message.text,
+        // SMTP has no transactional exactly-once primitive. A stable RFC
+        // Message-ID gives the relay and recipient one identity across a retry
+        // after an ambiguous connection failure.
+        messageId: `<${emailMessageId(message.idempotencyKey)}@extrawork.local>`,
       });
       return { messageId: result.messageId ?? null };
     } catch (error) {
@@ -127,6 +134,7 @@ export class EmailGateway implements MessageGateway {
       from: this.from,
       subject: command.subject ?? `Update from ${command.organizationName}`,
       text: command.body,
+      idempotencyKey: command.idempotencyKey,
     });
     return {
       provider: `email:${this.driver.name}`,
@@ -140,4 +148,8 @@ export class EmailGateway implements MessageGateway {
     // the MVP, so there is nothing to verify here yet.
     return [];
   }
+}
+
+function emailMessageId(idempotencyKey: string): string {
+  return createHash('sha256').update(idempotencyKey).digest('hex');
 }

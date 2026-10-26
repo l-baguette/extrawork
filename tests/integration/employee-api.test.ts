@@ -150,7 +150,7 @@ describe('employee routes', () => {
     expect(EmployeeSchema.safeParse(items[0]).success).toBe(true);
   });
 
-  it('rejects a number already registered anywhere', async () => {
+  it('rejects a number already on this site team, but not on another firm’s', async () => {
     const session = await signIn(alpha);
     const phone = nextPhone();
     await post('/v1/employees', session, {
@@ -160,16 +160,24 @@ describe('employee routes', () => {
       projectIds: [],
     });
 
+    const duplicate = await post('/v1/employees', session, {
+      name: 'Again',
+      phone,
+      allProjects: true,
+      projectIds: [],
+    });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json()).toMatchObject({ error: { code: 'EMPLOYEE_PHONE_TAKEN' } });
+
+    // Spec 2026-10-12, D7: the same foreman may work with another design firm.
     const betaSession = await signIn(beta);
-    const response = await post('/v1/employees', betaSession, {
+    const elsewhere = await post('/v1/employees', betaSession, {
       name: 'Second',
       phone,
       allProjects: true,
       projectIds: [],
     });
-
-    expect(response.statusCode).toBe(409);
-    expect(response.json()).toMatchObject({ error: { code: 'EMPLOYEE_PHONE_TAKEN' } });
+    expect(elsewhere.statusCode).toBe(201);
   });
 
   it('does not expose another tenant’s employee over HTTP', async () => {

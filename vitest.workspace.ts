@@ -31,9 +31,11 @@ const database = {
 
 export default defineWorkspace([
   {
+    resolve: { conditions: ['development'] },
     test: { name: 'unit', include: ['tests/unit/**/*.test.ts'], environment: 'node' },
   },
   {
+    resolve: { conditions: ['development'] },
     test: {
       name: 'property',
       include: ['tests/property/**/*.test.ts'],
@@ -41,9 +43,16 @@ export default defineWorkspace([
       testTimeout: 60_000,
     },
   },
-  { test: { ...database, name: 'integration', include: ['tests/integration/**/*.test.ts'] } },
-  { test: { ...database, name: 'security', include: ['tests/security/**/*.test.ts'] } },
   {
+    resolve: { conditions: ['development'] },
+    test: { ...database, name: 'integration', include: ['tests/integration/**/*.test.ts'] },
+  },
+  {
+    resolve: { conditions: ['development'] },
+    test: { ...database, name: 'security', include: ['tests/security/**/*.test.ts'] },
+  },
+  {
+    resolve: { conditions: ['development'] },
     test: {
       ...database,
       name: 'golden',

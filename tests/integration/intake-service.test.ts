@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppError } from '@extrawork/contracts';
 import type { Container } from '@extrawork/runtime';
 import {
   createTenant,
@@ -9,6 +10,9 @@ import {
   type TenantFixture,
 } from '@extrawork/testkit';
 
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
+
 /**
  * The WhatsApp intake path, end to end against real PostgreSQL.
  *
@@ -17,6 +21,10 @@ import {
  * guesses a project, never exceeds the ceiling the owner set, and never lets a
  * redelivered message bill a customer twice. Each one is a decision that would
  * otherwise be re-litigated by whoever touches this next.
+ *
+ * This file pins the direct path, so its workspace uses `AUTO_SEND` (spec
+ * 2026-10-12, D3). The default `DESIGNER_REVIEW` routing and the rest of the
+ * channel — asking, content, corrections — are in `whatsapp-channel.test.ts`.
  */
 
 let container: Container;
@@ -35,6 +43,10 @@ beforeEach(async () => {
   await truncateAll(container);
   alpha = await createTenant(container, { name: 'Alpha Interiors' });
   beta = await createTenant(container, { name: 'Beta Builders' });
+  await container.uow.pool.query(
+    `UPDATE organizations SET request_routing = 'AUTO_SEND' WHERE id = $1`,
+    [alpha.organizationId],
+  );
 });
 
 let phoneCounter = 0;
@@ -133,6 +145,32 @@ describe('a registered employee raises a request', () => {
     expect(rows[0]?.created_by_user_id).toBeNull();
   });
 
+  it('includes an approved WhatsApp change in reports without an employee account', async () => {
+    const employee = await addEmployee(alpha);
+    const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
+
+    // The public decision service owns this transition in production. This
+    // test pins the reporting seam directly: once that version is approved,
+    // its accountless WhatsApp origin must not make it disappear from reports.
+    await container.uow.pool.query(
+      `UPDATE change_order_versions
+          SET status = 'APPROVED', decided_at = now()
+        WHERE change_order_id = $1`,
+      [outcome.changeOrderId],
+    );
+
+    const report = await container.repos.reporting.extraWorkReport(alpha.owner.tenant, {
+      status: 'APPROVED',
+    });
+
+    expect(report).toHaveLength(1);
+    expect(report[0]).toMatchObject({
+      changeOrderId: outcome.changeOrderId,
+      status: 'APPROVED',
+      createdBy: employee.name,
+    });
+  });
+
   it('logs the message, the parse and the reply', async () => {
     const employee = await addEmployee(alpha);
     const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
@@ -150,19 +188,32 @@ describe('a registered employee raises a request', () => {
 });
 
 describe('the channel refuses to guess', () => {
-  it('asks rather than picking a number from a range', async () => {
+  // Spec 2026-10-12, D3/D6: under AUTO_SEND an incomplete request now goes to
+  // the designer as a proposal instead of being rejected. Still no guess: the
+  // version carries no price, nothing reaches the homeowner, and the reply
+  // names the figure it could not read.
+  it('hands an unreadable amount to the designer rather than picking a number', async () => {
     const employee = await addEmployee(alpha);
     const outcome = await send(
       employee.phoneE164,
       'What: Two extra power points in the kitchen\nCost: 15-20k',
     );
 
-    expect(outcome.status).toBe('REJECTED_UNPARSEABLE');
+    expect(outcome.status).toBe('ACCEPTED');
     expect(outcome.reply).toContain('15-20k');
-    expect(outcome.changeOrderId).toBeNull();
+    expect(outcome.approvalUrl).toBeNull();
+    const version = await container.repos.changeOrders.getCurrentVersion(
+      alpha.owner.tenant,
+      outcome.changeOrderId as string,
+    );
+    expect(version?.status).toBe('DRAFT');
+    expect(version?.submittedForReviewAt).not.toBeNull();
+    expect(version?.totalDeltaMinor).toBe(0n);
   });
 
-  it('asks which project when the name matches more than one', async () => {
+  // Spec 2026-10-12, WhatsApp rules §3: the message is held and the sender
+  // asked once, instead of being rejected.
+  it('holds the message and asks which project when there is more than one', async () => {
     const employee = await addEmployee(alpha);
     // A second active project makes the bare message ambiguous.
     await container.uow.transaction((tx) =>
@@ -184,20 +235,31 @@ describe('the channel refuses to guess', () => {
     );
 
     const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
-    expect(outcome.status).toBe('REJECTED_NOT_AUTHORIZED');
+    expect(outcome.status).toBe('AWAITING_CHOICE');
+    expect(outcome.reply).toContain('Which project');
     expect(outcome.changeOrderId).toBeNull();
+    expect(outcome.organizationId).toBeNull();
   });
 });
 
 describe('policy the owner set', () => {
-  it('refuses a request above the employee’s ceiling and says the real numbers', async () => {
+  // Spec 2026-10-12, D3: above the ceiling, the request goes to the designer
+  // instead of being refused. The ceiling still decides that it does not go
+  // straight to the homeowner, and the reply still says the real numbers.
+  it('sends a request above the employee’s ceiling to the designer, not the homeowner', async () => {
     const employee = await addEmployee(alpha, { maxRequestMinor: 1_000_000n });
     const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
 
-    expect(outcome.status).toBe('REJECTED_POLICY');
+    expect(outcome.status).toBe('ACCEPTED');
     expect(outcome.reply).toContain('₹15,800.00');
     expect(outcome.reply).toContain('₹10,000.00');
-    expect(outcome.changeOrderId).toBeNull();
+    expect(outcome.approvalUrl).toBeNull();
+    const version = await container.repos.changeOrders.getCurrentVersion(
+      alpha.owner.tenant,
+      outcome.changeOrderId as string,
+    );
+    expect(version?.status).toBe('DRAFT');
+    expect(version?.submittedForReviewAt).not.toBeNull();
   });
 
   it('accepts a request exactly at the ceiling', async () => {
@@ -265,6 +327,83 @@ describe('redelivery', () => {
     );
     expect(rows[0]?.count).toBe('1');
   });
+
+  it('resumes after a transient send failure without creating a second request', async () => {
+    const employee = await addEmployee(alpha);
+    const id = nextMessageId();
+    vi.spyOn(container.services.send, 'send').mockRejectedValueOnce(
+      new AppError('PROVIDER_UNAVAILABLE'),
+    );
+
+    await expect(send(employee.phoneE164, GOOD_MESSAGE, id)).rejects.toMatchObject({
+      code: 'PROVIDER_UNAVAILABLE',
+    });
+
+    const checkpoint = await container.uow.pool.query<{
+      id: string;
+      status: string;
+      change_order_id: string | null;
+      processed_at: Date | null;
+    }>(
+      `SELECT id, status, change_order_id, processed_at
+         FROM inbound_messages
+        WHERE provider = 'whatsapp' AND provider_message_id = $1`,
+      [id],
+    );
+    expect(checkpoint.rows[0]).toMatchObject({
+      status: 'RECEIVED',
+      processed_at: null,
+    });
+    expect(checkpoint.rows[0]?.change_order_id).not.toBeNull();
+
+    const resumed = await send(employee.phoneE164, GOOD_MESSAGE, id);
+    expect(resumed.status).toBe('ACCEPTED');
+    expect(resumed.changeOrderId).toBe(checkpoint.rows[0]?.change_order_id);
+
+    const { rows } = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM change_orders WHERE organization_id = $1',
+      [alpha.organizationId],
+    );
+    expect(rows[0]?.count).toBe('1');
+  });
+
+  it('allows only one concurrent processor for a redelivered message', async () => {
+    const employee = await addEmployee(alpha);
+    const id = nextMessageId();
+    let releaseCreate!: () => void;
+    let creationCheckpointed!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseCreate = resolve;
+    });
+    const checkpointed = new Promise<void>((resolve) => {
+      creationCheckpointed = resolve;
+    });
+    const originalCreate = container.services.changeOrders.create.bind(
+      container.services.changeOrders,
+    );
+    vi.spyOn(container.services.changeOrders, 'create').mockImplementationOnce(
+      async (ctx, projectId, input, hooks) => {
+        const created = await originalCreate(ctx, projectId, input, hooks);
+        creationCheckpointed();
+        await held;
+        return created;
+      },
+    );
+
+    const first = send(employee.phoneE164, GOOD_MESSAGE, id);
+    await checkpointed;
+    await expect(send(employee.phoneE164, GOOD_MESSAGE, id)).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_IN_PROGRESS',
+    });
+    releaseCreate();
+    await expect(first).resolves.toMatchObject({ status: 'ACCEPTED' });
+
+    const { rows } = await container.uow.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM change_orders WHERE organization_id = $1',
+      [alpha.organizationId],
+    );
+    expect(rows[0]?.count).toBe('1');
+  });
 });
 
 /**
@@ -290,7 +429,12 @@ describe('a decision notifies the team', () => {
       {
         plainToken: token,
         publicSessionToken: resolved.session.token,
-        input: { type, signerName: alpha.approverName, declarationAccepted: true },
+        input: {
+          type,
+          signerName: alpha.approverName,
+          signedDate: today(),
+          declarationAccepted: true,
+        },
         idempotencyKey: randomUUID(),
         ifMatch: resolved.dto.etag,
       },

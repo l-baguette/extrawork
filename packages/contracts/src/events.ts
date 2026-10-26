@@ -43,6 +43,9 @@ export const DOMAIN_EVENTS = {
   PAYMENT_STATUS_CHANGED: 'payment.status_changed.v1',
   DATA_RETENTION_DUE: 'data.retention_due.v1',
   DATA_DELETED: 'data.deleted.v1',
+  ORGANIZATION_CLOSURE_REQUESTED: 'organization.closure_requested.v1',
+  ORGANIZATION_CLOSURE_CANCELLED: 'organization.closure_cancelled.v1',
+  ORGANIZATION_PURGED: 'organization.purged.v1',
   SUPPORT_ACCESS_GRANTED: 'support.access_granted.v1',
   SUPPORT_ACCESS_REVOKED: 'support.access_revoked.v1',
   INTEGRITY_MISMATCH_DETECTED: 'integrity.mismatch_detected.v1',
@@ -55,6 +58,20 @@ export const DOMAIN_EVENTS = {
   FILE_SCAN_COMPLETED: 'file.scan_completed.v1',
   SUBSCRIPTION_CHANGED: 'subscription.changed.v1',
   REPAIR_APPLIED: 'repair.applied.v1',
+  // --- Three-party workspace (spec 2026-10-12) ---
+  COLLABORATOR_INVITED: 'collaborator.invited.v1',
+  COLLABORATOR_INVITATION_REVOKED: 'collaborator.invitation_revoked.v1',
+  COLLABORATOR_JOINED: 'collaborator.joined.v1',
+  COLLABORATOR_REMOVED: 'collaborator.removed.v1',
+  CHANGE_ORDER_SUBMITTED_FOR_REVIEW: 'change_order.submitted_for_review.v1',
+  CHANGE_ORDER_PROPOSAL_DISMISSED: 'change_order.proposal_dismissed.v1',
+  CHANGE_ORDER_INVOICED: 'change_order.invoiced.v1',
+  CHANGE_ORDER_INVOICE_CLEARED: 'change_order.invoice_cleared.v1',
+  PROJECT_REOPENED: 'project.reopened.v1',
+  PROJECT_DOCUMENT_ADDED: 'project.document_added.v1',
+  PROJECT_DOCUMENT_REMOVED: 'project.document_removed.v1',
+  PORTAL_LINK_CREATED: 'portal.link_created.v1',
+  PORTAL_LINK_REVOKED: 'portal.link_revoked.v1',
 } as const;
 
 export type DomainEventType = (typeof DOMAIN_EVENTS)[keyof typeof DOMAIN_EVENTS];
@@ -69,6 +86,8 @@ export const OUTBOX_TOPICS = {
   PAYMENT_REQUESTED: 'payment.requested.v1',
   WEBHOOK_RECEIVED: 'webhook.received.v1',
   PROJECT_EXPORT_REQUESTED: 'project.export_requested.v1',
+  /** A notification row was written; the worker decides whether to email it. */
+  NOTIFICATION_CREATED: 'notification.created.v1',
 } as const;
 
 export type OutboxTopic = (typeof OUTBOX_TOPICS)[keyof typeof OUTBOX_TOPICS];
@@ -86,6 +105,8 @@ export const JOB_KINDS = {
    * must never retry the customer's copy.
    */
   NOTIFY_TEAM_DECISION: 'notify_team_decision',
+  /** Delivers one durable message-ledger row to exactly one recipient. */
+  SEND_MESSAGE_DELIVERY: 'send_message_delivery',
   SEND_REQUEST_MESSAGE: 'send_request_message',
   SEND_OTP: 'send_otp',
   SEND_REMINDER: 'send_reminder',
@@ -96,6 +117,12 @@ export const JOB_KINDS = {
   APPLY_RETENTION: 'apply_retention',
   RECONCILE_MESSAGES: 'reconcile_messages',
   NORMALIZE_WEBHOOK: 'normalize_webhook',
+  /** Emails one notification to its recipient, if their preferences allow. */
+  SEND_NOTIFICATION_EMAIL: 'send_notification_email',
+  /** Daily: milestone and completion-date reminders (spec D14). */
+  SEND_DUE_REMINDERS: 'send_due_reminders',
+  /** Emails a collaborator invitation link. */
+  SEND_INVITATION: 'send_invitation',
 } as const;
 
 export type JobKind = (typeof JOB_KINDS)[keyof typeof JOB_KINDS];
@@ -106,6 +133,7 @@ export const JOB_PRIORITY: Record<JobKind, number> = {
   // Just behind the customer's own receipt: the team wants to know quickly,
   // but never at the cost of the customer's confirmation.
   [JOB_KINDS.NOTIFY_TEAM_DECISION]: 15,
+  [JOB_KINDS.SEND_MESSAGE_DELIVERY]: 16,
   [JOB_KINDS.SEND_REQUEST_MESSAGE]: 20,
   [JOB_KINDS.SEND_OTP]: 30,
   [JOB_KINDS.SEND_REMINDER]: 40,
@@ -116,6 +144,9 @@ export const JOB_PRIORITY: Record<JobKind, number> = {
   [JOB_KINDS.CHECK_PROJECT_INTEGRITY]: 70,
   [JOB_KINDS.APPLY_RETENTION]: 80,
   [JOB_KINDS.RECONCILE_MESSAGES]: 90,
+  [JOB_KINDS.SEND_INVITATION]: 25,
+  [JOB_KINDS.SEND_NOTIFICATION_EMAIL]: 42,
+  [JOB_KINDS.SEND_DUE_REMINDERS]: 75,
 };
 
 /** Report §7.6 retry schedule for non-urgent jobs, then dead-letter. */

@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { createContainer } from '@extrawork/runtime';
+import { assertRlsEnforceable } from '@extrawork/db';
 
 /**
  * API process entry point. The worker is a separate process from the same
@@ -11,6 +12,10 @@ const container = createContainer({ applicationName: 'extrawork-api' });
 // database, letting the first dashboard request open these connections makes
 // that user pay several seconds of TLS setup even though the query is fast.
 await container.uow.warm();
+
+// Before accepting a single request: prove the database will enforce tenant
+// isolation rather than trusting this process to. Production only.
+await assertRlsEnforceable(container.uow, container.env.APP_ENV);
 
 const app = await buildApp({
   env: container.env,

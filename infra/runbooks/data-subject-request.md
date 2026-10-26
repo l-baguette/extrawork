@@ -23,8 +23,7 @@ the underlying relationship. Notify the organization and record their decision.
 Always available, and never gated on billing status (§16.3 launch blocker):
 
 ```bash
-pnpm --filter @extrawork/db exec tsx src/cli/export-subject.ts \
-  --organization <id> --contact <contactId> --out /tmp/export.json
+pnpm db:export-subject --organization <id> --contact <contactId> --out /tmp/export.json
 ```
 
 The export includes: contact record, every change request addressed to them,
@@ -37,7 +36,7 @@ What can be erased, and what cannot:
 
 | Data                           | Action                                                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Contact name, phone, email     | erasable — replaced with a tombstone                                                                      |
+| Contact name, phone, email     | erasable — replaced with a tombstone and stamped `erased_at`                                              |
 | Marketing/analytics events     | erasable                                                                                                  |
 | Draft change orders never sent | erasable                                                                                                  |
 | **A recorded decision**        | **not erasable** — it is the contractual record the contractor relies on, and it is append-only by design |
@@ -45,8 +44,8 @@ What can be erased, and what cannot:
 | Signer name on a decision      | not erasable; it _is_ the assent artefact                                                                 |
 
 ```bash
-pnpm --filter @extrawork/db exec tsx src/cli/erase-contact.ts \
-  --organization <id> --contact <contactId> --operator "<email>" --reason "<ref>"
+pnpm db:erase-contact --organization <id> --contact <contactId> \
+  --operator "<email>" --reason "<ref>"    # add --dry-run to preview
 ```
 
 The command pseudonymises the contact, leaves decisions intact, and emits
@@ -58,10 +57,38 @@ was retained, and why — vague answers here are worse than a clear refusal.
 Report §9.8: 30-day recovery grace, then purge, unless a legal hold or
 contractual necessity applies.
 
-1. Mark the organization `CLOSED`; reads and exports continue.
+**The owner does steps 1 and 2 themselves.** Settings → "Close this account"
+requires them to retype the business name, then marks the organization `CLOSED`,
+stamps `closed_at`, and sets `purge_after` to 30 days out. The account
+immediately becomes read-only — reads and exports keep working for the whole
+window, which is what makes step 2 possible — and the owner can undo it from the
+same screen until the purge runs. Both the request and any cancellation are
+audited (`organization.closure_requested.v1`, `organization.closure_cancelled.v1`).
+
+Operators only get involved for the destructive step:
+
+1. Confirm the window has elapsed. The daily retention job logs
+   `closed organizations are past their recovery window and awaiting operator purge`
+   with the ids, and skips any organization under a legal hold.
 2. Offer and produce a full export before anything is purged.
-3. Check for legal holds: `SELECT * FROM legal_holds WHERE released_at IS NULL;`
-4. After 30 days, purge. Record the purge in `repair_events`.
+3. Re-check legal holds: `SELECT * FROM legal_holds WHERE released_at IS NULL;`
+4. Purge. Dry-run first — it prints exactly what would be destroyed:
+
+```bash
+pnpm db:purge-organization --organization <id> --operator "<email>" \
+  --reason "<ref>" --dry-run
+# then, with --confirm set to the same organization id:
+pnpm db:purge-organization --organization <id> --operator "<email>" \
+  --reason "<ref>" --confirm <id>
+```
+
+It refuses unless the account is CLOSED, the window has elapsed and no hold is
+open, lifts the append-only guards for one transaction, and leaves a permanent
+row in `purged_organizations` — the only surviving proof the deletion happened.
+`repair_events` cannot hold that record: it cascades away with the organization.
+
+Closing an account never erases recorded decisions — the erasure table in §3
+applies here too. Say so when the owner asks.
 
 ## 5. Legal hold
 
@@ -69,6 +96,15 @@ A hold suspends automatic deletion for explicitly scoped projects and is
 audited. Retention jobs skip held projects by design.
 
 ```sql
-INSERT INTO legal_holds (id, organization_id, project_id, reason, created_by)
-VALUES (gen_random_uuid(), :organization_id, :project_id, :reason, :operator);
+-- `placed_by_user_id` is a users.id, not an email. NULL is allowed when the hold
+-- comes from outside the product (a court order, say) rather than from a user.
+INSERT INTO legal_holds (id, organization_id, project_id, reason, placed_by_user_id)
+VALUES (gen_random_uuid(), :organization_id, :project_id, :reason, :placed_by_user_id);
+```
+
+Release it the same way, deliberately:
+
+```sql
+UPDATE legal_holds SET released_at = now(), released_by_user_id = :user_id
+ WHERE id = :hold_id;
 ```

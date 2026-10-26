@@ -10,6 +10,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AppError } from '@extrawork/contracts';
 import {
   assertSafeKey,
+  type DownloadOptions,
   type ObjectMetadata,
   type ObjectStore,
   type PresignedUpload,
@@ -73,16 +74,26 @@ export class S3ObjectStore implements ObjectStore {
     };
   }
 
-  async createDownload(key: string, ttlSeconds: number, filename?: string): Promise<string> {
+  async createDownload(
+    key: string,
+    ttlSeconds: number,
+    filename?: string,
+    options: DownloadOptions = {},
+  ): Promise<string> {
     assertSafeKey(key);
+    const name = (filename ?? 'file').replace(/["\\\r\n]/g, '');
     const get = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,
       // Forces a download rather than inline rendering of an untrusted file
       // (report §12.2 "restrict serving headers").
-      ...(filename
-        ? { ResponseContentDisposition: `attachment; filename="${filename.replace(/"/g, '')}"` }
+      ...(filename || options.forceDownload
+        ? { ResponseContentDisposition: `attachment; filename="${name}"` }
         : {}),
+      // S3 cannot be asked for `X-Content-Type-Options` per URL, so the
+      // equivalent is to override the type itself: opaque bytes are never
+      // sniffed into something renderable (spec 2026-10-12, D10).
+      ...(options.forceDownload ? { ResponseContentType: 'application/octet-stream' } : {}),
     });
     return getSignedUrl(this.client, get, { expiresIn: ttlSeconds });
   }
@@ -108,11 +119,23 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
-  async get(key: string): Promise<Buffer> {
+  async get(key: string, maxBytes?: number): Promise<Buffer> {
     assertSafeKey(key);
     const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     if (!result.Body) throw new AppError('NOT_FOUND');
-    return Buffer.from(await result.Body.transformToByteArray());
+    if (maxBytes !== undefined && (result.ContentLength ?? 0) > maxBytes) {
+      (result.Body as { destroy?: () => void }).destroy?.();
+      throw new AppError('FILE_TOO_LARGE', {
+        details: { maxBytes, actualBytes: result.ContentLength },
+      });
+    }
+    const bytes = Buffer.from(await result.Body.transformToByteArray());
+    if (maxBytes !== undefined && bytes.byteLength > maxBytes) {
+      throw new AppError('FILE_TOO_LARGE', {
+        details: { maxBytes, actualBytes: bytes.byteLength },
+      });
+    }
+    return bytes;
   }
 
   async put(

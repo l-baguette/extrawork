@@ -76,7 +76,10 @@ export async function claimJobs(
   options: { limit: number; leaseSeconds: number; workerId: string; kinds?: JobKind[] },
 ): Promise<JobRow[]> {
   const kindFilter = options.kinds?.length
-    ? sql`AND kind = ANY(${sql.raw(`ARRAY[${options.kinds.map((k) => `'${k}'`).join(',')}]`)})`
+    ? sql`AND kind IN (${sql.join(
+        options.kinds.map((kind) => sql`${kind}`),
+        sql`, `,
+      )})`
     : sql``;
 
   const result = await db.execute<{
@@ -123,29 +126,42 @@ export async function claimJobs(
 }
 
 /** Extends the lease for long-running work such as PDFs (report §13.4). */
-export async function heartbeatJob(db: Database, id: string, leaseSeconds: number): Promise<void> {
-  await db.execute(sql`
+export async function heartbeatJob(
+  db: Database,
+  id: string,
+  leaseSeconds: number,
+  leasedBy: string,
+): Promise<boolean> {
+  const result = await db.execute(sql`
     UPDATE job_queue
        SET leased_until = now() + make_interval(secs => ${leaseSeconds})
-     WHERE id = ${id}::uuid AND status = 'RUNNING'
+     WHERE id = ${id}::uuid AND status = 'RUNNING' AND leased_by = ${leasedBy}
   `);
+  return (result.rowCount ?? 0) > 0;
 }
 
-export async function completeJob(db: Database, id: string): Promise<void> {
-  await db.execute(sql`
+/**
+ * Completing a delivery job erases the sealed link it carried: the approval
+ * link (report §3.4) and the collaborator invitation link (spec 2026-10-12).
+ */
+export async function completeJob(db: Database, id: string, leasedBy: string): Promise<boolean> {
+  const result = await db.execute(sql`
     UPDATE job_queue
        SET status = 'COMPLETED', completed_at = now(), leased_until = NULL,
-           leased_by = NULL, last_error = NULL
-     WHERE id = ${id}::uuid
+           leased_by = NULL, last_error = NULL,
+           payload = payload - 'approvalUrlCiphertext' - 'inviteUrlCiphertext'
+     WHERE id = ${id}::uuid AND status = 'RUNNING' AND leased_by = ${leasedBy}
   `);
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function failJob(
   db: Database,
   job: { id: string; attemptCount: number; maxAttempts: number },
   error: string,
+  leasedBy: string,
   options: { permanent?: boolean } = {},
-): Promise<'RETRY' | 'DEAD_LETTER'> {
+): Promise<'RETRY' | 'DEAD_LETTER' | 'LEASE_LOST'> {
   // A permanent failure (validation, policy, a missing aggregate) will fail
   // identically on every attempt, so retrying only delays the operator seeing
   // it — report §7.6: "Do not automatically retry validation, authentication,
@@ -157,23 +173,25 @@ export async function failJob(
       : nextRetryDelaySeconds(job.attemptCount);
 
   if (delay === null) {
-    await db.execute(sql`
+    const result = await db.execute(sql`
       UPDATE job_queue
          SET status = 'DEAD_LETTER', leased_until = NULL, leased_by = NULL,
              last_error = ${truncateError(error)}, last_error_at = now()
-       WHERE id = ${job.id}::uuid
+       WHERE id = ${job.id}::uuid AND status = 'RUNNING' AND leased_by = ${leasedBy}
     `);
+    if ((result.rowCount ?? 0) === 0) return 'LEASE_LOST';
     return 'DEAD_LETTER';
   }
 
-  await db.execute(sql`
+  const result = await db.execute(sql`
     UPDATE job_queue
        SET status = 'PENDING',
            available_at = now() + make_interval(secs => ${delay}),
            leased_until = NULL, leased_by = NULL,
            last_error = ${truncateError(error)}, last_error_at = now()
-     WHERE id = ${job.id}::uuid
+     WHERE id = ${job.id}::uuid AND status = 'RUNNING' AND leased_by = ${leasedBy}
   `);
+  if ((result.rowCount ?? 0) === 0) return 'LEASE_LOST';
   return 'RETRY';
 }
 

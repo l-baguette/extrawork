@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import { AppError, type MembershipRole } from '@extrawork/contracts';
+import { SYSTEM_SCOPE, runInScope } from '../tenant-scope.js';
+import { AppError, type CollaboratorParty, type MembershipRole } from '@extrawork/contracts';
 import {
   isReadOnly,
   type PlanCode,
@@ -45,6 +46,31 @@ export interface MembershipRow {
   role: MembershipRole;
   status: string;
   organizationName: string;
+  /** Set for COLLABORATOR memberships (spec 2026-10-12, D1); null for staff. */
+  collaboratorParty: CollaboratorParty | null;
+  companyName: string | null;
+}
+
+type MembershipRecord = {
+  organization_id: string;
+  user_id: string;
+  role: MembershipRole;
+  status: string;
+  organization_name: string;
+  collaborator_party: CollaboratorParty | null;
+  company_name: string | null;
+};
+
+function mapMembership(row: MembershipRecord): MembershipRow {
+  return {
+    organizationId: row.organization_id,
+    userId: row.user_id,
+    role: row.role,
+    status: row.status,
+    organizationName: row.organization_name,
+    collaboratorParty: row.role === 'COLLABORATOR' ? (row.collaborator_party ?? 'OTHER') : null,
+    companyName: row.role === 'COLLABORATOR' ? row.company_name : null,
+  };
 }
 
 export interface SessionRow {
@@ -125,6 +151,49 @@ export class IdentityRepository {
     `);
   }
 
+  /**
+   * Upgrades an old credential only if it is still the credential that was
+   * verified. A concurrent password reset or another login's upgrade wins
+   * without being overwritten.
+   */
+  async upgradePasswordHash(
+    tx: TransactionContext,
+    userId: string,
+    verifiedHash: string,
+    upgradedHash: string,
+  ): Promise<boolean> {
+    const result = await tx.db.execute(sql`
+      UPDATE users
+         SET password_hash = ${upgradedHash}, password_set_at = now(), updated_at = now()
+       WHERE id = ${userId}::uuid AND password_hash = ${verifiedHash}
+    `);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Claims a first-party email and installs its initial password atomically.
+   * A concurrent registration gets `null`; it must never update the winner's
+   * profile or credential.
+   */
+  async createLocalAccount(
+    tx: TransactionContext,
+    input: { subject: string; email: string; displayName: string; passwordHash: string },
+  ): Promise<UserRow | null> {
+    const result = await tx.db.execute<UserRecord>(sql`
+      INSERT INTO users (
+        id, auth_provider, auth_provider_subject, email_normalized, display_name,
+        password_hash, password_set_at
+      ) VALUES (
+        ${newId()}::uuid, 'local', ${input.subject}, ${input.email}, ${input.displayName},
+        ${input.passwordHash}, now()
+      )
+      ON CONFLICT DO NOTHING
+      RETURNING id, auth_provider, auth_provider_subject, email_normalized,
+                display_name, status, last_authenticated_at
+    `);
+    return mapUser(result.rows[0]);
+  }
+
   /** Links a third-party identity, or refreshes it if already linked. */
   async linkIdentity(
     tx: TransactionContext,
@@ -161,6 +230,30 @@ export class IdentityRepository {
   }
 
   /**
+   * Updates the parts of a profile the person owns.
+   *
+   * Email is deliberately absent. It is the identity the account is reached
+   * and recovered by, and changing it in place would silently move an account
+   * to an address nobody has proved they control — so it needs a verification
+   * round trip, not a text field. Until that exists, this method cannot be the
+   * thing that quietly makes it possible.
+   */
+  async updateProfile(
+    tx: TransactionContext,
+    userId: string,
+    input: { displayName: string },
+  ): Promise<UserRow | null> {
+    const result = await tx.db.execute<UserRecord>(sql`
+      UPDATE users
+      SET display_name = ${input.displayName}, updated_at = now()
+      WHERE id = ${userId}::uuid
+      RETURNING id, auth_provider, auth_provider_subject, email_normalized,
+                display_name, status, last_authenticated_at
+    `);
+    return mapUser(result.rows[0]);
+  }
+
+  /**
    * Creates or refreshes the local profile for a provider identity. Idempotent
    * so a repeated sign-in webhook cannot duplicate a user.
    */
@@ -184,50 +277,27 @@ export class IdentityRepository {
   }
 
   async listMemberships(userId: string, db: Database = this.db): Promise<MembershipRow[]> {
-    const result = await db.execute<{
-      organization_id: string;
-      user_id: string;
-      role: MembershipRole;
-      status: string;
-      organization_name: string;
-    }>(sql`
-      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name
+    const result = await db.execute<MembershipRecord>(sql`
+      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name,
+             m.collaborator_party, m.company_name
       FROM memberships m
       JOIN organizations o ON o.id = m.organization_id
       WHERE m.user_id = ${userId}::uuid AND m.status = 'ACTIVE' AND o.status <> 'CLOSED'
       ORDER BY o.display_name
     `);
-    return result.rows.map((r) => ({
-      organizationId: r.organization_id,
-      userId: r.user_id,
-      role: r.role,
-      status: r.status,
-      organizationName: r.organization_name,
-    }));
+    return result.rows.map(mapMembership);
   }
 
   async getMembership(organizationId: string, userId: string): Promise<MembershipRow | null> {
-    const result = await this.db.execute<{
-      organization_id: string;
-      user_id: string;
-      role: MembershipRole;
-      status: string;
-      organization_name: string;
-    }>(sql`
-      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name
+    const result = await this.db.execute<MembershipRecord>(sql`
+      SELECT m.organization_id, m.user_id, m.role, m.status, o.display_name AS organization_name,
+             m.collaborator_party, m.company_name
       FROM memberships m
       JOIN organizations o ON o.id = m.organization_id
       WHERE m.organization_id = ${organizationId}::uuid AND m.user_id = ${userId}::uuid
     `);
     const row = result.rows[0];
-    if (!row) return null;
-    return {
-      organizationId: row.organization_id,
-      userId: row.user_id,
-      role: row.role,
-      status: row.status,
-      organizationName: row.organization_name,
-    };
+    return row ? mapMembership(row) : null;
   }
 
   /** Project grants for roles that are not organization-wide (report §3.2). */
@@ -362,11 +432,22 @@ export class IdentityRepository {
     };
   }
 
+  /**
+   * The bootstrap query: session cookie in, actor and organization out.
+   *
+   * System-scoped because it is what *establishes* the scope. It joins
+   * `memberships` and `subscriptions` to answer "which organization, and is it
+   * writable", and a request cannot declare the tenant it is about to be told.
+   * The session token is the authorization, exactly as the approval token is in
+   * `ApprovalRepository.findByToken`; the caller sets the tenant scope from the
+   * result before touching anything else.
+   */
   async resolveAuthenticatedSession(
     sessionToken: string,
     organizationOverride: string | null,
   ): Promise<AuthenticatedSessionContext | null> {
-    const result = await this.db.execute<AuthenticatedSessionRecord>(sql`
+    const result = await runInScope(SYSTEM_SCOPE, () =>
+      this.db.execute<AuthenticatedSessionRecord>(sql`
       WITH valid_session AS (
         SELECT id, user_id, active_organization_id, authenticated_at, expires_at,
                csrf_token_hash,
@@ -397,7 +478,8 @@ export class IdentityRepository {
         ON m.organization_id = s.resolved_organization_id AND m.user_id = s.user_id
       LEFT JOIN organizations o ON o.id = s.resolved_organization_id
       LEFT JOIN subscriptions sub ON sub.organization_id = s.resolved_organization_id
-    `);
+    `),
+    );
 
     const row = result.rows[0];
     if (!row) return null;
@@ -475,13 +557,40 @@ export class IdentityRepository {
     return result.rowCount ?? 0;
   }
 
+  /**
+   * Records that control of the address was proved.
+   *
+   * Idempotent and one-way: `COALESCE` keeps the first proof rather than
+   * moving the timestamp forward on every later sign-in, because the fact
+   * being recorded is when control was established, not when it was last
+   * exercised.
+   */
+  async markEmailVerified(tx: TransactionContext, userId: string, at: Date): Promise<void> {
+    await tx.db.execute(sql`
+      UPDATE users
+         SET email_verified_at = COALESCE(email_verified_at, ${at.toISOString()}::timestamptz),
+             updated_at = now()
+       WHERE id = ${userId}::uuid
+    `);
+  }
+
+  async findUserByEmailWithVerification(
+    email: string,
+  ): Promise<{ id: string; emailVerifiedAt: Date | null } | null> {
+    const result = await this.db.execute<{ id: string; email_verified_at: Date | null }>(sql`
+      SELECT id, email_verified_at FROM users WHERE email_normalized = ${email}
+    `);
+    const row = result.rows[0];
+    return row ? { id: row.id, emailVerifiedAt: toDateOrNull(row.email_verified_at) } : null;
+  }
+
   // --- Magic-link / invitation challenges ----------------------------------
 
   async createAuthChallenge(
     tx: TransactionContext,
     input: {
       email: string;
-      purpose: 'SIGN_IN' | 'INVITATION';
+      purpose: 'SIGN_IN' | 'INVITATION' | 'VERIFY_EMAIL';
       organizationId: string | null;
       ttlMinutes: number;
     },
@@ -503,6 +612,7 @@ export class IdentityRepository {
   async consumeAuthChallenge(
     tx: TransactionContext,
     token: string,
+    expectedPurpose: 'SIGN_IN' | 'INVITATION' | 'VERIFY_EMAIL',
   ): Promise<{ email: string; purpose: string; organizationId: string | null } | null> {
     const result = await tx.db.execute<{
       email_normalized: string;
@@ -512,6 +622,7 @@ export class IdentityRepository {
       UPDATE auth_challenges
          SET consumed_at = now()
        WHERE token_hash = ${hashOpaqueToken(token)}
+         AND purpose = ${expectedPurpose}
          AND consumed_at IS NULL
          AND expires_at > now()
       RETURNING email_normalized, purpose, organization_id

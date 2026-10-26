@@ -112,7 +112,26 @@ export async function verifyPassword(plaintext: string, stored: string): Promise
 export function needsRehash(stored: string): boolean {
   const parts = stored.split('$');
   if (parts.length !== 6 || parts[0] !== 'scrypt') return true;
-  return Number.parseInt(parts[1] as string, 10) < N;
+
+  const [, nRaw, rRaw, pRaw, saltB64, hashB64] = parts;
+  if (![nRaw, rRaw, pRaw].every((value) => /^\d+$/.test(value as string))) return true;
+
+  const n = Number(nRaw);
+  const r = Number(rRaw);
+  const p = Number(pRaw);
+  if (![n, r, p].every(Number.isSafeInteger)) return true;
+
+  const salt = Buffer.from(saltB64 as string, 'base64');
+  const hash = Buffer.from(hashB64 as string, 'base64');
+  if (salt.toString('base64') !== saltB64 || hash.toString('base64') !== hashB64) return true;
+
+  return (
+    n < N ||
+    r < BLOCK_SIZE ||
+    p < PARALLELISM ||
+    salt.length < SALT_LENGTH ||
+    hash.length < KEY_LENGTH
+  );
 }
 
 /**

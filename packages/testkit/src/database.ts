@@ -120,6 +120,7 @@ export function createTestContainer(options: TestContainerOptions = {}): Contain
     SESSION_SECRET: 'test-session-secret-test-session-secret-0001',
     PRIVACY_HASH_SECRET: 'test-privacy-secret-test-privacy-secret-0002',
     STORAGE_URL_SECRET: 'test-storage-secret-test-storage-secret-0003',
+    APPROVAL_LINK_ENCRYPTION_SECRET: 'test-approval-link-secret-test-approval-link-0004',
     STORAGE_DRIVER: 'local',
     STORAGE_LOCAL_ROOT: './.data/test-storage',
     EMAIL_DRIVER: 'file',

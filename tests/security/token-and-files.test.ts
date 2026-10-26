@@ -1,18 +1,30 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AppError } from '@extrawork/contracts';
+import { AppError, JOB_KINDS } from '@extrawork/contracts';
+import { claimJobs, completeJob } from '@extrawork/db';
 import { redact, redactString } from '@extrawork/observability';
 import { validateBytes } from '@extrawork/files';
-import { verifyMetaSignature, verifyRazorpaySignature } from '@extrawork/integrations';
+import {
+  verifyMetaSignature,
+  verifyRazorpaySignature,
+  type MessageGateway,
+} from '@extrawork/integrations';
 import type { Container } from '@extrawork/runtime';
 import {
   createSentChangeOrder,
+  createDraftChangeOrder,
   createTenant,
   createTestContainer,
   publicContext,
   truncateAll,
   type TenantFixture,
 } from '@extrawork/testkit';
+import { workerContext } from '../../apps/worker/src/context.js';
+import { sendRequestMessage } from '../../apps/worker/src/jobs/messaging.js';
+import type { PdfRenderer } from '../../apps/worker/src/pdf/renderer.js';
+
+/** The suite asserts against the same day the server will see. */
+const today = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Security tests — report §14.5 "Security tests" and §16.3 launch blockers:
@@ -22,6 +34,12 @@ import {
 
 let container: Container;
 let tenant: TenantFixture;
+
+const pdfStub: PdfRenderer = {
+  render: () => Promise.reject(new Error('message delivery must not render a PDF')),
+  rendererVersion: () => Promise.resolve('test-renderer'),
+  close: () => Promise.resolve(),
+};
 
 beforeAll(() => {
   container = createTestContainer();
@@ -36,7 +54,11 @@ beforeEach(async () => {
 
 describe('approval token handling', () => {
   it('stores only a hash — the plaintext is nowhere in the database', async () => {
-    const { token } = await createSentChangeOrder(container, tenant);
+    const draft = await createDraftChangeOrder(container, tenant);
+    const sent = await container.services.send.send(tenant.owner, draft.changeOrderId, {
+      channel: 'EMAIL',
+    });
+    const token = sent.approvalUrl.split('/r/')[1]!;
 
     // Sweep every text and jsonb column in the schema for the token.
     const { rows: columns } = await container.uow.pool.query<{
@@ -60,6 +82,71 @@ describe('approval token handling', () => {
         `${column.table_name}.${column.column_name} contains the plaintext approval token`,
       ).toBe(0);
     }
+
+    const queued = await container.uow.pool.query<{
+      id: string;
+      payload: Record<string, unknown>;
+    }>(`SELECT id, payload FROM job_queue WHERE kind = 'send_request_message'`);
+    expect(queued.rows).toHaveLength(1);
+    expect(queued.rows[0]?.payload).not.toHaveProperty('approvalUrl');
+    expect(queued.rows[0]?.payload.approvalUrlCiphertext).toEqual(expect.any(String));
+    expect(JSON.stringify(queued.rows[0]?.payload)).not.toContain(token);
+
+    const [claimed] = await claimJobs(container.uow.db, {
+      limit: 1,
+      leaseSeconds: 60,
+      workerId: 'security-scrub-test',
+      kinds: [JOB_KINDS.SEND_REQUEST_MESSAGE],
+    });
+    expect(claimed?.id).toBe(queued.rows[0]!.id);
+    await expect(
+      completeJob(container.uow.db, queued.rows[0]!.id, 'security-scrub-test'),
+    ).resolves.toBe(true);
+    const completed = await container.uow.pool.query<{ payload: Record<string, unknown> }>(
+      'SELECT payload FROM job_queue WHERE id = $1',
+      [queued.rows[0]!.id],
+    );
+    expect(completed.rows[0]?.payload).not.toHaveProperty('approvalUrlCiphertext');
+  });
+
+  it('decrypts the queued link only inside the worker delivery boundary', async () => {
+    const draft = await createDraftChangeOrder(container, tenant);
+    const sent = await container.services.send.send(tenant.owner, draft.changeOrderId, {
+      channel: 'EMAIL',
+    });
+    const jobs = await claimJobs(container.uow.db, {
+      limit: 1,
+      leaseSeconds: 60,
+      workerId: 'security-test',
+      kinds: [JOB_KINDS.SEND_REQUEST_MESSAGE],
+    });
+    const job = jobs[0];
+    if (!job) throw new Error('send did not enqueue a request-message job');
+
+    let deliveredBody = '';
+    const gateway: MessageGateway = {
+      channel: 'EMAIL',
+      canDeliver: true,
+      send: (command) => {
+        deliveredBody = command.body;
+        return Promise.resolve({
+          provider: 'security-test',
+          providerMessageId: 'provider-message-1',
+          status: 'SENT',
+        });
+      },
+      verifyAndParse: () => [],
+    };
+    const originalGateway = container.appContext.integrations.email;
+    container.appContext.integrations.email = gateway;
+    try {
+      await sendRequestMessage(job, workerContext(container, pdfStub));
+    } finally {
+      container.appContext.integrations.email = originalGateway;
+    }
+
+    expect(deliveredBody).toContain(sent.approvalUrl);
+    expect(deliveredBody).not.toContain(String(job.payload.approvalUrlCiphertext));
   });
 
   it('rejects a malformed token without touching the database', async () => {
@@ -98,7 +185,12 @@ describe('approval token handling', () => {
       {
         plainToken: token,
         publicSessionToken: resolved.session!.token,
-        input: { type: 'APPROVE', signerName: tenant.approverName, declarationAccepted: true },
+        input: {
+          type: 'APPROVE',
+          signerName: tenant.approverName,
+          signedDate: today(),
+          declarationAccepted: true,
+        },
         idempotencyKey: randomUUID(),
         ifMatch: resolved.dto.etag,
       },
@@ -341,5 +433,95 @@ describe('assurance is never silently downgraded', () => {
         assuranceRequired: 'A2',
       }),
     ).rejects.toThrowError(expect.objectContaining({ code: 'FEATURE_NOT_ENTITLED' }));
+  });
+});
+
+describe('portal token IDOR', () => {
+  // Spec 2026-10-12, D5: a portal link is one contact's window onto one
+  // project. Whatever id is put beside a valid token, nothing outside that
+  // project comes back, and an unknown document reads exactly like a missing one.
+  async function portalToken(fixture: TenantFixture): Promise<string> {
+    const created = await container.services.portal.createLink(
+      fixture.owner,
+      fixture.projectId,
+      {},
+    );
+    return created.portalUrl.slice(created.portalUrl.lastIndexOf('/') + 1);
+  }
+
+  it('stores only a hash of the portal token — the plaintext is nowhere in the database', async () => {
+    const token = await portalToken(tenant);
+    const { rows: columns } = await container.uow.pool.query<{
+      table_name: string;
+      column_name: string;
+    }>(`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND data_type IN ('text', 'character varying', 'jsonb', 'json')
+    `);
+    for (const column of columns) {
+      const { rows } = await container.uow.pool.query<{ hits: string }>(
+        `SELECT count(*)::text AS hits FROM "${column.table_name}"
+          WHERE "${column.column_name}"::text LIKE $1`,
+        [`%${token}%`],
+      );
+      expect(
+        Number(rows[0]?.hits ?? 0),
+        `${column.table_name}.${column.column_name} contains the plaintext portal token`,
+      ).toBe(0);
+    }
+  });
+
+  it("never serves another workspace's or another project's records through a valid token", async () => {
+    const other = await createTenant(container, { name: 'Other Studio' });
+    const theirs = await createSentChangeOrder(container, other);
+    const theirEvidence = randomUUID();
+    await container.uow.pool.query(
+      `INSERT INTO generated_documents
+         (id, organization_id, project_id, version_id, kind, status, template_version,
+          storage_key, generated_at)
+       VALUES ($1, $2, $3, $4, 'EVIDENCE_PDF', 'READY', 'test-1', 'evidence/x.pdf', now())`,
+      [theirEvidence, other.organizationId, other.projectId, theirs.sent.versionId],
+    );
+    const sameOrgProject = await container.services.projects.createProject(tenant.owner, {
+      customerId: tenant.customerId,
+      title: 'Neighbouring flat',
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      baseline: { subtotalMinor: 100_00, taxMinor: 0, totalMinor: 100_00 },
+      defaultApproverContactId: tenant.approverContactId,
+    });
+    const neighbour = await createSentChangeOrder(container, {
+      ...tenant,
+      projectId: sameOrgProject.id,
+    });
+    const token = await portalToken(tenant);
+
+    for (const id of [
+      theirEvidence,
+      theirs.sent.versionId,
+      neighbour.sent.versionId,
+      randomUUID(),
+    ]) {
+      await expect(
+        container.services.portal.download(token, id, publicContext()),
+      ).rejects.toThrowError(expect.objectContaining({ code: 'DOCUMENT_NOT_FOUND' }));
+    }
+
+    const view = await container.services.portal.view(token, publicContext());
+    const serialized = JSON.stringify(view);
+    expect(serialized).not.toContain(other.organizationId);
+    expect(serialized).not.toContain(tenant.organizationId);
+    expect(serialized).not.toContain(neighbour.changeOrder.number);
+    expect(serialized).not.toContain(token);
+  });
+
+  it('refuses malformed portal tokens before any lookup', async () => {
+    for (const candidate of ['short', "' OR 1=1--", '../../etc/passwd', `${'a'.repeat(42)}!`]) {
+      await expect(container.services.portal.view(candidate, publicContext())).rejects.toThrowError(
+        expect.objectContaining({ code: 'PORTAL_LINK_INVALID' }),
+      );
+    }
   });
 });

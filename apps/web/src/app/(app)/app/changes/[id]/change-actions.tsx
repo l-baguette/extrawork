@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import type {
   ChangeOrderDto,
   EvidenceDocumentDto,
+  InvoicingDto,
   RemindResultSchema,
   SendResultDto,
 } from '@extrawork/contracts';
 import type { z } from 'zod';
 import { ApiError, api, newIdempotencyKey } from '@/lib/api';
 import { SharePanel } from '@/features/composer/share-panel';
+import { formatDate } from '@/lib/format';
 
 type RemindResult = z.infer<typeof RemindResultSchema>;
 
@@ -20,8 +22,18 @@ type RemindResult = z.infer<typeof RemindResultSchema>;
  * The UI hides what is not permitted, but the backend is authoritative
  * (report §3.2), so a state the server rejects surfaces as an error here rather
  * than being silently swallowed.
+ *
+ * Only the designer's firm edits, prices, sends or dismisses (spec 2026-10-12,
+ * "only the designer makes actual changes"); a collaborator sees the record
+ * and its evidence. The invoiced mark belongs to owner, admin and accounts.
  */
-export function ChangeActions({ change }: { change: ChangeOrderDto }) {
+export function ChangeActions({
+  change,
+  viewer,
+}: {
+  change: ChangeOrderDto;
+  viewer: { designer: boolean; canInvoice: boolean };
+}) {
   const router = useRouter();
   const version = change.currentVersion;
   const [busy, setBusy] = useState<string | null>(null);
@@ -29,6 +41,9 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
   const [reminder, setReminder] = useState<RemindResult | null>(null);
   const [sendResult, setSendResult] = useState<SendResultDto | null>(null);
   const [evidence, setEvidence] = useState<EvidenceDocumentDto | null>(null);
+  const [dismissing, setDismissing] = useState(false);
+  const [dismissReason, setDismissReason] = useState('');
+  const [invoiceReference, setInvoiceReference] = useState('');
 
   const isOpen = version.status === 'SENT' || version.status === 'VIEWED';
   const isDraft = version.status === 'DRAFT';
@@ -36,6 +51,13 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
     version.status,
   );
   const isDecided = ['APPROVED', 'DECLINED', 'REVISION_REQUESTED'].includes(version.status);
+  const awaitingReview = version.submission.awaitingReview;
+  const editHref = `/app/projects/${change.projectId}/changes/new?changeOrderId=${change.id}`;
+  const showInvoicing = viewer.canInvoice && version.status === 'APPROVED';
+  // A collaborator looking at their own proposal has nothing to do here yet;
+  // an empty "Actions" card would read as something failing to load.
+  const hasActions =
+    (viewer.designer && (isDraft || isOpen || canRevise)) || isDecided || showInvoicing;
 
   async function run<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
     setBusy(label);
@@ -67,6 +89,8 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
     );
   }
 
+  if (!hasActions) return null;
+
   return (
     <section className="card" aria-labelledby="actions-heading">
       <h2 id="actions-heading">Actions</h2>
@@ -78,9 +102,75 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
       ) : null}
 
       <div className="stack">
-        {isDraft ? (
+        {isDraft && awaitingReview && viewer.designer ? (
           <>
-            <a className="btn btn-block" href={`/app/projects/${change.projectId}/changes/new`}>
+            <a className="btn btn-primary btn-block" href={editHref}>
+              Review &amp; price
+            </a>
+            {dismissing ? (
+              <form
+                className="stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const reason = dismissReason.trim();
+                  if (!reason) return;
+                  void run('dismiss', async () => {
+                    await api(`/v1/change-orders/${change.id}/dismiss`, {
+                      method: 'POST',
+                      idempotencyKey: newIdempotencyKey(),
+                      body: { reason },
+                    });
+                    setDismissing(false);
+                    router.refresh();
+                  });
+                }}
+              >
+                <div>
+                  <label htmlFor="dismiss-reason">Why is this not going ahead?</label>
+                  <textarea
+                    id="dismiss-reason"
+                    rows={3}
+                    required
+                    maxLength={2000}
+                    value={dismissReason}
+                    onChange={(event) => setDismissReason(event.target.value)}
+                    placeholder="Already covered by the original quote"
+                  />
+                  <p className="hint">The person who raised it is told this.</p>
+                </div>
+                <div className="actions">
+                  <button
+                    type="submit"
+                    className="btn btn-danger"
+                    disabled={busy !== null || !dismissReason.trim()}
+                  >
+                    {busy === 'dismiss' ? 'Dismissing…' : 'Dismiss request'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-quiet"
+                    onClick={() => setDismissing(false)}
+                  >
+                    Keep it
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-block"
+                disabled={busy !== null}
+                onClick={() => setDismissing(true)}
+              >
+                Dismiss
+              </button>
+            )}
+          </>
+        ) : null}
+
+        {isDraft && !awaitingReview && viewer.designer ? (
+          <>
+            <a className="btn btn-block" href={editHref}>
               Continue editing this draft
             </a>
             <button
@@ -103,7 +193,7 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
           </>
         ) : null}
 
-        {isOpen ? (
+        {isOpen && viewer.designer ? (
           <button
             type="button"
             className="btn btn-block"
@@ -123,7 +213,7 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
           </button>
         ) : null}
 
-        {canRevise ? (
+        {canRevise && viewer.designer ? (
           <button
             type="button"
             className="btn btn-block"
@@ -162,7 +252,7 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
           </button>
         ) : null}
 
-        {(isDraft || isOpen) && version.status !== 'CANCELLED' ? (
+        {(isDraft || isOpen) && !awaitingReview && viewer.designer ? (
           <button
             type="button"
             className="btn btn-danger btn-block"
@@ -184,6 +274,70 @@ export function ChangeActions({ change }: { change: ChangeOrderDto }) {
           </button>
         ) : null}
       </div>
+
+      {showInvoicing ? (
+        <div className="stack" style={{ marginTop: 'var(--space-4)' }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: 0 }}>Billing</h3>
+          {version.invoicing ? (
+            <div className="row-between">
+              <span className="small">
+                Invoiced {formatDate(version.invoicing.invoicedAt)}
+                {version.invoicing.invoiceReference
+                  ? ` · ${version.invoicing.invoiceReference}`
+                  : ''}
+              </span>
+              <button
+                type="button"
+                className="btn btn-sm btn-quiet"
+                disabled={busy !== null}
+                onClick={() =>
+                  void run('clear-invoice', async () => {
+                    await api(`/v1/change-orders/${change.id}/invoicing`, {
+                      method: 'DELETE',
+                      idempotencyKey: newIdempotencyKey(),
+                    });
+                    router.refresh();
+                  })
+                }
+              >
+                {busy === 'clear-invoice' ? 'Clearing…' : 'Clear'}
+              </button>
+            </div>
+          ) : (
+            <form
+              className="row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const reference = invoiceReference.trim();
+                void run('invoice', async () => {
+                  await api<InvoicingDto>(`/v1/change-orders/${change.id}/invoicing`, {
+                    method: 'POST',
+                    idempotencyKey: newIdempotencyKey(),
+                    body: reference ? { invoiceReference: reference } : {},
+                  });
+                  setInvoiceReference('');
+                  router.refresh();
+                });
+              }}
+            >
+              <label className="sr-only" htmlFor="invoice-reference">
+                Invoice number (optional)
+              </label>
+              <input
+                id="invoice-reference"
+                type="text"
+                maxLength={100}
+                value={invoiceReference}
+                onChange={(event) => setInvoiceReference(event.target.value)}
+                placeholder="Invoice no. (optional)"
+              />
+              <button type="submit" className="btn" disabled={busy !== null}>
+                {busy === 'invoice' ? 'Marking…' : 'Mark invoiced'}
+              </button>
+            </form>
+          )}
+        </div>
+      ) : null}
 
       {reminder ? (
         <div className="banner banner-info" style={{ marginTop: 'var(--space-4)' }}>

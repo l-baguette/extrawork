@@ -29,7 +29,8 @@ export const DEFAULT_REMINDER_POLICY: ReminderPolicy = {
   cooldownHours: 12,
 };
 
-export type ReminderChannel = 'WHATSAPP_NATIVE_SHARE' | 'EMAIL';
+/** Logical automated transports. Native share is a user action, not a sender. */
+export type ReminderChannel = 'WHATSAPP' | 'EMAIL';
 
 /** Report §8.6: `reminder:{version_id}:{policy_step}:{channel}`. */
 export function reminderDedupeKey(

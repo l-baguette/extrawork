@@ -32,6 +32,23 @@ import {
   UpdateDraftSchema,
   UpdateRequestTemplateSchema,
 } from '@extrawork/contracts';
+import type { OpenApiHelpers, OpenApiModule } from './module.js';
+import { collaborationOpenApi } from './paths/collaboration.js';
+import { notificationsOpenApi } from './paths/notifications.js';
+import { portalOpenApi } from './paths/portal.js';
+import { requestsOpenApi } from './paths/requests.js';
+import { timelineOpenApi } from './paths/timeline.js';
+import { workspaceOpenApi } from './paths/workspace.js';
+
+/** Spec 2026-10-12 feature modules, merged after the core document. */
+const FEATURE_MODULES: readonly OpenApiModule[] = [
+  collaborationOpenApi,
+  requestsOpenApi,
+  workspaceOpenApi,
+  timelineOpenApi,
+  portalOpenApi,
+  notificationsOpenApi,
+];
 
 /**
  * OpenAPI document generated from the same Zod schemas the routes validate
@@ -152,12 +169,25 @@ export function buildOpenApiDocument(): JsonObject {
     },
   };
 
-  for (const [name, schema] of Object.entries(componentSchemas)) {
+  const allSchemas: Record<string, z.ZodTypeAny> = { ...componentSchemas };
+  for (const module of FEATURE_MODULES) Object.assign(allSchemas, module.schemas);
+  for (const [name, schema] of Object.entries(allSchemas)) {
     schemas[name] = zodToJsonSchema(schema, {
       target: 'openApi3',
       $refStrategy: 'none',
     }) as JsonObject;
   }
+
+  const helpers: OpenApiHelpers = {
+    schemaRef,
+    jsonBody,
+    jsonResponse,
+    errorResponse,
+    commonErrors,
+    pathParam,
+  };
+  const featurePaths: JsonObject = {};
+  for (const module of FEATURE_MODULES) Object.assign(featurePaths, module.paths(helpers));
 
   return {
     openapi: '3.1.0',
@@ -184,6 +214,12 @@ export function buildOpenApiDocument(): JsonObject {
       { name: 'public-approval', description: 'No-account customer decision surface' },
       { name: 'webhooks', description: 'Provider callbacks' },
       { name: 'ops', description: 'Health and metrics' },
+      { name: 'collaboration', description: 'Collaborators from other firms and invitations' },
+      { name: 'requests', description: 'Designer review, invoiced marks, paste-to-draft' },
+      { name: 'workspace', description: 'Project folders, files, links and notes' },
+      { name: 'timeline', description: 'Milestones, calendar and the private feed' },
+      { name: 'portal', description: 'The no-account homeowner portal' },
+      { name: 'notifications', description: 'The signed-in user’s inbox and preferences' },
     ],
     components: {
       schemas,
@@ -602,7 +638,7 @@ export function buildOpenApiDocument(): JsonObject {
           tags: ['change-orders'],
           summary: 'Freeze the version and issue the approval link',
           description:
-            'Returns the approval URL exactly once. Only the SHA-256 of the token is stored.',
+            'Returns the approval URL once. The token record stores only SHA-256; automated delivery uses short-lived authenticated ciphertext.',
           parameters: [pathParam('id', 'Change order id')],
           requestBody: jsonBody('SendChangeOrder', false),
           responses: { '201': jsonResponse('Sent', 'SendResult'), ...commonErrors },
@@ -854,6 +890,7 @@ export function buildOpenApiDocument(): JsonObject {
           responses: { '501': errorResponse('NOT_IMPLEMENTED') },
         },
       },
+      ...featurePaths,
     },
   };
 }

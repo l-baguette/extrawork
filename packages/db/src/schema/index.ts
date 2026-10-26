@@ -16,6 +16,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * Drizzle schema mirroring `migrations/*.sql`.
@@ -139,6 +140,9 @@ export const organizations = pgTable('organizations', {
   defaultCurrency: char('default_currency', { length: 3 }).notNull().default('INR'),
   retentionMonths: integer('retention_months').notNull().default(36),
   status: text('status').notNull().default('ACTIVE'),
+  closedAt: ts('closed_at'),
+  purgeAfter: ts('purge_after'),
+  closureReason: text('closure_reason'),
   brandPrimaryColor: text('brand_primary_color'),
   contactPhone: text('contact_phone'),
   contactEmail: text('contact_email'),
@@ -155,6 +159,11 @@ export const users = pgTable('users', {
   emailNormalized: text('email_normalized').notNull(),
   displayName: text('display_name').notNull(),
   status: text('status').notNull().default('ACTIVE'),
+  /**
+   * Migration 0011. When control of the address was proved, not merely that it
+   * was. Null means unproved and password sign-in is refused.
+   */
+  emailVerifiedAt: ts('email_verified_at'),
   lastAuthenticatedAt: ts('last_authenticated_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -235,6 +244,8 @@ export const contacts = pgTable(
     whatsappOptInStatus: text('whatsapp_opt_in_status').notNull().default('UNKNOWN'),
     whatsappOptInAt: ts('whatsapp_opt_in_at'),
     whatsappOptInSource: text('whatsapp_opt_in_source'),
+    /** Set by the erasure command; see migration 0017. */
+    erasedAt: ts('erased_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -321,6 +332,9 @@ export const fileObjects = pgTable('file_objects', {
   scanStatus: scanStatus('scan_status').notNull().default('PENDING'),
   scanDetail: text('scan_detail'),
   scannedAt: ts('scanned_at'),
+  scanLeaseToken: text('scan_lease_token'),
+  scanLeasedUntil: ts('scan_leased_until'),
+  scanAttemptCount: integer('scan_attempt_count').notNull().default(0),
   storageVersion: text('storage_version'),
   purpose: text('purpose').notNull().default('CHANGE_ATTACHMENT'),
   imageWidth: integer('image_width'),
@@ -342,7 +356,7 @@ export const changeOrders = pgTable(
     number: text('number').notNull(),
     type: changeType('type').notNull(),
     currentVersionId: uuid('current_version_id'),
-    createdByUserId: uuid('created_by_user_id').notNull(),
+    createdByUserId: uuid('created_by_user_id'),
     reversalOfChangeOrderId: uuid('reversal_of_change_order_id'),
     searchDocument: tsvector('search_document'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -506,6 +520,13 @@ export const decisions = pgTable('decisions', {
   declarationText: text('declaration_text').notNull(),
   termsVersion: text('terms_version').notNull(),
   occurredAt: ts('occurred_at').notNull(),
+  /**
+   * Migration 0010. What the signatory wrote, as distinct from `occurredAt`,
+   * which is what the server observed. A divergence between them is evidence
+   * and is never normalised away.
+   */
+  signedDate: date('signed_date'),
+  signedPlace: text('signed_place'),
   receiptTokenHash: bytea('receipt_token_hash'),
   receiptDisplayId: text('receipt_display_id').notNull(),
   // Migration 0005. The signature image itself lives in private object storage;
@@ -601,6 +622,8 @@ export const webhookInbox = pgTable('webhook_inbox', {
   rawPayload: jsonb('raw_payload').notNull(),
   headers: jsonb('headers'),
   providerEventAt: ts('provider_event_at'),
+  /** The adapter's classification. Null on rows stored before migration 0009. */
+  kind: text('kind'),
   receivedAt: ts('received_at').notNull().defaultNow(),
   processedAt: ts('processed_at'),
   processError: text('process_error'),
@@ -641,14 +664,25 @@ export const messages = pgTable('messages', {
   organizationId: uuid('organization_id').notNull(),
   versionId: uuid('version_id'),
   contactId: uuid('contact_id'),
+  decisionId: uuid('decision_id'),
   channel: text('channel').notNull(),
   purpose: text('purpose').notNull(),
   status: text('status').notNull().default('PENDING'),
+  recipientKind: text('recipient_kind'),
+  recipientName: text('recipient_name'),
+  recipientAddress: text('recipient_address'),
+  deliveryPayload: jsonb('delivery_payload'),
+  deliveryAttemptCount: integer('delivery_attempt_count').notNull().default(0),
+  deliveryLeaseToken: text('delivery_lease_token'),
+  deliveryLeasedUntil: ts('delivery_leased_until'),
+  sentAt: ts('sent_at'),
   suppressionReason: text('suppression_reason'),
   provider: text('provider'),
+  providerAccountId: text('provider_account_id'),
   providerMessageId: text('provider_message_id'),
   dedupeKey: text('dedupe_key'),
   errorCode: text('error_code'),
+  errorDetail: text('error_detail'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
@@ -680,6 +714,9 @@ export const generatedDocuments = pgTable('generated_documents', {
   manifest: jsonb('manifest'),
   manifestSha256: bytea('manifest_sha256'),
   error: text('error'),
+  generationLeaseToken: text('generation_lease_token'),
+  generationLeasedUntil: ts('generation_leased_until'),
+  generationAttemptCount: integer('generation_attempt_count').notNull().default(0),
   requestedAt: ts('requested_at').notNull().defaultNow(),
   generatedAt: ts('generated_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
@@ -850,6 +887,7 @@ export const inboundMessages = pgTable(
     projectId: uuid('project_id'),
     changeOrderId: uuid('change_order_id'),
     provider: text('provider').notNull().default('whatsapp'),
+    providerAccountId: text('provider_account_id'),
     providerMessageId: text('provider_message_id').notNull(),
     fromPhoneE164: text('from_phone_e164').notNull(),
     body: text('body'),
@@ -862,9 +900,36 @@ export const inboundMessages = pgTable(
     processedAt: ts('processed_at'),
   },
   (t) => [
-    uniqueIndex('inbound_messages_provider_key').on(t.provider, t.providerMessageId),
+    uniqueIndex('inbound_messages_provider_identity_uidx').on(
+      t.provider,
+      sql`COALESCE(${t.providerAccountId}, '')`,
+      t.providerMessageId,
+    ),
     index('inbound_messages_org_idx').on(t.organizationId, t.receivedAt),
     index('inbound_messages_phone_idx').on(t.fromPhoneE164, t.receivedAt),
+  ],
+);
+
+/**
+ * Attachments on an inbound message (migration 0009).
+ *
+ * `organizationId` is non-null here although `inboundMessages.organizationId`
+ * is nullable: media is only fetched once the sender resolves to a known
+ * employee, so a tenant always exists by the time a row is written.
+ */
+export const inboundMessageMedia = pgTable(
+  'inbound_message_media',
+  {
+    inboundMessageId: uuid('inbound_message_id').notNull(),
+    fileObjectId: uuid('file_object_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    providerMediaId: text('provider_media_id').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.inboundMessageId, t.fileObjectId] }),
+    uniqueIndex('inbound_message_media_provider_idx').on(t.inboundMessageId, t.providerMediaId),
+    index('inbound_message_media_file_idx').on(t.fileObjectId),
   ],
 );
 

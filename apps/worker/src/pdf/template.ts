@@ -1,5 +1,16 @@
 import type { EvidenceViewModel } from '@extrawork/application';
 
+export interface ProjectEvidencePackViewModel {
+  organizationName: string;
+  organizationLegalName: string | null;
+  projectNumber: string;
+  projectTitle: string;
+  generatedAt: string;
+  templateVersion: string;
+  manifestSha256: string;
+  records: readonly EvidenceViewModel[];
+}
+
 /**
  * Evidence pack template `evidence-pdf-v1`.
  *
@@ -283,4 +294,119 @@ ${
 
 </body>
 </html>`;
+}
+
+/**
+ * Renders one project-level PDF containing every frozen change record.
+ *
+ * Each record is rendered through `renderEvidenceHtml`, so the combined pack
+ * cannot silently omit a field that is present in the individual legal/evidence
+ * document. Only the outer document shell and project index are new here.
+ */
+export function renderProjectEvidencePackHtml(model: ProjectEvidencePackViewModel): string {
+  const renderedRecords = model.records.map(renderEvidenceHtml);
+  const evidenceStyles = renderedRecords[0]
+    ? extractElementContents(renderedRecords[0], 'style')
+    : `
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #10151c;
+  }
+  .muted { color: #5a6b80; }
+  .digest { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 7.5pt; word-break: break-all; }
+`;
+  const recordBodies = renderedRecords.map((html) => extractElementContents(html, 'body'));
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${e(model.projectNumber)} - project evidence pack</title>
+<style>
+${evidenceStyles}
+  .pack-cover {
+    min-height: 245mm;
+    border: 1.5px solid #10151c;
+    padding: 12mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    break-after: page;
+  }
+  .pack-kicker { text-transform: uppercase; letter-spacing: 0.12em; font-size: 8.5pt; color: #5a6b80; }
+  .pack-title { font-size: 27pt; line-height: 1.08; margin: 5mm 0 2mm; }
+  .pack-project { font-size: 15pt; font-weight: 700; margin-top: 11mm; }
+  .pack-meta { width: 100%; border-collapse: collapse; margin-top: 8mm; }
+  .pack-meta td { padding: 1.8mm 0; vertical-align: top; border-bottom: 1px solid #dbe3ec; }
+  .pack-meta td:first-child { width: 48mm; color: #5a6b80; }
+  .pack-index { break-after: page; }
+  .pack-index h1 { font-size: 20pt; }
+  .pack-record { break-before: page; }
+  .pack-empty { border: 1px solid #c9d3de; padding: 5mm; margin-top: 5mm; }
+</style>
+</head>
+<body>
+<section class="pack-cover">
+  <div>
+    <div class="pack-kicker">Project evidence export</div>
+    <h1 class="pack-title">Complete project evidence pack</h1>
+    <div class="pack-project">${e(model.projectNumber)} - ${e(model.projectTitle)}</div>
+    <div class="muted">${e(model.organizationName)}</div>
+    ${model.organizationLegalName ? `<div class="muted">${e(model.organizationLegalName)}</div>` : ''}
+    <table class="pack-meta">
+      <tr><td>Frozen change records</td><td><strong>${model.records.length}</strong></td></tr>
+      <tr><td>Generated</td><td>${e(model.generatedAt)}</td></tr>
+      <tr><td>Template</td><td>${e(model.templateVersion)}</td></tr>
+      <tr><td>Pack manifest SHA-256</td><td>${digest(model.manifestSha256)}</td></tr>
+    </table>
+  </div>
+  <p class="disclaimer">
+    This combined PDF is an index and faithful rendering of the frozen change records listed
+    below. Each record retains its own canonical snapshot digest, manifest digest, decision
+    details, attachment digests, and audit-chain verification result.
+  </p>
+</section>
+
+<section class="pack-index">
+  <h1>Contents</h1>
+  ${
+    model.records.length > 0
+      ? `<table class="lines">
+    <thead><tr><th>Change</th><th>Version</th><th>Status</th><th>Decision</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      ${model.records
+        .map(
+          ({ render: r }) => `<tr>
+        <td>${e(r.changeNumber)} - ${e(r.title)}</td>
+        <td>${r.versionNumber}</td>
+        <td>${e(r.statusLabel)} (${e(r.status)})</td>
+        <td>${e(r.decision?.type ?? 'No decision recorded')}</td>
+        <td class="num">${e(r.totalDelta)}</td>
+      </tr>`,
+        )
+        .join('\n      ')}
+    </tbody>
+  </table>`
+      : `<div class="pack-empty">No frozen change records exist for this project yet.</div>`
+  }
+</section>
+
+${recordBodies.map((body) => `<section class="pack-record">${body}</section>`).join('\n')}
+</body>
+</html>`;
+}
+
+function extractElementContents(html: string, tag: 'body' | 'style'): string {
+  const opening = `<${tag}>`;
+  const closing = `</${tag}>`;
+  const start = html.indexOf(opening);
+  const end = html.lastIndexOf(closing);
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error(`Evidence template is missing its ${tag} element`);
+  }
+  return html.slice(start + opening.length, end);
 }

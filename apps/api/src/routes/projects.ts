@@ -6,11 +6,13 @@ import {
   CloseProjectSchema,
   CreateProjectSchema,
   ListProjectsQuerySchema,
+  ReopenProjectSchema,
   SearchQuerySchema,
   UpdateProjectSchema,
 } from '@extrawork/contracts';
 import type { AppContext } from '@extrawork/application';
-import { authorize } from '@extrawork/domain';
+import type { ChangeOrderSummaryRow } from '@extrawork/db';
+import { authorize, projectAccessFilter } from '@extrawork/domain';
 import { authenticatedSubject, rateLimit } from '../plugins/rate-limit.js';
 
 const IdParams = z.object({ id: z.string().uuid() });
@@ -37,19 +39,11 @@ export async function registerProjectRoutes(
       ...(query.query ? { query: query.query } : {}),
       ...(query.cursor ? { cursor: query.cursor } : {}),
       limit: query.limit,
+      projectGrants: projectAccessFilter(auth.actor),
     });
 
-    // Project-scoped roles only see granted projects (report §3.2).
-    const visible = result.items.filter(
-      (p) =>
-        auth.actor.role === 'OWNER' ||
-        auth.actor.role === 'ADMIN' ||
-        auth.actor.role === 'FINANCE' ||
-        auth.actor.projectGrants.has(p.id),
-    );
-
     return reply.send({
-      items: visible.map(summariseProject),
+      items: result.items.map(summariseProject),
       nextCursor: result.nextCursor,
     });
   });
@@ -92,6 +86,9 @@ export async function registerProjectRoutes(
     const updated = await appContext.uow.transaction((tx) =>
       app.repos.projects.update(tx, auth.tenant, id, {
         ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.description !== undefined
+          ? { description: patch.description?.trim() || null }
+          : {}),
         ...(patch.siteAddress !== undefined ? { siteAddress: patch.siteAddress } : {}),
         ...(patch.status !== undefined ? { status: patch.status } : {}),
         ...(patch.startDate !== undefined ? { startDate: patch.startDate } : {}),
@@ -152,6 +149,24 @@ export async function registerProjectRoutes(
     return reply.status(204).send();
   });
 
+  /** Undo a close; `project:close` authorizes both directions. */
+  app.post('/v1/projects/:id/reopen', { preHandler: write }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    const { id } = IdParams.parse(request.params);
+    const { reason } = ReopenProjectSchema.parse(request.body ?? {});
+    app.requireWrite(request, 'project:close');
+
+    await app.services.projects.reopenProject(auth, id, reason ?? null);
+    return reply.status(204).send();
+  });
+
+  /** Contract value over time: baseline, amendments, approved changes, running total. */
+  app.get('/v1/projects/:id/contract-history', { preHandler: read }, async (request, reply) => {
+    const auth = await app.requireAuth(request, reply);
+    const { id } = IdParams.parse(request.params);
+    return reply.send(await app.services.projects.contractHistory(auth, id));
+  });
+
   /** Project change register — report §6.2 `/app/projects/{id}`. */
   app.get('/v1/projects/:id/change-register', { preHandler: read }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
@@ -170,45 +185,62 @@ export async function registerProjectRoutes(
     return reply.send({
       project: summariseProject(totals.project),
       totals: projectTotalsDto(totals),
-      changes: changes.items.map((c) => ({
-        id: c.id,
-        projectId: c.projectId,
-        projectTitle: c.projectTitle,
-        customerName: c.customerName,
-        number: c.number,
-        title: c.title,
-        type: c.type,
-        status: c.status,
-        versionNumber: c.versionNumber,
-        totalDeltaMinor: Number(c.totalDeltaMinor),
-        currency: c.currency,
-        scheduleDeltaDays: c.scheduleDeltaDays,
-        sentAt: c.sentAt?.toISOString() ?? null,
-        decidedAt: c.decidedAt?.toISOString() ?? null,
-        expiresAt: c.expiresAt?.toISOString() ?? null,
-        updatedAt: c.updatedAt.toISOString(),
-      })),
+      changes: changes.items.map(summaryDto),
     });
   });
 
-  /** Dashboard cards — report §6.6. */
+  /**
+   * Dashboard cards — report §6.6. Every figure respects project grants.
+   *
+   * A collaborator gets the same shape with only the queue figures: their own
+   * requests waiting for the designer, and what is waiting on or was decided by
+   * the homeowner on their projects. The firm's money figures (approved this
+   * month, unbilled) are the designer's bookkeeping, not theirs, so they come
+   * back as zero rather than as an error the page has to work around.
+   */
   app.get('/v1/dashboard', { preHandler: read }, async (request, reply) => {
     const auth = await app.requireAuth(request, reply);
     authorize(auth.actor, 'project:read', { organizationId: auth.actor.organizationId });
+    const projectGrants = projectAccessFilter(auth.actor);
+    const collaborator = auth.actor.role === 'COLLABORATOR';
+    const ownRequestsOnly = collaborator && auth.actor.userId ? auth.actor.userId : null;
 
-    const [data, awaiting, recent] = await Promise.all([
-      app.repos.reporting.dashboard(auth.tenant, auth.organizationTimezone ?? 'Asia/Kolkata'),
-      app.repos.changeOrders.listSummaries(auth.tenant, { bucket: 'PENDING', limit: 10 }),
-      app.repos.changeOrders.listSummaries(auth.tenant, { bucket: 'DECIDED', limit: 10 }),
+    const [data, review, awaiting, recent] = await Promise.all([
+      app.repos.reporting.dashboard(
+        auth.tenant,
+        auth.organizationTimezone ?? 'Asia/Kolkata',
+        projectGrants,
+        { submittedByUserId: ownRequestsOnly },
+      ),
+      app.repos.changeOrders.listSummaries(auth.tenant, {
+        bucket: 'REVIEW',
+        limit: 5,
+        projectGrants,
+        ...(ownRequestsOnly ? { raisedByUserId: ownRequestsOnly } : {}),
+      }),
+      app.repos.changeOrders.listSummaries(auth.tenant, {
+        bucket: 'PENDING',
+        limit: 10,
+        projectGrants,
+      }),
+      app.repos.changeOrders.listSummaries(auth.tenant, {
+        bucket: 'DECIDED',
+        limit: 10,
+        projectGrants,
+      }),
     ]);
 
     return reply.send({
+      audience: collaborator ? 'COLLABORATOR' : 'TEAM',
       currency: data.currency,
       pendingDecisions: data.pendingDecisions,
       overdueOrExpiring: data.overdueOrExpiring,
-      approvedValueThisMonthMinor: Number(data.approvedValueThisMonthMinor),
-      averageHoursToDecision: data.averageHoursToDecision,
-      projectsWithUnbilledApprovedExtras: data.projectsWithUnbilledApprovedExtras,
+      approvedValueThisMonthMinor: collaborator ? 0 : Number(data.approvedValueThisMonthMinor),
+      averageHoursToDecision: collaborator ? null : data.averageHoursToDecision,
+      unbilledApprovedTotalMinor: collaborator ? 0 : Number(data.unbilledApprovedTotalMinor),
+      unbilledApprovedCount: collaborator ? 0 : data.unbilledApprovedCount,
+      awaitingReviewCount: data.awaitingReviewCount,
+      awaitingReview: review.items.map(summaryDto),
       awaitingDecision: awaiting.items.map(summaryDto),
       recentDecisions: recent.items.map(summaryDto),
     });
@@ -219,7 +251,12 @@ export async function registerProjectRoutes(
     const auth = await app.requireAuth(request, reply);
     authorize(auth.actor, 'project:read', { organizationId: auth.actor.organizationId });
     const { q, limit } = SearchQuerySchema.parse(request.query);
-    const results = await app.repos.reporting.search(auth.tenant, q, limit);
+    const results = await app.repos.reporting.search(
+      auth.tenant,
+      q,
+      limit,
+      projectAccessFilter(auth.actor),
+    );
     return reply.send(results);
   });
 }
@@ -238,8 +275,17 @@ function summariseProject(project: ProjectRowLike) {
     baselineTotalMinor: Number(project.baselineTotalMinor),
     approvedDeltaMinor: Number(project.approvedDeltaMinor),
     revisedTotalMinor: Number(project.revisedTotalMinor),
+    pendingChangeCount: project.pendingChangeCount,
+    awaitingReviewCount: project.awaitingReviewCount,
+    city: addressCity(project.siteAddressJson),
+    expectedCompletionDate: project.expectedCompletionDate,
     updatedAt: project.updatedAt.toISOString(),
   };
+}
+
+function addressCity(address: Record<string, unknown> | null): string | null {
+  const city = address?.city;
+  return typeof city === 'string' && city.trim() ? city.trim() : null;
 }
 
 function projectTotalsDto(totals: {
@@ -276,11 +322,13 @@ function fullProject(totals: {
     customerName: p.customerName,
     projectNumber: p.projectNumber,
     title: p.title,
+    description: p.description,
     siteAddress: p.siteAddressJson,
     status: p.status,
     currency: p.currency,
     timezone: p.timezone,
     totals: projectTotalsDto(totals),
+    awaitingReviewCount: p.awaitingReviewCount,
     startDate: p.startDate,
     expectedCompletionDate: p.expectedCompletionDate,
     revisedCompletionDate: null,
@@ -296,24 +344,7 @@ function fullProject(totals: {
   };
 }
 
-function summaryDto(c: {
-  id: string;
-  projectId: string;
-  projectTitle: string;
-  customerName: string;
-  number: string;
-  title: string;
-  type: string;
-  status: string;
-  versionNumber: number;
-  totalDeltaMinor: bigint;
-  currency: string;
-  scheduleDeltaDays: number;
-  sentAt: Date | null;
-  decidedAt: Date | null;
-  expiresAt: Date | null;
-  updatedAt: Date;
-}) {
+function summaryDto(c: ChangeOrderSummaryRow) {
   return {
     id: c.id,
     projectId: c.projectId,
@@ -331,6 +362,13 @@ function summaryDto(c: {
     decidedAt: c.decidedAt?.toISOString() ?? null,
     expiresAt: c.expiresAt?.toISOString() ?? null,
     updatedAt: c.updatedAt.toISOString(),
+    room: c.room,
+    workCategory: c.workCategory,
+    projectNumber: c.projectNumber,
+    origin: c.origin,
+    awaitingReview: c.awaitingReview,
+    submittedByLabel: c.submittedByLabel,
+    invoicedAt: c.invoicedAt?.toISOString() ?? null,
   };
 }
 

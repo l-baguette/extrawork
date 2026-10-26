@@ -215,6 +215,170 @@ export function helpReply(employeeName: string, projects: string[]): string {
   return lines.join('\n');
 }
 
+// --- WhatsApp as a project channel (spec 2026-10-12, D6) --------------------
+//
+// Every reply that files something says where it went and offers the one-word
+// correction, because the channel classifies instead of asking "request or
+// file?" each time. A wrong guess must cost the sender one word, not a call.
+
+/** A project as the sender sees it in a list: "P-0004 Sharma flat (Alpha Design)". */
+export function projectLabel(
+  project: { projectNumber: string; title: string; organizationName: string },
+  showOrganization: boolean,
+): string {
+  const base = `${project.projectNumber} ${project.title}`;
+  return showOrganization ? `${base} (${project.organizationName})` : base;
+}
+
+export function numberedList(labels: string[]): string[] {
+  return labels.map((label, index) => `${index + 1}. ${label}`);
+}
+
+export function chooseProjectReply(labels: string[]): string {
+  return [
+    'Which project is this for?',
+    '',
+    ...numberedList(labels),
+    '',
+    'Reply with the number. I will hold your message for 30 minutes.',
+  ].join('\n');
+}
+
+export function choiceOutOfRangeReply(count: number): string {
+  return `Reply with a number from 1 to ${count}, so I know which project this is for.`;
+}
+
+export function choiceExpiredReply(): string {
+  return [
+    'I did not hear which project your earlier message was for, so I have not filed it.',
+    'Your designer has been told. Send it again with the project number, e.g. P-0004, if it still matters.',
+  ].join('\n');
+}
+
+export function savedReply(input: {
+  what: 'note' | 'file' | 'files';
+  projectTitle: string;
+}): string {
+  const thing =
+    input.what === 'note' ? 'your note' : input.what === 'file' ? 'your file' : 'your files';
+  return [
+    `Saved ${thing} to "${input.projectTitle}" (From WhatsApp). Your designer can see it.`,
+    '',
+    'Reply REQUEST if this was a change you need.',
+  ].join('\n');
+}
+
+/**
+ * `note` explains why a request went to the designer rather than straight to
+ * the homeowner when the sender might have expected the latter (an amount that
+ * could not be read, a figure above their limit).
+ */
+export function proposedReply(input: {
+  changeNumber: string;
+  projectTitle: string;
+  note?: string | null;
+}): string {
+  return [
+    `Sent to your designer as request ${input.changeNumber} · ${input.projectTitle}.`,
+    ...(input.note ? [input.note] : []),
+    'They will check it, price it and send it to the homeowner. Nothing is approved yet.',
+    '',
+    'Reply FILE if this was just for the record.',
+  ].join('\n');
+}
+
+export function unreadableAmountNote(amountRaw: string): string {
+  return `I could not read "${amountRaw}" as one figure, so your designer will price it.`;
+}
+
+export function aboveLimitNote(
+  amountMinor: bigint,
+  ceilingMinor: bigint,
+  currency: string,
+): string {
+  return (
+    `${formatMoney(amountMinor, currency)} is above your limit of ${formatMoney(ceilingMinor, currency)}, ` +
+    'so your designer will check it before it goes to the homeowner.'
+  );
+}
+
+/** Sent to the designers of every project a held message might have been for. */
+export function heldNoteForDesigners(excerpt: string | null): string {
+  return excerpt
+    ? `"${truncate(excerpt, 120)}" was not filed: the sender did not say which project within 30 minutes.`
+    : 'A WhatsApp message was not filed: the sender did not say which project within 30 minutes.';
+}
+
+export function nothingToConvertReply(): string {
+  return 'There is nothing recent of yours to change. Send the message again and I will file it.';
+}
+
+export function alreadyConvertedReply(kind: 'REQUEST' | 'CONTENT'): string {
+  return kind === 'REQUEST'
+    ? 'Your last message is already a request with your designer.'
+    : 'Your last message is already saved as a file or note.';
+}
+
+export function cannotConvertReply(changeNumber: string): string {
+  return [
+    `${changeNumber} has already gone past your designer's review, so I cannot turn it into a note.`,
+    'Ask your designer to withdraw it if it was a mistake.',
+  ].join('\n');
+}
+
+export function channelHelpReply(name: string, labels: string[]): string {
+  const lines = [
+    `Hi ${name.split(' ')[0]}. Send me anything about your project here:`,
+    '  • a change you need: it goes to your designer to price',
+    '  • photos, files or a note: saved to the project',
+    '',
+    'Words I understand: PROJECTS, STATUS, CONTRACTS, and REQUEST or FILE to correct your last message.',
+  ];
+  if (labels.length > 0) lines.push('', 'Your projects:', ...numberedList(labels.slice(0, 8)));
+  return lines.join('\n');
+}
+
+export function projectsReply(labels: string[]): string {
+  if (labels.length === 0) return 'You are not on any active project right now.';
+  return ['Your projects:', '', ...numberedList(labels.slice(0, 12))].join('\n');
+}
+
+export function openRequestsReply(
+  groups: Array<{
+    label: string;
+    requests: Array<{ number: string; title: string; status: string; awaitingReview: boolean }>;
+  }>,
+): string {
+  if (groups.length === 0) return 'You are not on any active project right now.';
+  const lines: string[] = [];
+  for (const group of groups) {
+    lines.push(group.label);
+    if (group.requests.length === 0) lines.push('  Nothing open.');
+    for (const request of group.requests) {
+      const state = request.awaitingReview
+        ? 'with the designer'
+        : request.status === 'REVISION_REQUESTED'
+          ? 'changes asked for'
+          : 'waiting for the homeowner';
+      lines.push(`  ${request.number} ${truncate(request.title, 50)}: ${state}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+}
+
+export function portalLinksReply(links: Array<{ label: string; url: string }>): string {
+  if (links.length === 0) return 'You have no active project with us right now.';
+  return [
+    links.length === 1
+      ? 'Here is your project record: every change, the contract value and shared files.'
+      : 'Here are your project records: every change, the contract value and shared files.',
+    '',
+    ...links.flatMap((link) => [link.label, link.url, '']),
+    'These links are private to you. Please do not forward them.',
+  ].join('\n');
+}
+
 function truncate(value: string, max: number): string {
   const clean = value.replace(/\s+/g, ' ').trim();
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;

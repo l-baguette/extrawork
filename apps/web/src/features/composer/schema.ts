@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AssuranceLevelSchema, ChangeTypeSchema } from '@extrawork/contracts';
+import { AssuranceLevelSchema, ChangeTypeSchema, WorkCategorySchema } from '@extrawork/contracts';
 
 /**
  * Composer form schema — report §6.3 "Form strategy".
@@ -43,6 +43,10 @@ export const ComposerSchema = z
       .min(20, 'Describe the work in enough detail for the customer to agree to it')
       .max(20_000),
     reason: z.string().trim().max(2_000).optional(),
+    /** Where the work is (spec 2026-10-12, D9). Free text; '' means not set. */
+    room: z.string().trim().max(80, 'Keep the room to 80 characters').optional(),
+    /** Type of work; '' means not set. */
+    workCategory: WorkCategorySchema.or(z.literal('')).optional(),
     attachmentIds: z.array(z.string().uuid()).max(12),
 
     // Step 2 — commercial effect
@@ -63,11 +67,48 @@ export const ComposerSchema = z
 
 export type ComposerValues = z.infer<typeof ComposerSchema>;
 
+/**
+ * Structural validation for an in-progress local draft.
+ *
+ * A draft is expected to be incomplete: empty prices, short scope text and no
+ * approver are all normal while someone is typing. This schema rejects stale
+ * shapes and wrong primitive types without applying the submit-time rules in
+ * `ComposerSchema`.
+ */
+export const StoredComposerSchema = z.object({
+  type: ChangeTypeSchema,
+  title: z.string(),
+  scope: z.string(),
+  reason: z.string().optional(),
+  // Optional so a draft saved on this device before these fields existed
+  // still restores.
+  room: z.string().optional(),
+  workCategory: WorkCategorySchema.or(z.literal('')).optional().catch(undefined),
+  attachmentIds: z.array(z.string()),
+  lineItems: z.array(
+    z.object({
+      key: z.string(),
+      description: z.string(),
+      quantity: z.string(),
+      unit: z.string().optional(),
+      unitPrice: z.string(),
+      taxRateBps: z.number().finite(),
+      direction: z.union([z.literal(1), z.literal(-1)]),
+    }),
+  ),
+  scheduleDeltaDays: z.number().finite(),
+  approverContactId: z.string(),
+  expiresAt: z.string().optional(),
+  assuranceRequired: AssuranceLevelSchema,
+});
+
 export const EMPTY_COMPOSER: ComposerValues = {
   type: 'ADDITION',
   title: '',
   scope: '',
   reason: '',
+  room: '',
+  workCategory: '',
   attachmentIds: [],
   lineItems: [],
   scheduleDeltaDays: 0,
@@ -106,7 +147,7 @@ export const STEPS = [
 
 /** Fields that must be valid before a given step can be left. */
 export const STEP_FIELDS: Record<number, Array<keyof ComposerValues>> = {
-  1: ['title', 'scope', 'type'],
+  1: ['title', 'scope', 'type', 'room', 'workCategory'],
   2: ['lineItems'],
   3: ['scheduleDeltaDays', 'approverContactId', 'assuranceRequired'],
   4: [],

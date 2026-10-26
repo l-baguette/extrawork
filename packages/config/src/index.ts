@@ -64,6 +64,8 @@ export const EnvSchema = z.object({
   PRIVACY_HASH_SECRET: z.string().min(32),
   /** Signs local object-store URLs when STORAGE_DRIVER=local. */
   STORAGE_URL_SECRET: z.string().min(32),
+  /** Encrypts approval links while they cross the durable worker queue. */
+  APPROVAL_LINK_ENCRYPTION_SECRET: z.string().min(32),
 
   SESSION_TTL_HOURS: z.coerce
     .number()
@@ -105,11 +107,16 @@ export const EnvSchema = z.object({
   /** Filesystem root when STORAGE_DRIVER=local. Never web-served directly. */
   STORAGE_LOCAL_ROOT: z.string().default('./.data/storage'),
   SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+  /**
+   * The ceiling on any single upload. 50 MiB matches the largest per-type cap
+   * (PowerPoint, DWG/DXF drawings — spec 2026-10-12, D10); the per-type caps in
+   * `MAX_FILE_BYTES` still apply beneath it, so a photo stays at 15 MB.
+   */
   MAX_UPLOAD_BYTES: z.coerce
     .number()
     .int()
     .min(1024)
-    .default(15 * 1024 * 1024),
+    .default(50 * 1024 * 1024),
   MAX_ATTACHMENTS_PER_VERSION: z.coerce.number().int().min(1).max(50).default(12),
 
   // --- Messaging -----------------------------------------------------------
@@ -126,13 +133,29 @@ export const EnvSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  /**
+   * Graph API version for Cloud API calls. Configuration rather than a constant
+   * because Meta retires versions on a published schedule: a deployment has to
+   * be able to move to a supported version without shipping code. The default
+   * tracks what was current when this was written and will go stale — set it
+   * explicitly at deployment and check it against Meta's changelog.
+   */
+  WHATSAPP_GRAPH_API_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/, 'Expected a Meta Graph API version such as v21.0')
+    .default('v21.0'),
 
   EMAIL_DRIVER: z.enum(['console', 'file', 'smtp']).default('console'),
   EMAIL_FROM: z.string().default('ExtraWork <no-reply@extrawork.local>'),
   EMAIL_OUTBOX_DIR: z.string().default('./.data/mail'),
   SMTP_URL: z.string().optional(),
 
-  OTP_DRIVER: z.enum(['console', 'sms-provider']).default('console'),
+  /**
+   * `whatsapp` sends the A1 code through the configured WhatsApp gateway — the
+   * approver's phone is already on record, so it needs no second provider.
+   * `console` is development only and delivers nothing.
+   */
+  OTP_DRIVER: z.enum(['console', 'whatsapp', 'sms-provider']).default('console'),
   OTP_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
 
@@ -168,6 +191,25 @@ export const EnvSchema = z.object({
   LOG_PRETTY: booleanish.default(false),
   SERVICE_NAME: z.string().default('extrawork'),
   RATE_LIMIT_ENABLED: booleanish.default(true),
+
+  // Human verification on account creation and sign-in. Off by default so
+  // development and the test suite are not gated on a live challenge; the
+  // production guard below requires it, because rate limiting alone does not
+  // stop a distributed credential-stuffing run.
+  BOT_PROTECTION_DRIVER: z.enum(['none', 'turnstile']).default('none'),
+  TURNSTILE_SECRET_KEY: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().trim().min(1).optional(),
+
+  // Published legal identity. Rendered by apps/web on /legal/*, declared here so
+  // production cannot start without it — a service that takes money and holds
+  // personal data must name who is doing so and who to escalate to.
+  NEXT_PUBLIC_LEGAL_ENTITY_NAME: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_ADDRESS: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_CONTACT_EMAIL: z.string().trim().email().optional(),
+  NEXT_PUBLIC_LEGAL_CONTACT_PHONE: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_NAME: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_EMAIL: z.string().trim().email().optional(),
+  NEXT_PUBLIC_LEGAL_GSTIN: z.string().trim().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -178,6 +220,7 @@ const DEVELOPMENT_PLACEHOLDERS = new Set([
   'dev-session-secret-not-for-production-use',
   'dev-privacy-secret-not-for-production-use',
   'dev-storage-secret-not-for-production-use',
+  'dev-approval-link-secret-not-for-production-use',
 ]);
 
 export class ConfigError extends Error {
@@ -191,7 +234,12 @@ function assertProductionSafe(env: Env): void {
   if (env.APP_ENV !== 'production') return;
   const problems: string[] = [];
 
-  for (const key of ['SESSION_SECRET', 'PRIVACY_HASH_SECRET', 'STORAGE_URL_SECRET'] as const) {
+  for (const key of [
+    'SESSION_SECRET',
+    'PRIVACY_HASH_SECRET',
+    'STORAGE_URL_SECRET',
+    'APPROVAL_LINK_ENCRYPTION_SECRET',
+  ] as const) {
     if (DEVELOPMENT_PLACEHOLDERS.has(env[key])) {
       problems.push(`${key} still holds a development placeholder`);
     }
@@ -207,11 +255,40 @@ function assertProductionSafe(env: Env): void {
       'AUTH_DRIVER=local is a self-host/dev driver; use a managed provider in production',
     );
   }
+  if (env.AUTH_DRIVER === 'supabase' || env.AUTH_DRIVER === 'clerk') {
+    for (const key of ['AUTH_JWKS_URL', 'AUTH_JWT_ISSUER', 'AUTH_JWT_AUDIENCE'] as const) {
+      if (!env[key]) problems.push(`${key} is required when AUTH_DRIVER=${env.AUTH_DRIVER}`);
+    }
+  }
   if (!env.DATABASE_SSL) {
     problems.push('DATABASE_SSL must be enabled in production (report §11.3)');
   }
-  if (env.WHATSAPP_DRIVER === 'cloud-api' && !env.WHATSAPP_APP_SECRET) {
-    problems.push('WHATSAPP_APP_SECRET is required to verify Cloud API webhooks');
+  if (env.WHATSAPP_DRIVER === 'cloud-api') {
+    // All four are needed for a working integration, and a missing one fails in
+    // a different place each time: no phone number id or token means outbound
+    // sends fail at the first job, no app secret means every inbound webhook is
+    // rejected as unsigned, and no verify token means Meta cannot complete the
+    // subscription handshake at all. Naming the specific missing value here is
+    // the difference between a five-minute fix and an afternoon.
+    for (const key of [
+      'WHATSAPP_PHONE_NUMBER_ID',
+      'WHATSAPP_ACCESS_TOKEN',
+      'WHATSAPP_APP_SECRET',
+      'WHATSAPP_VERIFY_TOKEN',
+    ] as const) {
+      if (!env[key]) problems.push(`${key} is required when WHATSAPP_DRIVER=cloud-api`);
+    }
+  }
+  if (env.OTP_DRIVER === 'console') {
+    // A console OTP in production is not a degraded feature, it is a silent
+    // one: A1 would present a verification step whose code reaches nobody, and
+    // the customer would be locked out of approving their own change order.
+    problems.push('OTP_DRIVER=console cannot deliver a code; A1 approval would be unusable');
+  }
+  if (env.OTP_DRIVER === 'whatsapp' && env.WHATSAPP_DRIVER !== 'cloud-api') {
+    problems.push(
+      `OTP_DRIVER=whatsapp needs WHATSAPP_DRIVER=cloud-api to deliver; it is ${env.WHATSAPP_DRIVER}`,
+    );
   }
   if (env.WHATSAPP_DRIVER === 'simulator') {
     // The simulator accepts unauthenticated inbound messages by design. In
@@ -220,6 +297,32 @@ function assertProductionSafe(env: Env): void {
   }
   if (env.PAYMENTS_DRIVER === 'razorpay' && !env.RAZORPAY_WEBHOOK_SECRET) {
     problems.push('RAZORPAY_WEBHOOK_SECRET is required to verify payment webhooks');
+  }
+
+  if (env.BOT_PROTECTION_DRIVER === 'none') {
+    problems.push(
+      'BOT_PROTECTION_DRIVER=none leaves registration and sign-in open to automated abuse',
+    );
+  }
+  if (env.BOT_PROTECTION_DRIVER === 'turnstile') {
+    for (const key of ['TURNSTILE_SECRET_KEY', 'NEXT_PUBLIC_TURNSTILE_SITE_KEY'] as const) {
+      if (!env[key]) problems.push(`${key} is required when BOT_PROTECTION_DRIVER=turnstile`);
+    }
+  }
+
+  // The policy pages render placeholders when these are missing, which reads as
+  // a finished policy that names nobody. A grievance officer who cannot be
+  // contacted is a DPDP Act s.13 failure, and a missing address or phone number
+  // fails payment-aggregator onboarding, so refuse the boot instead.
+  for (const key of [
+    'NEXT_PUBLIC_LEGAL_ENTITY_NAME',
+    'NEXT_PUBLIC_LEGAL_ADDRESS',
+    'NEXT_PUBLIC_LEGAL_CONTACT_EMAIL',
+    'NEXT_PUBLIC_LEGAL_CONTACT_PHONE',
+    'NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_NAME',
+    'NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER_EMAIL',
+  ] as const) {
+    if (!env[key]) problems.push(`${key} is required to publish the legal pages`);
   }
 
   if (problems.length > 0) {

@@ -20,6 +20,12 @@ import { registerWebhookRoutes } from './routes/webhooks.js';
 import { registerReportRoutes } from './routes/reports.js';
 import { registerEmployeeRoutes } from './routes/employees.js';
 import { registerSimulatorRoutes } from './routes/simulator.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerCollaborationRoutes } from './routes/collaboration.js';
+import { registerWorkspaceRoutes } from './routes/workspace.js';
+import { registerTimelineRoutes } from './routes/timeline.js';
+import { registerPortalRoutes } from './routes/portal.js';
+import { registerIntakeRoutes } from './routes/intake.js';
 import { registerOpenApiRoute } from './openapi/route.js';
 
 export interface BuildAppOptions {
@@ -98,7 +104,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(cors, {
     origin: options.env.CORS_ALLOWED_ORIGINS,
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    // PUT for the two routes a browser calls with it: notification
+    // preferences, and the local storage driver's signed upload URL. Without it
+    // the preflight refuses both from the web origin.
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'content-type',
       'x-csrf-token',
@@ -151,6 +160,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerPublicRoutes(app, options.appContext);
   await registerWebhookRoutes(app, options.appContext);
   await registerSimulatorRoutes(app, options.appContext);
+  // Three-party workspace (spec 2026-10-12).
+  await registerNotificationRoutes(app, options.appContext);
+  await registerCollaborationRoutes(app, options.appContext);
+  await registerWorkspaceRoutes(app, options.appContext);
+  await registerTimelineRoutes(app, options.appContext);
+  await registerPortalRoutes(app, options.appContext);
+  await registerIntakeRoutes(app, options.appContext);
 
   return app;
 }

@@ -75,35 +75,45 @@ export class ReminderRepository {
     }));
   }
 
-  async markSent(db: Database, id: string): Promise<void> {
+  async markSent(db: Database, organizationId: string, id: string): Promise<void> {
     await db.execute(sql`
-      UPDATE reminder_schedules SET sent_at = now() WHERE id = ${id}::uuid
+      UPDATE reminder_schedules SET sent_at = now()
+      WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
   /** Suppression is recorded, not deleted, so the reason stays auditable. */
-  async markSuppressed(db: Database, id: string, reason: string): Promise<void> {
+  async markSuppressed(
+    db: Database,
+    organizationId: string,
+    id: string,
+    reason: string,
+  ): Promise<void> {
     await db.execute(sql`
-      UPDATE reminder_schedules SET suppressed_reason = ${reason} WHERE id = ${id}::uuid
+      UPDATE reminder_schedules SET suppressed_reason = ${reason}
+      WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
   /** Outside local hours or in cooldown: try again later rather than drop. */
-  async defer(db: Database, id: string, retryAt: Date): Promise<void> {
+  async defer(db: Database, organizationId: string, id: string, retryAt: Date): Promise<void> {
     await db.execute(sql`
       UPDATE reminder_schedules SET due_at = ${retryAt.toISOString()}::timestamptz
-      WHERE id = ${id}::uuid
+      WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid
     `);
   }
 
   async cancelForVersion(
     tx: TransactionContext,
+    organizationId: string,
     versionId: string,
     reason: string,
   ): Promise<number> {
     const result = await tx.db.execute(sql`
       UPDATE reminder_schedules SET suppressed_reason = ${reason}
-      WHERE version_id = ${versionId}::uuid AND sent_at IS NULL AND suppressed_reason IS NULL
+      WHERE version_id = ${versionId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND sent_at IS NULL AND suppressed_reason IS NULL
     `);
     return result.rowCount ?? 0;
   }

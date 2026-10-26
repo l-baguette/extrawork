@@ -64,6 +64,9 @@ export class EmployeeService {
             ? null
             : BigInt(input.maxRequestMinor),
         projectIds,
+        party: input.party ?? 'INTERNAL',
+        companyName: input.companyName ?? null,
+        teamRole: input.teamRole ?? 'OTHER',
       });
 
       await this.app.repos.audit.append(tx, ctx.tenant, [
@@ -120,6 +123,9 @@ export class EmployeeService {
                 input.maxRequestMinor === null ? null : BigInt(input.maxRequestMinor),
             }),
         ...(projectIds === undefined ? {} : { projectIds }),
+        ...(input.party === undefined ? {} : { party: input.party }),
+        ...(input.companyName === undefined ? {} : { companyName: input.companyName }),
+        ...(input.teamRole === undefined ? {} : { teamRole: input.teamRole }),
       });
 
       await this.app.repos.audit.append(tx, ctx.tenant, [
