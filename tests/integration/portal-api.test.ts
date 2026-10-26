@@ -510,3 +510,79 @@ describe('asking for a change from the portal', () => {
     expect(dead.statusCode).toBe(404);
   });
 });
+
+describe('public portal headers and rate limits', () => {
+  it('is never cached, indexed or leaked through a referrer', async () => {
+    const { token } = await share(alpha);
+    for (const path of [`/public/v1/portal/${token}`, `/public/v1/portal/${'A'.repeat(43)}`]) {
+      const response = await get(path);
+      expect(response.headers['cache-control'] ?? '', path).toMatch(/no-store/);
+      expect(response.headers['referrer-policy'], path).toBe('no-referrer');
+      expect(response.headers['x-robots-tag'], path).toMatch(/noindex/);
+    }
+  });
+});
+
+describe('public portal rate limits', () => {
+  // The shared test container turns the limiter off; these cases need it on.
+  let limitedContainer: Container;
+  let limited: FastifyInstance;
+
+  beforeAll(async () => {
+    limitedContainer = createTestContainer({ env: { RATE_LIMIT_ENABLED: 'true' } });
+    limited = await buildApp({
+      env: limitedContainer.env,
+      uow: limitedContainer.uow,
+      repos: limitedContainer.repos,
+      services: limitedContainer.services,
+      appContext: limitedContainer.appContext,
+      logger: limitedContainer.logger,
+    });
+    await limited.ready();
+  });
+
+  afterAll(async () => {
+    await limited.close();
+    await limitedContainer.close();
+  });
+
+  const read = (token: string) =>
+    limited.inject({ method: 'GET', url: `/public/v1/portal/${token}` });
+  const ask = (token: string, description: string, ip: string) =>
+    limited.inject({
+      method: 'POST',
+      url: `/public/v1/portal/${token}/requests`,
+      headers: { 'x-forwarded-for': ip },
+      payload: { description },
+    });
+
+  it('caps reads per link like the approval page', async () => {
+    const { token } = await share(alpha);
+    const other = await share(beta);
+    // PUBLIC_REQUEST_GET: 60 an hour per address and link.
+    for (let i = 0; i < 60; i += 1) {
+      expect((await read(token)).statusCode).toBe(200);
+    }
+    const refused = await read(token);
+    expect(refused.statusCode).toBe(429);
+    expect(errorOf(refused)?.code).toBe('RATE_LIMITED');
+    // Another link from the same address has its own budget.
+    expect((await read(other.token)).statusCode).toBe(200);
+  });
+
+  it('caps asks per link, wherever they come from', async () => {
+    const { token } = await share(alpha);
+    // PORTAL_CHANGE_REQUEST: 10 a day per link, keyed on the token alone so
+    // rotating addresses does not flood the designer's queue.
+    for (let i = 0; i < 10; i += 1) {
+      const ok = await ask(token, `Please add power point number ${i + 1}`, `198.51.100.${i + 1}`);
+      expect(ok.statusCode, ok.body).toBe(201);
+    }
+    expect((await ask(token, 'One more power point', '198.51.100.99')).statusCode).toBe(429);
+    const proposals = await container.uow.pool.query(
+      `SELECT 1 FROM change_order_versions WHERE organization_id = $1 AND origin = 'PORTAL'`,
+      [alpha.organizationId],
+    );
+    expect(proposals.rows).toHaveLength(10);
+  });
+});

@@ -94,6 +94,11 @@ export default {
         source: '/r/:path*',
         headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' }],
       },
+      {
+        // The homeowner portal carries a project's whole record (spec 2026-10-12, D5).
+        source: '/p/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' }],
+      },
     ];
   },
 };

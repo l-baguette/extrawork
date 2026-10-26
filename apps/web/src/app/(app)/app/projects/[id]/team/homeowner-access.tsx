@@ -30,9 +30,7 @@ export function HomeownerAccess({
 }) {
   const router = useRouter();
   const reachable = contacts.filter((c) => c.phoneE164 || c.email);
-  const [contactId, setContactId] = useState<string>(
-    defaultContactId ?? reachable[0]?.id ?? '',
-  );
+  const [contactId, setContactId] = useState<string>(defaultContactId ?? reachable[0]?.id ?? '');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<PortalLinkCreatedDto | null>(null);
@@ -131,8 +129,8 @@ export function HomeownerAccess({
                 Send on WhatsApp
               </a>
             ) : null}
-            <button type="button" className="btn" onClick={() => void copy(created.messageText)}>
-              {copied ? 'Copied' : 'Copy message'}
+            <button type="button" className="btn" onClick={() => void copy(created.portalUrl)}>
+              {copied ? 'Copied' : 'Copy link'}
             </button>
             <button type="button" className="btn btn-quiet" onClick={() => setCreated(null)}>
               Done

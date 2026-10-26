@@ -435,3 +435,93 @@ describe('assurance is never silently downgraded', () => {
     ).rejects.toThrowError(expect.objectContaining({ code: 'FEATURE_NOT_ENTITLED' }));
   });
 });
+
+describe('portal token IDOR', () => {
+  // Spec 2026-10-12, D5: a portal link is one contact's window onto one
+  // project. Whatever id is put beside a valid token, nothing outside that
+  // project comes back, and an unknown document reads exactly like a missing one.
+  async function portalToken(fixture: TenantFixture): Promise<string> {
+    const created = await container.services.portal.createLink(
+      fixture.owner,
+      fixture.projectId,
+      {},
+    );
+    return created.portalUrl.slice(created.portalUrl.lastIndexOf('/') + 1);
+  }
+
+  it('stores only a hash of the portal token — the plaintext is nowhere in the database', async () => {
+    const token = await portalToken(tenant);
+    const { rows: columns } = await container.uow.pool.query<{
+      table_name: string;
+      column_name: string;
+    }>(`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND data_type IN ('text', 'character varying', 'jsonb', 'json')
+    `);
+    for (const column of columns) {
+      const { rows } = await container.uow.pool.query<{ hits: string }>(
+        `SELECT count(*)::text AS hits FROM "${column.table_name}"
+          WHERE "${column.column_name}"::text LIKE $1`,
+        [`%${token}%`],
+      );
+      expect(
+        Number(rows[0]?.hits ?? 0),
+        `${column.table_name}.${column.column_name} contains the plaintext portal token`,
+      ).toBe(0);
+    }
+  });
+
+  it("never serves another workspace's or another project's records through a valid token", async () => {
+    const other = await createTenant(container, { name: 'Other Studio' });
+    const theirs = await createSentChangeOrder(container, other);
+    const theirEvidence = randomUUID();
+    await container.uow.pool.query(
+      `INSERT INTO generated_documents
+         (id, organization_id, project_id, version_id, kind, status, template_version,
+          storage_key, generated_at)
+       VALUES ($1, $2, $3, $4, 'EVIDENCE_PDF', 'READY', 'test-1', 'evidence/x.pdf', now())`,
+      [theirEvidence, other.organizationId, other.projectId, theirs.sent.versionId],
+    );
+    const sameOrgProject = await container.services.projects.createProject(tenant.owner, {
+      customerId: tenant.customerId,
+      title: 'Neighbouring flat',
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      baseline: { subtotalMinor: 100_00, taxMinor: 0, totalMinor: 100_00 },
+      defaultApproverContactId: tenant.approverContactId,
+    });
+    const neighbour = await createSentChangeOrder(container, {
+      ...tenant,
+      projectId: sameOrgProject.id,
+    });
+    const token = await portalToken(tenant);
+
+    for (const id of [
+      theirEvidence,
+      theirs.sent.versionId,
+      neighbour.sent.versionId,
+      randomUUID(),
+    ]) {
+      await expect(
+        container.services.portal.download(token, id, publicContext()),
+      ).rejects.toThrowError(expect.objectContaining({ code: 'DOCUMENT_NOT_FOUND' }));
+    }
+
+    const view = await container.services.portal.view(token, publicContext());
+    const serialized = JSON.stringify(view);
+    expect(serialized).not.toContain(other.organizationId);
+    expect(serialized).not.toContain(tenant.organizationId);
+    expect(serialized).not.toContain(neighbour.changeOrder.number);
+    expect(serialized).not.toContain(token);
+  });
+
+  it('refuses malformed portal tokens before any lookup', async () => {
+    for (const candidate of ['short', "' OR 1=1--", '../../etc/passwd', `${'a'.repeat(42)}!`]) {
+      await expect(container.services.portal.view(candidate, publicContext())).rejects.toThrowError(
+        expect.objectContaining({ code: 'PORTAL_LINK_INVALID' }),
+      );
+    }
+  });
+});
