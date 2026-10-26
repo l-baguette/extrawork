@@ -36,13 +36,18 @@ export interface ConversationCandidate {
   projectId: string;
   projectNumber: string;
   title: string;
+  /** Shown beside the title when the sender works with more than one firm. */
+  organizationName: string;
   /** How the sender is known in that workspace. */
   sender: { kind: 'EMPLOYEE' | 'CONTACT'; id: string };
 }
 
 export interface PendingChoice {
-  /** The held message, processed once the sender answers. */
-  inboundMessageId: string;
+  /**
+   * The held messages, processed once the sender answers. More than one
+   * because WhatsApp delivers each photo of an album as its own message.
+   */
+  inboundMessageIds: string[];
   /** In the order they were listed in the question, so "2" means the second. */
   candidates: ConversationCandidate[];
 }
@@ -201,9 +206,7 @@ export class ConversationRepository {
     ctx: TenantContext,
     projectId: string,
     limit = 8,
-  ): Promise<
-    Array<{ number: string; title: string; status: string; awaitingReview: boolean }>
-  > {
+  ): Promise<Array<{ number: string; title: string; status: string; awaitingReview: boolean }>> {
     const result = await this.db.execute<{
       number: string;
       title: string;

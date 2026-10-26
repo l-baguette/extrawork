@@ -172,7 +172,7 @@ export class InboundMessageRepository {
         change_order_id = ${progress.changeOrderId}::uuid,
         parsed = ${JSON.stringify(progress.parsed)}::jsonb,
         rejection_reason = NULL
-      WHERE id = ${id}::uuid AND status = 'RECEIVED'
+      WHERE id = ${id}::uuid AND status IN ('RECEIVED', 'AWAITING_CHOICE')
       RETURNING id
     `);
     if (!result.rows[0]) throw new AppError('NOT_FOUND');
