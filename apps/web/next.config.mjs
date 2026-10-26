@@ -11,9 +11,9 @@
  */
 const isDev = process.env.NODE_ENV !== 'production';
 const configuredApiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-const developmentApiOrigins = isDev
-  ? ['http://localhost:4000', 'http://127.0.0.1:4000', 'http://[::1]:4000']
-  : [];
+// No IPv6 literal here: CSP host sources cannot express one, so Chromium
+// ignores `http://[::1]:4000` and logs a console error on every page.
+const developmentApiOrigins = isDev ? ['http://localhost:4000', 'http://127.0.0.1:4000'] : [];
 const connectOrigins = [...new Set([configuredApiOrigin, ...developmentApiOrigins])].join(' ');
 
 /**
