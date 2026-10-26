@@ -21,14 +21,28 @@ export interface ApprovalLink {
   changeOrderId: string;
 }
 
+export interface SeededProject {
+  id: string;
+  number: string;
+  title: string;
+}
+
+export interface Session {
+  sessionToken: string;
+  csrfToken: string;
+}
+
 export interface Scenario {
   organizationId: string;
   ownerUserId: string;
   organizationName: string;
   pendingLinks: ApprovalLink[];
+  projects: SeededProject[];
   /** Decisions recorded against one change order. */
   countDecisions(changeOrderId: string): Promise<number>;
   supersede(changeOrderId: string): Promise<void>;
+  /** Mints a real session for the given user, active in the given org. */
+  signIn(userId: string, organizationId: string): Promise<Session>;
 }
 
 async function helper<T>(...args: string[]): Promise<T> {
@@ -58,6 +72,7 @@ export async function seedScenario(): Promise<Scenario> {
     ownerUserId: string;
     organizationName: string;
     pendingLinks: ApprovalLink[];
+    projects: SeededProject[];
   }>('seed');
 
   return {
@@ -68,6 +83,9 @@ export async function seedScenario(): Promise<Scenario> {
     },
     async supersede(changeOrderId: string) {
       await helper('supersede', changeOrderId, result.organizationId, result.ownerUserId);
+    },
+    async signIn(userId: string, organizationId: string) {
+      return helper<Session>('sign-in', userId, organizationId);
     },
   };
 }
