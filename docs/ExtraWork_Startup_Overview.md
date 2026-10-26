@@ -27,9 +27,9 @@ The buyer is the owner or operations manager of an Indian interior-renovation or
 
 ## 5. Current stage
 
-The application is built and runs end to end, comprising an API, a web dashboard, a background worker and one PostgreSQL database. It supports onboarding, project and employee management, change-order versioning, freeze-and-send, the no-account approval page, atomic decisions, evidence PDFs and an append-only audit chain, and the most recent verification run passed 535 of 535 automated tests.
+The application is built and runs end to end, comprising an API, a web dashboard, a background worker and one PostgreSQL database. It supports onboarding, project and employee management, change-order versioning, freeze-and-send, the no-account approval page, atomic decisions, evidence PDFs and an append-only audit chain, and the most recent verification run (26 October 2026) passed 809 of 811 automated tests, the two failures being PDF text-extraction checks that only fail in sandboxed environments.
 
-Four items remain before launch. Live WhatsApp is not connected, because the adapter exists in code but the Meta account, templates and webhook are unconfigured. No hosting provider has been selected, billing is modelled but not wired to a payment provider, and Indian counsel has not reviewed the approval wording or evidentiary claims.
+Four items remain before launch. Live WhatsApp is not connected, because the adapter exists in code but the Meta account, templates and webhook are unconfigured. The database host is chosen — Supabase in Mumbai, with Cloudflare R2 for files — but not yet where the web app, API and worker run; billing is modelled but not wired to a payment provider, and Indian counsel has not reviewed the approval wording or evidentiary claims.
 
 ## 6. Business model
 
@@ -42,6 +42,8 @@ The contractor pays and the client is never billed. The pricing below is an expe
 | Solo         | ₹499 / month                | Owner-operator      |
 | Team         | ₹999–1,499 / month          | Multi-employee firm |
 | Pay as used  | ~₹49 per completed decision | Low-frequency user  |
+
+Since October 2026 new workspaces start on a free beta plan with generous limits instead of the trial above, and these paid plans stay dormant until monetisation (design decision D13).
 
 ## 7. Market thesis
 

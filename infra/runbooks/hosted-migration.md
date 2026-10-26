@@ -19,8 +19,9 @@ The database side has been checked against this schema:
 - **Extensions required:** `pgcrypto`, `pg_trgm`, `unaccent`. All three are
   available on Supabase and must be enabled before the first migration runs.
 - **No superuser operations** appear in any migration — no `ALTER SYSTEM`, no
-  `CREATE TABLESPACE`, no ownership changes. The 38 functions and triggers are
-  all ordinary DDL.
+  `CREATE TABLESPACE`, no ownership changes. The functions, triggers and
+  row-level-security policies (0019 onwards) are all ordinary DDL. Re-checked
+  through migration 0023.
 - **No collation assumptions.** The schema never names a collation, so
   Supabase's default locale is fine. (`docker-compose.yml` pins C collation only
   to keep local index behaviour identical across developer machines.)
@@ -99,7 +100,7 @@ then one edit, and you will want that while both environments exist.
 
 ```bash
 pnpm preflight:hosted   # checks connectivity, extensions, and the bucket
-pnpm db:migrate         # applies all 7 migrations to Supabase
+pnpm db:migrate         # applies every migration (0001–0023) to Supabase
 pnpm db:seed            # demo data; skip for a real pilot
 ```
 
