@@ -137,7 +137,7 @@ describe('request numbers (D8)', () => {
   });
 });
 
-describe('proposals may be incomplete, sends may not (D4)', () => {
+describe('drafts may be incomplete, sends may not (D4)', () => {
   const base = {
     projectCurrency: 'INR',
     currency: 'INR',
@@ -151,13 +151,15 @@ describe('proposals may be incomplete, sends may not (D4)', () => {
     attachmentScanStatuses: [],
   };
 
-  it('rejects an empty draft by default and accepts it as a proposal', () => {
-    expect(() => validateDraft(base)).toThrow(expect.objectContaining({ code: 'EMPTY_CHANGE' }));
-    expect(validateDraft(base, { allowEmpty: true }).totalDeltaMinor).toBe(0n);
+  // Any draft may be saved empty: the composer autosaves from the first step
+  // and a photo picked before any price needs a draft to attach to. Substance
+  // is enforced at send, below.
+  it('saves an empty draft', () => {
+    expect(validateDraft(base).totalDeltaMinor).toBe(0n);
   });
 
-  it('relaxes nothing else', () => {
-    expect(() => validateDraft({ ...base, currency: 'USD' }, { allowEmpty: true })).toThrow(
+  it('still refuses what saving an empty draft does not excuse', () => {
+    expect(() => validateDraft({ ...base, currency: 'USD' })).toThrow(
       expect.objectContaining({ code: 'CURRENCY_MISMATCH' }),
     );
   });

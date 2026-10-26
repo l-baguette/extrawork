@@ -38,27 +38,12 @@ export interface Blocker {
   message: string;
 }
 
-export interface DraftValidationOptions {
-  /**
-   * Accept a draft with no priced line and no schedule impact.
-   *
-   * Only for a proposal raised for the designer to review (spec 2026-10-12,
-   * D4): the person on site often does not know the price, and the designer
-   * completes it. It relaxes nothing else, and it never reaches send — the
-   * send path re-checks substance through `collectSendBlockers`, which has no
-   * such option, so an empty proposal can be saved but not sent.
-   */
-  allowEmpty?: boolean;
-}
-
 /**
- * Hard rules. Throws — used by create/update/send. `collectSendBlockers` is the
- * soft counterpart used by the preview to explain what still needs doing.
+ * Hard rules for saving a draft. Throws — used by create and update.
+ * `collectSendBlockers` holds the rules for sending: the preview lists them to
+ * explain what still needs doing, and send refuses while any remains.
  */
-export function validateDraft(
-  input: DraftValidationInput,
-  options: DraftValidationOptions = {},
-): DraftValidationResult {
+export function validateDraft(input: DraftValidationInput): DraftValidationResult {
   if (input.currency !== input.projectCurrency) {
     throw new AppError('CURRENCY_MISMATCH', {
       details: { projectCurrency: input.projectCurrency, received: input.currency },
@@ -70,11 +55,10 @@ export function validateDraft(
   if (input.projectStatus === 'INTEGRITY_REVIEW') {
     throw new AppError('PROJECT_INTEGRITY_REVIEW');
   }
-  // Report §4.6: a zero-price time-only change is valid, so substance is
-  // "lines OR schedule", not "lines".
-  if (!options.allowEmpty && input.lineItems.length === 0 && input.scheduleDeltaDays === 0) {
-    throw new AppError('EMPTY_CHANGE');
-  }
+  // No substance check: a draft may be saved with no priced line and no
+  // schedule impact — the person on site often has no price yet, and a photo
+  // picked first needs a draft to attach to. Substance is a send rule, applied
+  // by `collectSendBlockers` (EMPTY_CHANGE), which every send path enforces.
   if (input.type === 'TIME_ONLY' && input.lineItems.length > 0) {
     throw new AppError('VALIDATION_FAILED', {
       message: 'A time-only change cannot carry priced line items',

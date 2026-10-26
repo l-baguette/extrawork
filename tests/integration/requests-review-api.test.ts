@@ -803,3 +803,52 @@ describe('dashboard for a collaborator', () => {
     expect(team.unbilledApprovedCount).toBe(1);
   });
 });
+
+describe('an empty draft', () => {
+  // The composer autosaves from its first step and a photo picked before any
+  // price needs a draft to attach to, so a draft may be saved with no priced
+  // line and no schedule impact. Substance is a send rule: nothing empty
+  // reaches the homeowner.
+  const emptyDraft = {
+    type: 'ADDITION',
+    title: 'Concealed points, master bedroom',
+    scope: 'Supply and install four concealed 16A points on the east wall.',
+    lineItems: [],
+    scheduleDeltaDays: 0,
+    assuranceRequired: 'A0',
+  };
+
+  it('can be created and saved again, but not sent', async () => {
+    const owner = await ownerSession();
+    const created = await call('POST', `/v1/projects/${tenant.projectId}/change-orders`, owner, {
+      ...emptyDraft,
+      approverContactId: tenant.approverContactId,
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const { id } = created.json() as { id: string };
+
+    const { etag } = await getChange(owner, id);
+    const saved = await call(
+      'PATCH',
+      `/v1/change-orders/${id}/draft`,
+      owner,
+      {
+        ...emptyDraft,
+        title: 'Concealed points, east wall',
+        approverContactId: tenant.approverContactId,
+      },
+      { 'if-match': etag },
+    );
+    expect(saved.statusCode, saved.body).toBe(200);
+
+    const send = await call('POST', `/v1/change-orders/${id}/send`, owner, {
+      channel: 'COPY_LINK',
+    });
+    expect(send.statusCode).toBe(400);
+    const blockers = (
+      send.json() as { error: { details?: { blockers?: Array<{ code: string }> } } }
+    ).error.details?.blockers;
+    expect(blockers?.map((b) => b.code)).toContain('EMPTY_CHANGE');
+    expect((await getChange(owner, id)).body.currentVersion.status).toBe('DRAFT');
+  });
+});

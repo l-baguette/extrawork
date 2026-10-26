@@ -24,31 +24,25 @@ import {
 } from './common.js';
 
 /**
- * A change must carry commercial or schedule substance. Report §4.6 allows a
- * zero-price time-only change, so the rule is "lines OR schedule impact",
- * not "lines".
+ * A new draft. It may be created empty: the composer saves as soon as there is
+ * a title, and a photograph picked on the first step needs a draft to attach
+ * to before any price exists. Substance — a priced line or a schedule impact
+ * (report §4.6) — is a rule for sending, enforced by `collectSendBlockers`,
+ * so an empty draft can be saved but never reaches the homeowner.
  */
-const hasSubstance = (v: { lineItems: unknown[]; scheduleDeltaDays: number }) =>
-  v.lineItems.length > 0 || v.scheduleDeltaDays !== 0;
-
-export const CreateChangeOrderSchema = z
-  .object({
-    type: ChangeTypeSchema,
-    title: ShortTextSchema,
-    scope: LongTextSchema,
-    reason: MediumTextSchema.optional(),
-    room: RoomSchema.optional(),
-    workCategory: WorkCategorySchema.optional(),
-    lineItems: z.array(LineItemInputSchema).max(100).default([]),
-    scheduleDeltaDays: z.number().int().min(-365).max(365).default(0),
-    approverContactId: UuidSchema,
-    expiresAt: InstantSchema.optional(),
-    assuranceRequired: AssuranceLevelSchema.default('A0'),
-  })
-  .refine(hasSubstance, {
-    message: 'Add at least one line item or a schedule impact',
-    path: ['lineItems'],
-  });
+export const CreateChangeOrderSchema = z.object({
+  type: ChangeTypeSchema,
+  title: ShortTextSchema,
+  scope: LongTextSchema,
+  reason: MediumTextSchema.optional(),
+  room: RoomSchema.optional(),
+  workCategory: WorkCategorySchema.optional(),
+  lineItems: z.array(LineItemInputSchema).max(100).default([]),
+  scheduleDeltaDays: z.number().int().min(-365).max(365).default(0),
+  approverContactId: UuidSchema,
+  expiresAt: InstantSchema.optional(),
+  assuranceRequired: AssuranceLevelSchema.default('A0'),
+});
 export type CreateChangeOrderInput = z.infer<typeof CreateChangeOrderSchema>;
 
 /**
@@ -56,10 +50,8 @@ export type CreateChangeOrderInput = z.infer<typeof CreateChangeOrderSchema>;
  * arrays is ambiguous under concurrent edits, so the client always sends the
  * full intended state together with `If-Match`.
  *
- * No substance refine here, unlike create: a proposal raised for review may be
- * saved while still unpriced (spec 2026-10-12, D4), and only the server knows
- * whether this draft is one. The service applies the rule (`EMPTY_CHANGE`)
- * to every other draft, and send gating applies it to all of them.
+ * No substance check, as on create: any draft may be saved unpriced, and send
+ * gating applies the rule (`EMPTY_CHANGE`) to all of them.
  */
 export const UpdateDraftSchema = z.object({
   type: ChangeTypeSchema,

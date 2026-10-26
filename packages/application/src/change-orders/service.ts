@@ -219,23 +219,18 @@ export class ChangeOrderService {
       changeOrder.projectId,
       current.id,
     );
-    const totals = validateDraft(
-      {
-        projectCurrency: project.currency,
-        currency: current.currency,
-        projectStatus: project.status,
-        baselineTotalMinor: project.baselineTotalMinor,
-        priorApprovedDeltaMinor: priorApproved,
-        lineItems: lines,
-        scheduleDeltaDays: input.scheduleDeltaDays,
-        type: input.type,
-        assuranceRequired: input.assuranceRequired,
-        attachmentScanStatuses: [],
-      },
-      // The designer completes a proposal over several autosaves; until it is
-      // sent it may stay as incomplete as it arrived (spec D4). Send re-checks.
-      { allowEmpty: isAwaitingReview(current) },
-    );
+    const totals = validateDraft({
+      projectCurrency: project.currency,
+      currency: current.currency,
+      projectStatus: project.status,
+      baselineTotalMinor: project.baselineTotalMinor,
+      priorApprovedDeltaMinor: priorApproved,
+      lineItems: lines,
+      scheduleDeltaDays: input.scheduleDeltaDays,
+      type: input.type,
+      assuranceRequired: input.assuranceRequired,
+      attachmentScanStatuses: [],
+    });
 
     return this.app.uow.transaction(async (tx) => {
       const updated = await this.app.repos.changeOrders.updateDraft(
@@ -736,21 +731,18 @@ export class ChangeOrderService {
       ctx.tenant,
       projectId,
     );
-    const totals = validateDraft(
-      {
-        projectCurrency: project.currency,
-        currency: project.currency,
-        projectStatus: project.status,
-        baselineTotalMinor: project.baselineTotalMinor,
-        priorApprovedDeltaMinor: priorApproved,
-        lineItems: lines,
-        scheduleDeltaDays,
-        type,
-        assuranceRequired: 'A0',
-        attachmentScanStatuses: [],
-      },
-      { allowEmpty: true },
-    );
+    const totals = validateDraft({
+      projectCurrency: project.currency,
+      currency: project.currency,
+      projectStatus: project.status,
+      baselineTotalMinor: project.baselineTotalMinor,
+      priorApprovedDeltaMinor: priorApproved,
+      lineItems: lines,
+      scheduleDeltaDays,
+      type,
+      assuranceRequired: 'A0',
+      attachmentScanStatuses: [],
+    });
 
     for (const fileId of input.attachmentIds) {
       const file = await this.app.repos.files.requireById(ctx.tenant, fileId);
