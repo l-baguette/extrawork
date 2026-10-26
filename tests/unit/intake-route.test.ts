@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   explicitProjectHint,
   parseIntakeMessage,
+  projectSpill,
   parserSignals,
   routeProject,
   type RouteCandidate,
@@ -44,6 +45,16 @@ describe('explicitProjectHint', () => {
   it('reads a project code anywhere in the text, padded', () => {
     expect(explicitProjectHint('tiles for p-7 arrived', null)).toBe('P-0007');
     expect(explicitProjectHint('about P-0004-R03, the client agreed', null)).toBe('P-0004');
+  });
+
+  it('reads only the first line of a Project: value the parser ran on', () => {
+    const body = 'Project: P-0001\nCan we add a cove light in the master bedroom\nCost: 18500';
+    const parsed = parseIntakeMessage(body);
+    expect(explicitProjectHint(body, parsed.project)).toBe('P-0001');
+    expect(projectSpill(parsed.project)).toBe('Can we add a cove light in the master bedroom');
+    expect(explicitProjectHint('Project: Sharma villa\nskirting', 'Sharma villa\nskirting')).toBe(
+      'Sharma villa',
+    );
   });
 
   it('finds nothing in ordinary text', () => {

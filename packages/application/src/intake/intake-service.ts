@@ -45,6 +45,7 @@ import {
   parserSignals,
   portalLinksReply,
   projectLabel,
+  projectSpill,
   projectsReply,
   proposedReply,
   routeProject,
@@ -959,7 +960,7 @@ export class IntakeService {
         {
           type: amountMinor === 0n ? 'TIME_ONLY' : 'ADDITION',
           title: titleFrom(parsed),
-          scope: parsed.description ?? '',
+          scope: descriptionOf(parsed) ?? '',
           ...(parsed.reason ? { reason: parsed.reason } : {}),
           // One line item priced at the figure the employee gave. The money
           // engine computes the totals; nothing here does arithmetic.
@@ -1879,7 +1880,7 @@ function textOf(inbound: InboundMessageRow): string {
  */
 function proposalInput(parsed: ParsedIntake, text: string, attachmentIds: string[]): ProposalInput {
   const description =
-    parsed.description?.trim() ||
+    descriptionOf(parsed) ||
     text ||
     (attachmentIds.length > 0
       ? 'Request from WhatsApp (see the attached photos)'
@@ -1901,14 +1902,22 @@ function proposalInput(parsed: ParsedIntake, text: string, attachmentIds: string
  * AUTO_SEND: a real description and one readable figure (or a time impact).
  */
 function isComplete(parsed: ParsedIntake): boolean {
-  if (!parsed.description || parsed.description.trim().length < 10) return false;
+  if ((descriptionOf(parsed) ?? '').length < 10) return false;
   if (parsed.amountAmbiguous) return false;
   // Zero cost AND zero schedule impact is not a change at all.
   return parsed.amountMinor !== null || (parsed.days ?? 0) !== 0;
 }
 
+/**
+ * What the work is: the parser's description, or the lines it folded into a
+ * `Project:` value when the sender typed the description straight under it.
+ */
+function descriptionOf(parsed: ParsedIntake): string | null {
+  return parsed.description?.trim() || projectSpill(parsed.project);
+}
+
 function titleFrom(parsed: ParsedIntake): string {
-  const text = (parsed.description ?? 'Extra work').replace(/\s+/g, ' ').trim();
+  const text = (descriptionOf(parsed) ?? 'Extra work').replace(/\s+/g, ' ').trim();
   return text.length <= 120 ? text : `${text.slice(0, 117)}…`;
 }
 

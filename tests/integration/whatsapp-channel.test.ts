@@ -566,3 +566,41 @@ describe('strangers', () => {
     expect(rows[0]?.count).toBe('0');
   });
 });
+
+describe('a Project: line with the request typed under it', () => {
+  // Found in the integration click-through: the parser runs a label on over
+  // the unlabelled lines after it, so the project value swallowed the request
+  // and the sender was asked which project although they had said.
+  it('files under the named project and keeps the request as its description', async () => {
+    const phone = nextPhone();
+    await addEmployee(alpha, phone);
+    await container.uow.transaction((tx) =>
+      container.repos.projects.create(tx, alpha.owner.tenant, {
+        customerId: alpha.customerId,
+        projectNumber: 'P-0777',
+        title: 'Second site fit-out',
+        siteAddress: null,
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+        baselineSubtotalMinor: 1_000_000n,
+        baselineTaxMinor: 0n,
+        baselineTotalMinor: 1_000_000n,
+        startDate: null,
+        expectedCompletionDate: null,
+        defaultApproverContactId: alpha.approverContactId,
+        baselineDocumentFileId: null,
+      }),
+    );
+
+    const outcome = await send(
+      phone,
+      `Project: ${alpha.projectNumber}\nCan we add a cove light in the master bedroom\nCost: 18500`,
+    );
+
+    expect(outcome.status).toBe('ACCEPTED');
+    expect((await inbound(outcome.inboundMessageId))?.project_id).toBe(alpha.projectId);
+    const version = await currentVersion(alpha, outcome.changeOrderId as string);
+    expect(version?.title).toBe('Can we add a cove light in the master bedroom');
+    expect(version?.totalDeltaMinor).toBe(1_850_000n);
+  });
+});

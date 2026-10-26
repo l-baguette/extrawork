@@ -37,12 +37,32 @@ const PROJECT_CODE = /\bP\s*-\s*(\d{1,6})\b/i;
  * The project the message names, if any: a `Project:` line the parser read,
  * or a project code such as "P-0004" anywhere in the text (a request number
  * like "P-0004-R03" carries its project's code, which is the project meant).
+ *
+ * Only the first line of a `Project:` value counts. The parser lets a label
+ * run on over the unlabelled lines after it (right for a long "What:"), so
+ * "Project: P-0001" followed by "Can we add a cove light" reads as one
+ * project value; matching that whole text would find nothing and ask a
+ * question the sender already answered.
  */
 export function explicitProjectHint(body: string, parsedProject: string | null): string | null {
-  const labelled = parsedProject?.trim();
-  if (labelled) return labelled;
-  const code = PROJECT_CODE.exec(body);
-  return code?.[1] ? `P-${code[1].padStart(4, '0')}` : null;
+  const labelled = firstLine(parsedProject);
+  const code = PROJECT_CODE.exec(labelled ?? body);
+  if (code?.[1]) return `P-${code[1].padStart(4, '0')}`;
+  return labelled;
+}
+
+/**
+ * What the parser folded into a `Project:` value after its first line — in
+ * practice the description the sender typed under it. Null when there is none.
+ */
+export function projectSpill(parsedProject: string | null): string | null {
+  const lines = (parsedProject ?? '').split(/\r?\n/).slice(1).join('\n').trim();
+  return lines || null;
+}
+
+function firstLine(value: string | null): string | null {
+  const line = value?.split(/\r?\n/)[0]?.trim();
+  return line || null;
 }
 
 export function routeProject<T extends RouteCandidate>(input: {
