@@ -291,7 +291,11 @@ export function unreadableAmountNote(amountRaw: string): string {
   return `I could not read "${amountRaw}" as one figure, so your designer will price it.`;
 }
 
-export function aboveLimitNote(amountMinor: bigint, ceilingMinor: bigint, currency: string): string {
+export function aboveLimitNote(
+  amountMinor: bigint,
+  ceilingMinor: bigint,
+  currency: string,
+): string {
   return (
     `${formatMoney(amountMinor, currency)} is above your limit of ${formatMoney(ceilingMinor, currency)}, ` +
     'so your designer will check it before it goes to the homeowner.'

@@ -280,8 +280,8 @@ export default async function PortalPage({ params }: PageProps) {
 
       <footer className="small muted portal-foot">
         <p>
-          Shared with {view.contactName} by {view.organizationName}. This link is private to you
-          and works until {formatDate(view.expiresAt)}. Please do not forward it.
+          Shared with {view.contactName} by {view.organizationName}. This link is private to you and
+          works until {formatDate(view.expiresAt)}. Please do not forward it.
         </p>
       </footer>
     </main>
