@@ -8,6 +8,7 @@ import {
 import { systemTenantContext } from '@extrawork/domain';
 import { METRIC, metrics } from '@extrawork/observability';
 import type { WorkerContext } from '../context.js';
+import { sendReply } from './inbound.js';
 
 /**
  * Recurring maintenance — report §13.3 (projection integrity), §4.3 (expiry),
@@ -22,6 +23,8 @@ import type { WorkerContext } from '../context.js';
  * from SENT and VIEWED, and the token is revoked with it.
  */
 export async function expireRequests(_job: JobRow, ctx: WorkerContext): Promise<void> {
+  await expireWhatsAppChoices(ctx);
+
   const now = ctx.app.clock.now();
   const due = await ctx.repos.changeOrders.findExpiredVersions(200);
   if (due.length === 0) return;
@@ -267,4 +270,28 @@ export async function enqueueDueReminders(ctx: WorkerContext): Promise<number> {
     );
   }
   return due.length;
+}
+
+/**
+ * The 30-minute rule for "which project?" (spec 2026-10-12, WhatsApp
+ * conversation rules §3). Rides on the hourly expiry pass rather than a job of
+ * its own: a question nobody answered is also closed the moment the sender
+ * next writes, so this sweep only covers people who went quiet, and an hour's
+ * lag in telling them costs nothing. Intake closes the question, marks the
+ * held messages and notifies the designers in one transaction; the reply is
+ * sent here, outside it.
+ */
+async function expireWhatsAppChoices(ctx: WorkerContext): Promise<void> {
+  const replies = await ctx.services.intake.expireStaleChoices();
+  for (const expired of replies) {
+    await sendReply(
+      expired.phoneE164,
+      expired.reply,
+      `choice-expired:${expired.heldInboundMessageId}`,
+      ctx,
+    );
+  }
+  if (replies.length > 0) {
+    ctx.logger.info({ expired: replies.length }, 'expired unanswered WhatsApp project choices');
+  }
 }

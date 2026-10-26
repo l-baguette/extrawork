@@ -4,14 +4,24 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { browserApiUrl } from '@/lib/api';
 
-interface SimEmployee {
+interface SimSender {
   id: string;
+  kind: 'EMPLOYEE' | 'CONTACT';
   name: string;
   phoneE164: string;
   organizationName: string;
-  allProjects: boolean;
-  maxRequestMinor: number | null;
+  detail: string | null;
 }
+
+interface SimAttachment {
+  base64: string;
+  mimeType: string;
+  filename: string;
+  byteSize: number;
+}
+
+/** Mirrors the API's cap on simulated attachments. */
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 
 interface OutboxRecord {
   id: string;
@@ -28,11 +38,15 @@ interface SendResult {
   changeOrderId: string | null;
   approvalUrl: string | null;
   duplicate: boolean;
+  mediaStored?: number;
 }
 
-/** Reads as the employee sees it: what they get told, and whether it worked. */
+/** Reads as the sender sees it: what they get told, and whether it worked. */
 const STATUS_COPY: Record<string, { label: string; tone: string }> = {
-  ACCEPTED: { label: 'Sent to the customer', tone: 'chip-approved' },
+  ACCEPTED: { label: 'Request raised', tone: 'chip-approved' },
+  SAVED: { label: 'Saved to the project', tone: 'chip-approved' },
+  AWAITING_CHOICE: { label: 'Asked which project', tone: 'chip-pending' },
+  ANSWERED: { label: 'Answered', tone: 'chip-approved' },
   RECEIVED: { label: 'Received', tone: 'chip-pending' },
   REJECTED_UNKNOWN_SENDER: { label: 'Number not recognised', tone: 'chip-declined' },
   REJECTED_NOT_AUTHORIZED: { label: 'Project not resolved', tone: 'chip-declined' },
@@ -48,7 +62,8 @@ Days: 2`;
 
 export function SimulatorConsole() {
   const apiUrl = browserApiUrl();
-  const [employees, setEmployees] = useState<SimEmployee[]>([]);
+  const [senders, setSenders] = useState<SimSender[]>([]);
+  const [attachment, setAttachment] = useState<SimAttachment | null>(null);
   const [from, setFrom] = useState('');
   const [body, setBody] = useState(EXAMPLE);
   const [busy, setBusy] = useState(false);
@@ -71,13 +86,13 @@ export function SimulatorConsole() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch(`${apiUrl}/webhooks/v1/simulator/employees`);
+        const response = await fetch(`${apiUrl}/webhooks/v1/simulator/senders`);
         if (!response.ok) {
           setAvailable(false);
           return;
         }
-        const data = (await response.json()) as { items: SimEmployee[] };
-        setEmployees(data.items);
+        const data = (await response.json()) as { items: SimSender[] };
+        setSenders(data.items);
         setFrom((current) => current || (data.items[0]?.phoneE164 ?? ''));
         setAvailable(true);
       } catch {
@@ -98,7 +113,21 @@ export function SimulatorConsole() {
       const response = await fetch(`${apiUrl}/webhooks/v1/simulator/whatsapp`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ from, body }),
+        body: JSON.stringify({
+          from,
+          body,
+          ...(attachment
+            ? {
+                media: [
+                  {
+                    base64: attachment.base64,
+                    mimeType: attachment.mimeType,
+                    filename: attachment.filename,
+                  },
+                ],
+              }
+            : {}),
+        }),
       });
       const data = (await response.json()) as SendResult & {
         error?: { message: string };
@@ -108,6 +137,7 @@ export function SimulatorConsole() {
         return;
       }
       setResult(data);
+      setAttachment(null);
       // The customer message is delivered by the worker, so it lands a moment
       // after the reply. One delayed refresh is enough to show it.
       await refreshOutbox();
@@ -131,21 +161,43 @@ export function SimulatorConsole() {
     );
   }
 
-  const selected = employees.find((e) => e.phoneE164 === from);
+  const selected = senders.find((s) => s.phoneE164 === from);
+
+  function pickFile(event: React.ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setError('Pick a file under 2 MB — the simulator keeps attachments small.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result ?? '');
+      setAttachment({
+        base64: url.slice(url.indexOf(',') + 1),
+        mimeType: file.type || 'application/octet-stream',
+        filename: file.name,
+        byteSize: file.size,
+      });
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  }
 
   return (
     <div className="stack">
       <section className="card">
-        <h2>Send as an employee</h2>
+        <h2>Send as site team or a homeowner</h2>
 
         <form onSubmit={send}>
           <div className="field">
             <label htmlFor="sim-from">From (their WhatsApp number)</label>
-            {employees.length > 0 ? (
+            {senders.length > 0 ? (
               <select id="sim-from" value={from} onChange={(e) => setFrom(e.target.value)}>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.phoneE164}>
-                    {employee.name} — {employee.phoneE164} ({employee.organizationName})
+                {senders.map((sender) => (
+                  <option key={`${sender.kind}:${sender.id}`} value={sender.phoneE164}>
+                    {sender.name} — {sender.phoneE164} ({sender.organizationName})
                   </option>
                 ))}
                 <option value="+919999900000">An unregistered number</option>
@@ -160,20 +212,13 @@ export function SimulatorConsole() {
                   inputMode="tel"
                 />
                 <p className="small muted">
-                  No employees registered yet. Add one on{' '}
-                  <Link href="/app/employees">Employees</Link> first, or type any number to see what
-                  an unrecognised sender gets told.
+                  No site team or homeowner numbers yet. Add one on{' '}
+                  <Link href="/app/employees">Employees</Link> or a customer first, or type any
+                  number to see what an unrecognised sender gets told.
                 </p>
               </>
             )}
-            {selected ? (
-              <p className="small muted">
-                {selected.allProjects ? 'All projects' : 'Assigned projects only'}
-                {selected.maxRequestMinor === null
-                  ? ' · no approval limit'
-                  : ` · limit ₹${(selected.maxRequestMinor / 100).toLocaleString('en-IN')}`}
-              </p>
-            ) : null}
+            {selected?.detail ? <p className="small muted">{selected.detail}</p> : null}
           </div>
 
           <div className="field">
@@ -186,9 +231,33 @@ export function SimulatorConsole() {
               style={{ fontFamily: 'var(--font-mono, monospace)' }}
             />
             <p className="small muted">
-              Any order, any case. Try one line of plain text, an ambiguous amount like{' '}
-              <code>15-20k</code>, or just <code>help</code>.
+              Any order, any case. Try a change (<code>can we add a light in the bedroom</code>), a
+              plain note, an ambiguous amount like <code>15-20k</code>, or a word: <code>help</code>
+              , <code>projects</code>, <code>status</code>, <code>contracts</code>,{' '}
+              <code>request</code>, <code>file</code>.
             </p>
+          </div>
+
+          <div className="field">
+            <label htmlFor="sim-file">Attachment (optional, under 2 MB)</label>
+            <input
+              id="sim-file"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              onChange={pickFile}
+            />
+            {attachment ? (
+              <p className="small muted">
+                {attachment.filename} · {Math.ceil(attachment.byteSize / 1024)} KB{' '}
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() => setAttachment(null)}
+                >
+                  Remove
+                </button>
+              </p>
+            ) : null}
           </div>
 
           {error ? (
@@ -198,7 +267,11 @@ export function SimulatorConsole() {
           ) : null}
 
           <div className="actions">
-            <button type="submit" className="button" disabled={busy || !from}>
+            <button
+              type="submit"
+              className="button"
+              disabled={busy || !from || (!body.trim() && !attachment)}
+            >
               {busy ? 'Sending…' : 'Send message'}
             </button>
             <button
@@ -216,7 +289,7 @@ export function SimulatorConsole() {
       {result ? (
         <section className="card">
           <h2>
-            What the employee gets back{' '}
+            What the sender gets back{' '}
             <span className={`chip ${STATUS_COPY[result.status]?.tone ?? 'chip-draft'}`}>
               {STATUS_COPY[result.status]?.label ?? result.status}
             </span>
@@ -239,6 +312,13 @@ export function SimulatorConsole() {
             {result.reply}
           </pre>
 
+          {result.mediaStored ? (
+            <p className="small muted">
+              {result.mediaStored} attachment{result.mediaStored === 1 ? '' : 's'} fetched and
+              queued for scanning (the worker scans it).
+            </p>
+          ) : null}
+
           {result.approvalUrl ? (
             <p>
               <a href={result.approvalUrl} target="_blank" rel="noreferrer" className="button">
@@ -258,7 +338,7 @@ export function SimulatorConsole() {
 
       <section className="card">
         <div className="actions" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>Messages the customer received</h2>
+          <h2 style={{ margin: 0 }}>Messages sent on WhatsApp</h2>
           <button
             type="button"
             className="button button-secondary button-small"

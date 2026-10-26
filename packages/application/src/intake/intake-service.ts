@@ -136,6 +136,8 @@ export interface IntakeOutcome {
 export interface ExpiredChoiceReply {
   phoneE164: string;
   reply: string;
+  /** The first message that was held, to key the reply's delivery on. */
+  heldInboundMessageId: string;
 }
 
 /** A project the sender may be talking about, with what routing needs. */
@@ -590,7 +592,10 @@ export class IntakeService {
       const replies: ExpiredChoiceReply[] = [];
       for (const conversation of stale) {
         const reply = await this.expireChoice(conversation.phoneE164);
-        if (reply) replies.push({ phoneE164: conversation.phoneE164, reply });
+        const held = conversation.pending?.inboundMessageIds[0];
+        if (reply && held) {
+          replies.push({ phoneE164: conversation.phoneE164, reply, heldInboundMessageId: held });
+        }
       }
       return replies;
     });
