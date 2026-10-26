@@ -299,7 +299,14 @@ describe('inbound WhatsApp messages reach intake', () => {
     // the shared scan job clears it.
     expect(row?.storage_key).toContain('quarantine/');
     expect(row?.scan_status).toBe('PENDING');
-    expect(row?.purpose).toBe('INTAKE_MEDIA');
+    // Spec 2026-10-12, D6: the message became a proposal for the designer, so
+    // the photo is that proposal's evidence (it was an unattached INTAKE_MEDIA
+    // file before the channel knew where it belonged).
+    expect(row?.purpose).toBe('CHANGE_ATTACHMENT');
+    const attached = await container.uow.db.execute<{ count: string }>(
+      sql`SELECT count(*)::text AS count FROM version_attachments WHERE file_object_id = ${row?.id}::uuid`,
+    );
+    expect(attached.rows[0]?.count).toBe('1');
 
     const link = await container.uow.db.execute<{ provider_media_id: string }>(
       sql`SELECT provider_media_id FROM inbound_message_media`,

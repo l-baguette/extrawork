@@ -279,7 +279,12 @@ export class IntakeService {
         ...(only ? senderColumns(only) : {}),
         rejectionReason: 'no active project for this sender',
       });
-      return this.outcome('REJECTED_NOT_AUTHORIZED', reply, inbound.id, only?.organizationId ?? null);
+      return this.outcome(
+        'REJECTED_NOT_AUTHORIZED',
+        reply,
+        inbound.id,
+        only?.organizationId ?? null,
+      );
     }
 
     // A retry of an answer whose held messages were already pointed at a
@@ -361,10 +366,7 @@ export class IntakeService {
     const employees = await this.app.repos.employees.findAllByPhone(phoneE164);
     const contacts = await this.app.repos.customers.findContactsByPhoneGlobal(phoneE164);
 
-    const entries: SenderEntry[] = [
-      ...employees.map(employeeEntry),
-      ...contacts.map(contactEntry),
-    ];
+    const entries: SenderEntry[] = [...employees.map(employeeEntry), ...contacts.map(contactEntry)];
     const byProject = new Map<string, Candidate>();
     const organizationNames = new Map<string, string>();
 
@@ -743,7 +745,10 @@ export class IntakeService {
       const links = await this.app.uow.transaction(async (tx) => {
         const minted: Array<{ label: string; url: string }> = [];
         for (const candidate of asContact.slice(0, 6)) {
-          const tenant = this.systemTenant(candidate.organizationId, `intake-portal:${candidate.id}`);
+          const tenant = this.systemTenant(
+            candidate.organizationId,
+            `intake-portal:${candidate.id}`,
+          );
           const created = await this.portal.mintForWhatsApp(
             tx,
             tenant,
@@ -1066,9 +1071,20 @@ export class IntakeService {
     const reply = withPrefix(options.prefix, savedReply({ what, projectTitle: project.title }));
 
     const documentId = await this.app.uow.transaction(async (tx) => {
+      // Attributed first: a document names the message it came from, and that
+      // link is tenant-bound, so the message must belong to the workspace
+      // before anything is filed against it.
+      await this.app.repos.inboundMessages.markProcessed(tx, inbound.id, {
+        status: 'SAVED',
+        ...senderColumns(entry),
+        projectId: project.id,
+        parsed: describe(parsed),
+        replyText: reply,
+      });
       let noteId: string | null = null;
       if (inbound.mediaCount === 0) {
         noteId = await this.fileNote(tx, tenant, project.id, inbound, entry, text);
+        await this.app.repos.inboundMessages.setDocumentIfEmpty(tx, tenant, inbound.id, noteId);
       }
       await this.notifyFiled(tx, tenant, {
         projectId: project.id,
@@ -1077,14 +1093,6 @@ export class IntakeService {
         isNote: inbound.mediaCount === 0,
         title: inbound.mediaCount === 0 ? defaultNoteTitle(text) : `${inbound.mediaCount} ${what}`,
         dedupeKey: options.notifyKey,
-      });
-      await this.app.repos.inboundMessages.markProcessed(tx, inbound.id, {
-        status: 'SAVED',
-        ...senderColumns(entry),
-        projectId: project.id,
-        documentId: noteId,
-        parsed: describe(parsed),
-        replyText: reply,
       });
       await this.remember(tx, inbound, candidate, 'CONTENT', null);
       return noteId;
@@ -1117,15 +1125,14 @@ export class IntakeService {
       );
     const held =
       last && candidate
-        ? await this.app.repos.inboundMessages.findForIntake(
-            this.app.uow.db,
-            last.inboundMessageId,
-          )
+        ? await this.app.repos.inboundMessages.findForIntake(this.app.uow.db, last.inboundMessageId)
         : null;
 
     const answer = async (reply: string, extra: Partial<FinishExtra> = {}) => {
       await this.finish(inbound.id, 'ANSWERED', reply, {
-        ...(candidate ? { ...senderColumns(senderOf(candidate)), projectId: candidate.projectId } : {}),
+        ...(candidate
+          ? { ...senderColumns(senderOf(candidate)), projectId: candidate.projectId }
+          : {}),
         parsed: { command },
         ...extra,
       });
@@ -1184,9 +1191,7 @@ export class IntakeService {
     // Only evidence-shaped files can ride on a request (D10); a drawing or a
     // sheet stays in the folder where it was filed.
     const attachable = documents
-      .filter(
-        (d) => d.fileObjectId !== null && d.mimeType !== null && isAttachableType(d.mimeType),
-      )
+      .filter((d) => d.fileObjectId !== null && d.mimeType !== null && isAttachableType(d.mimeType))
       .slice(0, this.app.env.MAX_ATTACHMENTS_PER_VERSION);
     const withdrawn = documents.filter((d) => d.fileObjectId === null || attachable.includes(d));
     const parsed = parseIntakeMessage(held.body ?? '');
@@ -1759,7 +1764,9 @@ function addedBy(entry: Pick<SenderEntry, 'kind' | 'id'>): {
   addedByEmployeeId?: string;
   addedByContactId?: string;
 } {
-  return entry.kind === 'EMPLOYEE' ? { addedByEmployeeId: entry.id } : { addedByContactId: entry.id };
+  return entry.kind === 'EMPLOYEE'
+    ? { addedByEmployeeId: entry.id }
+    : { addedByContactId: entry.id };
 }
 
 /** The one entry when the number is known in exactly one way; else none. */
@@ -1779,7 +1786,12 @@ function spansOrganizations(candidates: ReadonlyArray<{ organizationId: string }
 }
 
 function labelsFor(
-  candidates: ReadonlyArray<{ projectNumber: string; title: string; organizationName: string; organizationId: string }>,
+  candidates: ReadonlyArray<{
+    projectNumber: string;
+    title: string;
+    organizationName: string;
+    organizationId: string;
+  }>,
 ): string[] {
   const showOrganization = spansOrganizations(candidates);
   return candidates.map((c) => projectLabel(c, showOrganization));
@@ -1823,7 +1835,14 @@ function emptyResult(
   reply: string,
   organizationId: string | null = null,
 ): ActResult {
-  return { status, reply, changeOrderId: null, approvalUrl: null, documentId: null, organizationId };
+  return {
+    status,
+    reply,
+    changeOrderId: null,
+    approvalUrl: null,
+    documentId: null,
+    organizationId,
+  };
 }
 
 function storedResult(row: InboundMessageRow): ActResult {
@@ -1858,15 +1877,13 @@ function textOf(inbound: InboundMessageRow): string {
  * designer prices and completes it. An amount that could not be read as one
  * figure is left out rather than guessed.
  */
-function proposalInput(
-  parsed: ParsedIntake,
-  text: string,
-  attachmentIds: string[],
-): ProposalInput {
+function proposalInput(parsed: ParsedIntake, text: string, attachmentIds: string[]): ProposalInput {
   const description =
     parsed.description?.trim() ||
     text ||
-    (attachmentIds.length > 0 ? 'Request from WhatsApp (see the attached photos)' : 'Request from WhatsApp');
+    (attachmentIds.length > 0
+      ? 'Request from WhatsApp (see the attached photos)'
+      : 'Request from WhatsApp');
   const amountMinor = parsed.amountAmbiguous ? null : parsed.amountMinor;
   return {
     description: description.slice(0, 4_000),
