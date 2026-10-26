@@ -50,6 +50,14 @@ export const RATE_LIMITS = {
    */
   AUTH_SIGN_IN_ATTEMPT: { limit: 20, windowSeconds: 900 },
   WEBHOOK: { limit: 600, windowSeconds: 60 },
+  /**
+   * "Ask for a change" on the homeowner portal (spec 2026-10-12, D5), keyed on
+   * the link alone rather than link + IP: each one lands on the designer's
+   * review queue, so the budget belongs to the household, not to whichever
+   * network they happen to be on. Generous for a real homeowner, useless for
+   * flooding a designer from a leaked link.
+   */
+  PORTAL_CHANGE_REQUEST: { limit: 10, windowSeconds: 86_400 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

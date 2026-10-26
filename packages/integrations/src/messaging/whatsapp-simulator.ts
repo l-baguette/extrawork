@@ -1,8 +1,9 @@
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { AppError } from '@extrawork/contracts';
 import type {
+  FetchedMedia,
   MessageGateway,
   OutboundMessage,
   ProviderEvent,
@@ -51,12 +52,14 @@ export class SimulatorWhatsAppGateway implements MessageGateway {
   readonly canDeliver = true;
 
   private readonly outboxPath: string;
+  private readonly mediaDir: string;
   private readonly now: () => Date;
   /** Serialises appends so two concurrent sends cannot interleave a line. */
   private writeChain: Promise<void> = Promise.resolve();
 
   constructor(options: SimulatorOptions = {}) {
     this.outboxPath = join(options.outboxDir ?? './.data/whatsapp', 'outbox.jsonl');
+    this.mediaDir = join(options.outboxDir ?? './.data/whatsapp', 'media');
     this.now = options.now ?? (() => new Date());
   }
 
@@ -96,6 +99,33 @@ export class SimulatorWhatsAppGateway implements MessageGateway {
    */
   verifyAndParse(): ProviderEvent[] {
     return [];
+  }
+
+  /**
+   * Keeps an attachment the simulator page uploaded and returns a media id for
+   * it, as Meta does for a real one. Intake then fetches it through
+   * `fetchMedia` exactly as it would from the Cloud API, so the simulated flow
+   * exercises the same "store refs, fetch once the sender is known" path.
+   */
+  async stageMedia(bytes: Buffer, mimeType: string): Promise<string> {
+    const mediaId = randomUUID();
+    await mkdir(this.mediaDir, { recursive: true });
+    await writeFile(join(this.mediaDir, mediaId), bytes);
+    await writeFile(join(this.mediaDir, `${mediaId}.type`), mimeType, 'utf8');
+    return mediaId;
+  }
+
+  async fetchMedia(mediaId: string, options: { maxBytes?: number } = {}): Promise<FetchedMedia> {
+    // Ids are minted above; anything else would be a path into the filesystem.
+    if (!/^[0-9a-f-]{36}$/.test(mediaId)) throw new AppError('NOT_FOUND');
+    const bytes = await readFile(join(this.mediaDir, mediaId)).catch(() => {
+      throw new AppError('NOT_FOUND');
+    });
+    if (options.maxBytes !== undefined && bytes.length > options.maxBytes) {
+      throw new AppError('VALIDATION_FAILED', { message: 'Simulated attachment is too large.' });
+    }
+    const mimeType = await readFile(join(this.mediaDir, `${mediaId}.type`), 'utf8');
+    return { bytes, mimeType, byteSize: bytes.length };
   }
 
   /** Everything recorded so far, newest last. Used by the simulator UI. */

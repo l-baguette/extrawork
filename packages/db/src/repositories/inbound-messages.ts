@@ -46,6 +46,13 @@ export interface InboundMessageRow {
   contactId: string | null;
   /** Migration 0023: the project document it was filed as. */
   documentId: string | null;
+  /**
+   * Migration 0023: the provider's attachment handles, kept so a message held
+   * for a project choice can still have its media fetched once answered.
+   */
+  mediaRefs: StoredMediaRef[];
+  /** Migration 0023: for a held message, the reply that said which project. */
+  resolvedByInboundMessageId: string | null;
   projectId: string | null;
   changeOrderId: string | null;
   provider: string;
@@ -66,6 +73,14 @@ export interface InboundMessageRow {
   projectTitle: string | null;
   /** Present on tenant-scoped reads; null for unattributed/write projections. */
   contactName: string | null;
+}
+
+/** One provider attachment handle, as stored in `inbound_messages.media_refs`. */
+export interface StoredMediaRef {
+  mediaId: string;
+  mimeType: string | null;
+  filename: string | null;
+  caption: string | null;
 }
 
 export class InboundMessageRepository {
@@ -93,15 +108,20 @@ export class InboundMessageRepository {
       fromPhoneE164: string;
       body: string | null;
       mediaCount?: number;
+      /** Recorded with the message, before the sender is known (spec D6). */
+      mediaRefs?: StoredMediaRef[];
     },
   ): Promise<{ row: InboundMessageRow; alreadySeen: boolean }> {
     const provider = input.provider ?? 'whatsapp';
+    const mediaRefs = input.mediaRefs ?? [];
     const result = await tx.db.execute<InboundRecord>(sql`
       INSERT INTO inbound_messages (
-        id, provider, provider_account_id, provider_message_id, from_phone_e164, body, media_count
+        id, provider, provider_account_id, provider_message_id, from_phone_e164, body, media_count,
+        media_refs
       ) VALUES (
         ${newId()}::uuid, ${provider}, ${input.providerAccountId ?? null}, ${input.providerMessageId},
-        ${input.fromPhoneE164}, ${input.body}, ${input.mediaCount ?? 0}
+        ${input.fromPhoneE164}, ${input.body}, ${Math.max(input.mediaCount ?? 0, mediaRefs.length)},
+        ${JSON.stringify(mediaRefs)}::jsonb
       )
       ON CONFLICT DO NOTHING
       RETURNING ${INBOUND_COLUMNS_BARE}
@@ -136,7 +156,8 @@ export class InboundMessageRepository {
     id: string,
     progress: {
       organizationId: string;
-      employeeId: string;
+      employeeId: string | null;
+      contactId?: string | null;
       projectId: string;
       changeOrderId: string;
       parsed: Record<string, unknown>;
@@ -146,11 +167,12 @@ export class InboundMessageRepository {
       UPDATE inbound_messages SET
         organization_id = ${progress.organizationId}::uuid,
         employee_id = ${progress.employeeId}::uuid,
+        contact_id = ${progress.contactId ?? null}::uuid,
         project_id = ${progress.projectId}::uuid,
         change_order_id = ${progress.changeOrderId}::uuid,
         parsed = ${JSON.stringify(progress.parsed)}::jsonb,
         rejection_reason = NULL
-      WHERE id = ${id}::uuid AND status = 'RECEIVED'
+      WHERE id = ${id}::uuid AND status IN ('RECEIVED', 'AWAITING_CHOICE')
       RETURNING id
     `);
     if (!result.rows[0]) throw new AppError('NOT_FOUND');
@@ -244,8 +266,10 @@ export class InboundMessageRepository {
       status: InboundStatus;
       organizationId?: string | null;
       employeeId?: string | null;
+      contactId?: string | null;
       projectId?: string | null;
       changeOrderId?: string | null;
+      documentId?: string | null;
       parsed?: Record<string, unknown> | null;
       rejectionReason?: string | null;
       replyText?: string | null;
@@ -256,6 +280,8 @@ export class InboundMessageRepository {
         status = ${outcome.status}::inbound_status,
         organization_id = ${outcome.organizationId ?? null}::uuid,
         employee_id = ${outcome.employeeId ?? null}::uuid,
+        contact_id = ${outcome.contactId ?? null}::uuid,
+        document_id = ${outcome.documentId ?? null}::uuid,
         project_id = ${outcome.projectId ?? null}::uuid,
         change_order_id = ${outcome.changeOrderId ?? null}::uuid,
         parsed = ${outcome.parsed ? JSON.stringify(outcome.parsed) : null}::jsonb,
@@ -268,6 +294,101 @@ export class InboundMessageRepository {
     const row = result.rows[0];
     if (!row) throw new AppError('NOT_FOUND');
     return mapInbound(row);
+  }
+
+  /**
+   * Re-files a message the sender corrected with a one-word REQUEST / FILE
+   * reply (spec 2026-10-12, D6): the outcome changes, the message and the
+   * reply it originally got do not. Tenant-scoped: by the time anyone can
+   * correct a message it belongs to a workspace.
+   */
+  async refile(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    id: string,
+    outcome: {
+      status: 'ACCEPTED' | 'SAVED';
+      changeOrderId: string | null;
+      documentId: string | null;
+    },
+  ): Promise<void> {
+    await tx.db.execute(sql`
+      UPDATE inbound_messages SET
+        status = ${outcome.status}::inbound_status,
+        change_order_id = COALESCE(${outcome.changeOrderId}::uuid, change_order_id),
+        document_id = ${outcome.documentId}::uuid
+      WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
+    `);
+  }
+
+  /**
+   * Links a held message to the answer that resolved its project choice, and
+   * records that choice on it. Written in the same transaction that clears the
+   * pending question, so if processing the held message then fails, a retry of
+   * the answer finds its held messages already pointed at the right project
+   * instead of a question nobody is asking any more. The status stays
+   * AWAITING_CHOICE until the held message is actually filed.
+   */
+  async markResolvedBy(
+    tx: TransactionContext,
+    id: string,
+    answerId: string,
+    resolution: {
+      organizationId: string;
+      projectId: string;
+      employeeId: string | null;
+      contactId: string | null;
+    },
+  ): Promise<void> {
+    await tx.db.execute(sql`
+      UPDATE inbound_messages SET
+        resolved_by_inbound_message_id = ${answerId}::uuid,
+        organization_id = ${resolution.organizationId}::uuid,
+        project_id = ${resolution.projectId}::uuid,
+        employee_id = ${resolution.employeeId}::uuid,
+        contact_id = ${resolution.contactId}::uuid
+      WHERE id = ${id}::uuid AND status = 'AWAITING_CHOICE'
+    `);
+  }
+
+  /**
+   * Sets the document a message was filed as, once the worker has stored its
+   * first attachment. Only fills an empty slot: a text note filed at intake
+   * time stays the message's document.
+   */
+  async setDocumentIfEmpty(
+    tx: TransactionContext,
+    ctx: TenantContext,
+    id: string,
+    documentId: string,
+  ): Promise<void> {
+    await tx.db.execute(sql`
+      UPDATE inbound_messages SET document_id = ${documentId}::uuid
+      WHERE id = ${id}::uuid AND organization_id = ${ctx.organizationId}::uuid
+        AND document_id IS NULL
+    `);
+  }
+
+  /**
+   * The intake's own read of one message, before or regardless of its
+   * tenant. Like `record`, it takes no TenantContext: the intake reads the row
+   * to *find out* which tenant it resolved to (or that it resolved to none),
+   * and the worker uses it to decide where a message's media belongs.
+   */
+  async findForIntake(db: Database, id: string): Promise<InboundMessageRow | null> {
+    const result = await db.execute<InboundRecord>(sql`
+      SELECT ${INBOUND_COLUMNS_BARE} FROM inbound_messages WHERE id = ${id}::uuid
+    `);
+    const row = result.rows[0];
+    return row ? mapInbound(row) : null;
+  }
+
+  /** Held messages that this answer resolved, for fetching their media. */
+  async listResolvedBy(db: Database, answerId: string): Promise<string[]> {
+    const result = await db.execute<{ id: string }>(sql`
+      SELECT id FROM inbound_messages WHERE resolved_by_inbound_message_id = ${answerId}::uuid
+    `);
+    return result.rows.map((r) => r.id);
   }
 
   async findById(ctx: TenantContext, id: string): Promise<InboundMessageRow | null> {
@@ -323,7 +444,13 @@ export class InboundMessageRepository {
       WHERE im.organization_id = ${ctx.organizationId}::uuid
         ${options.status ? sql`AND im.status = ${options.status}::inbound_status` : sql``}
         ${options.employeeId ? sql`AND im.employee_id = ${options.employeeId}::uuid` : sql``}
-        ${options.unresolvedOnly ? sql`AND im.status <> 'ACCEPTED'` : sql``}
+        ${
+          // Filed as a document or note, or answered as a command, is as
+          // resolved as a request that was raised (spec 2026-10-12, D6).
+          options.unresolvedOnly
+            ? sql`AND im.status NOT IN ('ACCEPTED', 'SAVED', 'ANSWERED')`
+            : sql``
+        }
         ${
           options.cursor
             ? sql`AND (im.received_at, im.id) < (${options.cursor.receivedAt}::timestamptz, ${options.cursor.id}::uuid)`
@@ -376,7 +503,8 @@ export class InboundMessageRepository {
 const INBOUND_COLUMNS_BARE = sql`
   id, organization_id, employee_id, contact_id, document_id, project_id, change_order_id, provider,
   provider_account_id, provider_message_id, from_phone_e164, body, media_count, status, parsed,
-  rejection_reason, reply_text, received_at, processed_at
+  rejection_reason, reply_text, received_at, processed_at, media_refs,
+  resolved_by_inbound_message_id
 `;
 
 const INBOUND_COLUMNS_ALIASED = sql`
@@ -384,7 +512,8 @@ const INBOUND_COLUMNS_ALIASED = sql`
   im.change_order_id, im.provider,
   im.provider_account_id, im.provider_message_id, im.from_phone_e164, im.body, im.media_count,
   im.status, im.parsed,
-  im.rejection_reason, im.reply_text, im.received_at, im.processed_at
+  im.rejection_reason, im.reply_text, im.received_at, im.processed_at, im.media_refs,
+  im.resolved_by_inbound_message_id
 `;
 
 type InboundRecord = {
@@ -407,6 +536,8 @@ type InboundRecord = {
   reply_text: string | null;
   received_at: Date;
   processed_at: Date | null;
+  media_refs: unknown;
+  resolved_by_inbound_message_id: string | null;
   employee_name?: string | null;
   project_title?: string | null;
   contact_name?: string | null;
@@ -419,6 +550,8 @@ function mapInbound(row: InboundRecord): InboundMessageRow {
     employeeId: row.employee_id,
     contactId: row.contact_id,
     documentId: row.document_id,
+    mediaRefs: Array.isArray(row.media_refs) ? (row.media_refs as StoredMediaRef[]) : [],
+    resolvedByInboundMessageId: row.resolved_by_inbound_message_id,
     projectId: row.project_id,
     changeOrderId: row.change_order_id,
     provider: row.provider,

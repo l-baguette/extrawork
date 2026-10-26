@@ -1,8 +1,4 @@
-import { createHash } from 'node:crypto';
-import { JOB_KINDS } from '@extrawork/contracts';
-import { enqueueJob, newId, type WebhookEventRow } from '@extrawork/db';
-import { systemTenantContext } from '@extrawork/domain';
-import { StorageKeys } from '@extrawork/files';
+import type { WebhookEventRow } from '@extrawork/db';
 import {
   parseMetaInboundMessage,
   type InboundMediaRef,
@@ -26,10 +22,12 @@ import type { WorkerContext } from '../context.js';
  *    without an explicit send the employee gets silence — the one outcome the
  *    intake design rules out. The reply is free: they messaged first, so it is
  *    inside the 24-hour service window and needs no template.
- *  - it **fetches attachments**, but only once the sender is a known employee.
- *  - it **never fetches for a stranger**. `organizationId` is null exactly when
- *    the number matched no employee, and downloading in that case would let
- *    anyone holding the business number make this worker pull arbitrary bytes.
+ *  - it **fetches attachments**, through `IntakeService.storeMedia`, but only
+ *    once the message has been filed into a workspace and project.
+ *  - it **never fetches for a stranger**. Intake records the media handles with
+ *    the message and fetches only for a row it attributed; downloading for an
+ *    unknown number would let anyone holding the business number make this
+ *    worker pull arbitrary bytes.
  */
 
 /**
@@ -80,7 +78,9 @@ export async function handleInboundMessage(
 
   // The same service the simulator and every test drive. Intake owns its own
   // replay protection, so a job retry re-reads the stored outcome rather than
-  // raising a second change request.
+  // raising a second change request. The media handles are recorded with the
+  // message, so a message held for a project choice can still have its
+  // attachments fetched once the sender answers (spec 2026-10-12, D6).
   const outcome = await ctx.services.intake.handleInbound({
     provider: event.provider,
     providerAccountId: event.providerAccountId,
@@ -88,21 +88,30 @@ export async function handleInboundMessage(
     fromPhoneE164: message.fromPhoneE164,
     body: message.body,
     mediaCount: message.media.length,
+    media: message.media.map((ref) => ({
+      mediaId: ref.mediaId,
+      mimeType: ref.mimeType,
+      filename: ref.filename,
+      caption: ref.caption,
+    })),
   });
 
-  // Reply first: media quarantine may be temporarily unavailable, but an
-  // employee standing on site should still hear that the request was accepted.
-  await sendReply(message.fromPhoneE164, outcome.reply, ctx);
+  // Reply first: media quarantine may be temporarily unavailable, but a person
+  // standing on site should still hear what happened to their message.
+  await sendReply(message.fromPhoneE164, outcome.reply, outcome.inboundMessageId, ctx);
 
-  if (outcome.organizationId && message.media.length > 0) {
-    // Failure stays retryable at the webhook/job boundary. Already-linked media
-    // is skipped on retry, so a partial batch resumes instead of duplicating.
-    await storeInboundMedia(message, outcome.inboundMessageId, outcome.organizationId, ctx);
-  } else if (message.media.length > 0) {
+  if (outcome.status === 'REJECTED_UNKNOWN_SENDER' && message.media.length > 0) {
     log.warn(
       { mediaCount: message.media.length },
       'discarding media from an unrecognised sender without fetching it',
     );
+  } else {
+    // Intake decides from the stored row: it fetches only for a message filed
+    // into a workspace and project (this one, or the held messages this answer
+    // released), never for a stranger or a message still held. Failure stays
+    // retryable at the webhook/job boundary; already-linked media is skipped,
+    // so a partial batch resumes instead of duplicating.
+    await ctx.services.intake.storeMedia(outcome.inboundMessageId);
   }
 
   log.info(
@@ -116,7 +125,7 @@ export async function handleInboundMessage(
 }
 
 /**
- * Answers the employee.
+ * Answers the sender.
  *
  * Sent even when intake reported a duplicate. A duplicate means the message was
  * already processed, but not necessarily that the reply reached anyone — a
@@ -125,7 +134,12 @@ export async function handleInboundMessage(
  * the choice between a repeated reply and no reply, the product picks the
  * repeat: the employee is standing on a site waiting to know whether to start.
  */
-async function sendReply(phoneE164: string, reply: string, ctx: WorkerContext): Promise<void> {
+export async function sendReply(
+  phoneE164: string,
+  reply: string,
+  inboundMessageId: string,
+  ctx: WorkerContext,
+): Promise<void> {
   if (!reply.trim()) return;
   const gateway = ctx.app.integrations.whatsapp;
   if (!gateway.canDeliver) {
@@ -138,105 +152,10 @@ async function sendReply(phoneE164: string, reply: string, ctx: WorkerContext): 
     body: reply,
     purpose: 'INTAKE_REPLY',
     // Keyed on the message being answered, so a provider that honours it cannot
-    // deliver two copies of the same reply.
-    idempotencyKey: `intake-reply:${phoneE164}:${reply.length}`,
+    // deliver two copies of the same reply — and two different messages (two
+    // photos of an album, say) never share a key because their replies happen
+    // to be the same length.
+    idempotencyKey: `intake-reply:${inboundMessageId}`,
     organizationName: 'ExtraWork',
   });
-}
-
-/**
- * Pulls each attachment into the existing quarantine pipeline.
- *
- * Nothing bespoke happens to these bytes: they land under the same quarantine
- * prefix as a composer upload and the same `SCAN_FILE` job validates magic
- * bytes, scans, strips EXIF and promotes them. That reuse is the point — a
- * second, parallel path for "files that arrived over WhatsApp" is how one of
- * the two ends up without a scan.
- */
-async function storeInboundMedia(
-  message: InboundMessageEvent,
-  inboundMessageId: string,
-  organizationId: string,
-  ctx: WorkerContext,
-): Promise<void> {
-  const gateway = ctx.app.integrations.whatsapp;
-  if (typeof gateway.fetchMedia !== 'function') {
-    ctx.logger.debug({ channel: gateway.channel }, 'gateway cannot fetch media');
-    return;
-  }
-
-  const tenant = systemTenantContext(organizationId, `intake-media:${inboundMessageId}`);
-  const alreadyFetched = await ctx.repos.inboundMessages.linkedMediaIds(ctx.db, inboundMessageId);
-
-  for (const ref of message.media) {
-    if (alreadyFetched.has(ref.mediaId)) continue;
-
-    const fetched = await gateway.fetchMedia(ref.mediaId, { maxBytes: ctx.env.MAX_UPLOAD_BYTES });
-
-    // The provider caps its own uploads, but this is the boundary that protects
-    // our storage, so it is enforced here rather than assumed upstream.
-    if (fetched.byteSize > ctx.env.MAX_UPLOAD_BYTES) {
-      ctx.logger.warn(
-        { byteSize: fetched.byteSize, limit: ctx.env.MAX_UPLOAD_BYTES },
-        'inbound attachment exceeds the upload limit; not stored',
-      );
-      continue;
-    }
-
-    const fileObjectId = newId();
-    const filename = ref.filename ?? `whatsapp-${ref.mediaId}${extensionFor(fetched.mimeType)}`;
-    const quarantineKey = StorageKeys.quarantine(organizationId, fileObjectId, filename);
-
-    // Bytes first: a registered row pointing at an object that does not exist
-    // would fail the scan job for a reason that has nothing to do with the file.
-    await ctx.app.objectStore.put(quarantineKey, fetched.bytes, fetched.mimeType);
-
-    await ctx.app.uow.transaction(async (tx) => {
-      await ctx.repos.files.register(tx, tenant, {
-        id: fileObjectId,
-        // No project yet: intake may not have matched one, and a photo belongs
-        // to the message regardless of whether the request was accepted.
-        projectId: null,
-        storageKey: quarantineKey,
-        filename,
-        declaredMimeType: fetched.mimeType,
-        byteSize: BigInt(fetched.byteSize),
-        purpose: 'INTAKE_MEDIA',
-        // Our own digest of the bytes we actually received, never the
-        // provider's claim about them.
-        sha256: createHash('sha256').update(fetched.bytes).digest(),
-      });
-      await ctx.repos.files.markUploaded(tx, tenant, fileObjectId);
-      await ctx.repos.inboundMessages.linkMedia(tx, {
-        inboundMessageId,
-        fileObjectId,
-        organizationId,
-        providerMediaId: ref.mediaId,
-      });
-      await enqueueJob(tx, {
-        kind: JOB_KINDS.SCAN_FILE,
-        organizationId,
-        dedupeKey: `scan:${fileObjectId}`,
-        payload: { fileObjectId, organizationId },
-      });
-    });
-
-    ctx.logger.info(
-      { fileObjectId, byteSize: fetched.byteSize },
-      'inbound attachment quarantined and queued for scanning',
-    );
-  }
-}
-
-/** A best-effort extension so a downloaded file has a usable name. */
-function extensionFor(mimeType: string): string {
-  const known: Record<string, string> = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'application/pdf': '.pdf',
-    'video/mp4': '.mp4',
-    'audio/ogg': '.ogg',
-  };
-  return known[mimeType.split(';')[0]?.trim() ?? ''] ?? '';
 }

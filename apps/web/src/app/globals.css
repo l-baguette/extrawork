@@ -3529,3 +3529,95 @@ button.segmented-item[aria-current='true'] {
   flex-direction: column;
   gap: var(--s1);
 }
+
+/* --- Slice D: homeowner portal (/p/{token}) and WhatsApp simulator -------- */
+
+.portal-head {
+  margin-bottom: var(--s4);
+}
+.portal-head h1 {
+  margin: var(--s1) 0;
+}
+.portal-from {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+.portal-description {
+  margin: var(--s3) 0 0;
+  white-space: pre-line;
+}
+.portal-dates {
+  margin: var(--s3) 0 0;
+}
+.portal-history {
+  margin-top: var(--s4);
+}
+.portal-history summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.portal-history-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--s3) 0 0;
+}
+.portal-history-list li {
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--rule-2);
+}
+.portal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.portal-list > li {
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--rule-2);
+}
+.portal-list > li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.portal-request,
+.portal-document {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.portal-request-title {
+  overflow-wrap: anywhere;
+}
+.portal-request-meta {
+  margin: 0;
+}
+.portal-folder + .portal-folder {
+  margin-top: var(--s4);
+}
+.portal-folder-name {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--s2);
+  color: var(--ink-2);
+}
+.portal-note {
+  margin: 0;
+  white-space: pre-line;
+}
+.portal-download {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s1);
+}
+.portal-foot {
+  margin-top: var(--s5);
+}
+
+.sim-media {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}

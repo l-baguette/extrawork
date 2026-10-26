@@ -76,6 +76,11 @@ export const PortalRequestSchema = z.object({
   actionable: z.boolean(),
   /** True when an evidence pack is ready to download. */
   evidenceReady: z.boolean(),
+  /**
+   * The id to download the evidence pack with, through
+   * `GET /public/v1/portal/:token/documents/:id`. Null until it is ready.
+   */
+  evidenceDocumentId: UuidSchema.nullable(),
 });
 export type PortalRequestDto = z.infer<typeof PortalRequestSchema>;
 
@@ -126,6 +131,8 @@ export const PortalViewSchema = z.object({
     }),
   ),
   expiresAt: InstantSchema,
+  /** False once the project is closed: there is nobody to review a new request. */
+  canAskForChange: z.boolean(),
 });
 export type PortalViewDto = z.infer<typeof PortalViewSchema>;
 
@@ -142,8 +149,10 @@ export const PortalChangeRequestResultSchema = z.object({
   number: z.string(),
   message: z.string(),
 });
+export type PortalChangeRequestResultDto = z.infer<typeof PortalChangeRequestResultSchema>;
 
 export const PortalDownloadSchema = z.object({
   downloadUrl: z.string().url(),
   filename: z.string(),
 });
+export type PortalDownloadDto = z.infer<typeof PortalDownloadSchema>;

@@ -659,6 +659,7 @@ export class ChangeOrderService {
     projectId: string,
     input: ProposalInput,
     provenance: ProposalProvenance,
+    hooks: CreateChangeOrderHooks = {},
   ): Promise<{ changeOrderId: string; number: string; version: VersionRow }> {
     const project = await this.app.repos.projects.requireById(ctx.tenant, projectId);
     authorize(ctx.actor, 'change_order:propose', {
@@ -862,7 +863,9 @@ export class ChangeOrderService {
         dedupeKey: `request-submitted:${version.id}`,
       });
 
-      return { changeOrderId: changeOrder.id, number: changeOrder.number, version };
+      const created = { changeOrderId: changeOrder.id, number: changeOrder.number, version };
+      await hooks.afterCreate?.(tx, created);
+      return created;
     });
   }
 

@@ -21,6 +21,10 @@ const today = () => new Date().toISOString().slice(0, 10);
  * guesses a project, never exceeds the ceiling the owner set, and never lets a
  * redelivered message bill a customer twice. Each one is a decision that would
  * otherwise be re-litigated by whoever touches this next.
+ *
+ * This file pins the direct path, so its workspace uses `AUTO_SEND` (spec
+ * 2026-10-12, D3). The default `DESIGNER_REVIEW` routing and the rest of the
+ * channel — asking, content, corrections — are in `whatsapp-channel.test.ts`.
  */
 
 let container: Container;
@@ -39,6 +43,10 @@ beforeEach(async () => {
   await truncateAll(container);
   alpha = await createTenant(container, { name: 'Alpha Interiors' });
   beta = await createTenant(container, { name: 'Beta Builders' });
+  await container.uow.pool.query(
+    `UPDATE organizations SET request_routing = 'AUTO_SEND' WHERE id = $1`,
+    [alpha.organizationId],
+  );
 });
 
 let phoneCounter = 0;
@@ -180,19 +188,32 @@ describe('a registered employee raises a request', () => {
 });
 
 describe('the channel refuses to guess', () => {
-  it('asks rather than picking a number from a range', async () => {
+  // Spec 2026-10-12, D3/D6: under AUTO_SEND an incomplete request now goes to
+  // the designer as a proposal instead of being rejected. Still no guess: the
+  // version carries no price, nothing reaches the homeowner, and the reply
+  // names the figure it could not read.
+  it('hands an unreadable amount to the designer rather than picking a number', async () => {
     const employee = await addEmployee(alpha);
     const outcome = await send(
       employee.phoneE164,
       'What: Two extra power points in the kitchen\nCost: 15-20k',
     );
 
-    expect(outcome.status).toBe('REJECTED_UNPARSEABLE');
+    expect(outcome.status).toBe('ACCEPTED');
     expect(outcome.reply).toContain('15-20k');
-    expect(outcome.changeOrderId).toBeNull();
+    expect(outcome.approvalUrl).toBeNull();
+    const version = await container.repos.changeOrders.getCurrentVersion(
+      alpha.owner.tenant,
+      outcome.changeOrderId as string,
+    );
+    expect(version?.status).toBe('DRAFT');
+    expect(version?.submittedForReviewAt).not.toBeNull();
+    expect(version?.totalDeltaMinor).toBe(0n);
   });
 
-  it('asks which project when the name matches more than one', async () => {
+  // Spec 2026-10-12, WhatsApp rules §3: the message is held and the sender
+  // asked once, instead of being rejected.
+  it('holds the message and asks which project when there is more than one', async () => {
     const employee = await addEmployee(alpha);
     // A second active project makes the bare message ambiguous.
     await container.uow.transaction((tx) =>
@@ -214,20 +235,31 @@ describe('the channel refuses to guess', () => {
     );
 
     const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
-    expect(outcome.status).toBe('REJECTED_NOT_AUTHORIZED');
+    expect(outcome.status).toBe('AWAITING_CHOICE');
+    expect(outcome.reply).toContain('Which project');
     expect(outcome.changeOrderId).toBeNull();
+    expect(outcome.organizationId).toBeNull();
   });
 });
 
 describe('policy the owner set', () => {
-  it('refuses a request above the employee’s ceiling and says the real numbers', async () => {
+  // Spec 2026-10-12, D3: above the ceiling, the request goes to the designer
+  // instead of being refused. The ceiling still decides that it does not go
+  // straight to the homeowner, and the reply still says the real numbers.
+  it('sends a request above the employee’s ceiling to the designer, not the homeowner', async () => {
     const employee = await addEmployee(alpha, { maxRequestMinor: 1_000_000n });
     const outcome = await send(employee.phoneE164, GOOD_MESSAGE);
 
-    expect(outcome.status).toBe('REJECTED_POLICY');
+    expect(outcome.status).toBe('ACCEPTED');
     expect(outcome.reply).toContain('₹15,800.00');
     expect(outcome.reply).toContain('₹10,000.00');
-    expect(outcome.changeOrderId).toBeNull();
+    expect(outcome.approvalUrl).toBeNull();
+    const version = await container.repos.changeOrders.getCurrentVersion(
+      alpha.owner.tenant,
+      outcome.changeOrderId as string,
+    );
+    expect(version?.status).toBe('DRAFT');
+    expect(version?.submittedForReviewAt).not.toBeNull();
   });
 
   it('accepts a request exactly at the ceiling', async () => {
