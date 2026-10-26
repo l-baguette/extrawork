@@ -268,13 +268,41 @@ export function savedReply(input: {
   ].join('\n');
 }
 
-export function proposedReply(input: { changeNumber: string; projectTitle: string }): string {
+/**
+ * `note` explains why a request went to the designer rather than straight to
+ * the homeowner when the sender might have expected the latter (an amount that
+ * could not be read, a figure above their limit).
+ */
+export function proposedReply(input: {
+  changeNumber: string;
+  projectTitle: string;
+  note?: string | null;
+}): string {
   return [
     `Sent to your designer as request ${input.changeNumber} · ${input.projectTitle}.`,
+    ...(input.note ? [input.note] : []),
     'They will check it, price it and send it to the homeowner. Nothing is approved yet.',
     '',
     'Reply FILE if this was just for the record.',
   ].join('\n');
+}
+
+export function unreadableAmountNote(amountRaw: string): string {
+  return `I could not read "${amountRaw}" as one figure, so your designer will price it.`;
+}
+
+export function aboveLimitNote(amountMinor: bigint, ceilingMinor: bigint, currency: string): string {
+  return (
+    `${formatMoney(amountMinor, currency)} is above your limit of ${formatMoney(ceilingMinor, currency)}, ` +
+    'so your designer will check it before it goes to the homeowner.'
+  );
+}
+
+/** Sent to the designers of every project a held message might have been for. */
+export function heldNoteForDesigners(excerpt: string | null): string {
+  return excerpt
+    ? `"${truncate(excerpt, 120)}" was not filed: the sender did not say which project within 30 minutes.`
+    : 'A WhatsApp message was not filed: the sender did not say which project within 30 minutes.';
 }
 
 export function nothingToConvertReply(): string {

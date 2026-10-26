@@ -23,5 +23,6 @@ export * from './intake/replies.js';
 export * from './intake/match.js';
 export * from './tenant.js';
 export * from './intake/classify.js';
+export * from './intake/route.js';
 export * from './workspace/links.js';
 export * from './calendar/ics.js';

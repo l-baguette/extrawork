@@ -321,11 +321,33 @@ export class InboundMessageRepository {
     `);
   }
 
-  /** Links a held message to the answer that resolved its project choice. */
-  async markResolvedBy(tx: TransactionContext, id: string, answerId: string): Promise<void> {
+  /**
+   * Links a held message to the answer that resolved its project choice, and
+   * records that choice on it. Written in the same transaction that clears the
+   * pending question, so if processing the held message then fails, a retry of
+   * the answer finds its held messages already pointed at the right project
+   * instead of a question nobody is asking any more. The status stays
+   * AWAITING_CHOICE until the held message is actually filed.
+   */
+  async markResolvedBy(
+    tx: TransactionContext,
+    id: string,
+    answerId: string,
+    resolution: {
+      organizationId: string;
+      projectId: string;
+      employeeId: string | null;
+      contactId: string | null;
+    },
+  ): Promise<void> {
     await tx.db.execute(sql`
-      UPDATE inbound_messages SET resolved_by_inbound_message_id = ${answerId}::uuid
-      WHERE id = ${id}::uuid
+      UPDATE inbound_messages SET
+        resolved_by_inbound_message_id = ${answerId}::uuid,
+        organization_id = ${resolution.organizationId}::uuid,
+        project_id = ${resolution.projectId}::uuid,
+        employee_id = ${resolution.employeeId}::uuid,
+        contact_id = ${resolution.contactId}::uuid
+      WHERE id = ${id}::uuid AND status = 'AWAITING_CHOICE'
     `);
   }
 

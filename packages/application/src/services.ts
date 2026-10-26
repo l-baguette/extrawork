@@ -63,6 +63,9 @@ export function createAuthProvider(app: AppContext): AuthProvider {
 export function createServices(app: AppContext): Services {
   const changeOrders = new ChangeOrderService(app);
   const send = new SendService(app);
+  // Constructed first: intake mints portal links when a homeowner texts
+  // "contracts" (spec 2026-10-12, D5).
+  const portal = new PortalService(app, changeOrders);
   return {
     auth: new AuthService(app, createAuthProvider(app)),
     projects: new ProjectService(app),
@@ -73,12 +76,12 @@ export function createServices(app: AppContext): Services {
     otp: new OtpService(app),
     files: new FileService(app),
     employees: new EmployeeService(app),
-    intake: new IntakeService(app, changeOrders, send),
+    intake: new IntakeService(app, changeOrders, send, portal),
     notifications: new NotificationService(app),
     collaboration: new CollaborationService(app),
     workspace: new WorkspaceService(app),
     timeline: new TimelineService(app),
-    portal: new PortalService(app, changeOrders),
+    portal,
     google:
       app.env.GOOGLE_CLIENT_ID && app.env.GOOGLE_CLIENT_SECRET
         ? new GoogleOAuthProvider({
