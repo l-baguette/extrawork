@@ -104,7 +104,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(cors, {
     origin: options.env.CORS_ALLOWED_ORIGINS,
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    // PUT for the two routes a browser calls with it: notification
+    // preferences, and the local storage driver's signed upload URL. Without it
+    // the preflight refuses both from the web origin.
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'content-type',
       'x-csrf-token',
